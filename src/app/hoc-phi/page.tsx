@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import DashboardLayout from '../dashboard-layout';
 import { TEXTS_VI } from '@/lib/constants';
 import { Download, CreditCard, FileText, Edit2, Trash2, RefreshCw, Search } from 'lucide-react';
@@ -11,18 +11,21 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getStudents } from '@/services/hocSinhService';
-import type { HocSinh } from '@/lib/types';
+import { getClasses } from '@/services/lopHocService';
+import type { HocSinh, LopHoc } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { formatCurrencyVND } from '@/lib/utils';
 
 const StudentRowSkeleton = () => (
   <TableRow>
     <TableCell><Skeleton className="h-4 w-6" /></TableCell>
     <TableCell><Skeleton className="h-4 w-32" /></TableCell>
     <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-    <TableCell><Skeleton className="h-4 w-24" /></TableCell> {/* Placeholder for amount or date */}
+    <TableCell><Skeleton className="h-4 w-20" /></TableCell> 
+    <TableCell><Skeleton className="h-4 w-24" /></TableCell> 
     <TableCell>
       <div className="flex gap-2 justify-end">
         <Skeleton className="h-8 w-8" />
@@ -33,6 +36,29 @@ const StudentRowSkeleton = () => (
   </TableRow>
 );
 
+const calculateTuitionForStudent = (student: HocSinh, classesMap: Map<string, LopHoc>): number | null => {
+  if (!student.lopId) return null;
+  const studentClass = classesMap.get(student.lopId);
+  if (!studentClass) return null;
+
+  let tongHocPhi: number;
+  const sessionsInCycleMap: { [key: string]: number | undefined } = {
+    '8 buổi': 8,
+    '10 buổi': 10,
+  };
+  const sessionsInDefinedCycle = sessionsInCycleMap[studentClass.chuKyDongPhi];
+
+  if (sessionsInDefinedCycle) {
+    tongHocPhi = studentClass.hocPhi * sessionsInDefinedCycle;
+  } else if (studentClass.chuKyDongPhi === '1 tháng' || studentClass.chuKyDongPhi === 'Theo ngày') {
+    tongHocPhi = studentClass.hocPhi;
+  } else {
+    // Fallback for any other undefined cycles, or if hocPhi itself is the total
+    tongHocPhi = studentClass.hocPhi; 
+  }
+  return tongHocPhi;
+};
+
 
 export default function HocPhiPage() {
   const { toast } = useToast();
@@ -40,37 +66,53 @@ export default function HocPhiPage() {
   const [searchTermUnpaid, setSearchTermUnpaid] = useState('');
   const [searchTermPaid, setSearchTermPaid] = useState('');
 
-  const { data: students = [], isLoading, isError, error } = useQuery<HocSinh[], Error>({
-    queryKey: ['studentsForTuition'], // Unique query key
+  const { data: students = [], isLoading: isLoadingStudents, isError: isErrorStudents, error: errorStudents } = useQuery<HocSinh[], Error>({
+    queryKey: ['studentsForTuition'],
     queryFn: getStudents,
   });
 
-  const unpaidStudents = students.filter(
-    s => s.tinhTrangThanhToan === 'Chưa thanh toán' || s.tinhTrangThanhToan === 'Quá hạn'
-  ).filter(student =>
-    student.hoTen.toLowerCase().includes(searchTermUnpaid.toLowerCase()) ||
-    (student.tenLop && student.tenLop.toLowerCase().includes(searchTermUnpaid.toLowerCase()))
-  );
+  const { data: classes = [], isLoading: isLoadingClasses, isError: isErrorClasses, error: errorClasses } = useQuery<LopHoc[], Error>({
+    queryKey: ['classesForTuition'],
+    queryFn: getClasses,
+  });
 
-  const paidStudents = students.filter(
-    s => s.tinhTrangThanhToan === 'Đã thanh toán'
-  ).filter(student =>
-    student.hoTen.toLowerCase().includes(searchTermPaid.toLowerCase()) ||
-    (student.tenLop && student.tenLop.toLowerCase().includes(searchTermPaid.toLowerCase()))
-  );
+  const classesMap = useMemo(() => {
+    const map = new Map<string, LopHoc>();
+    classes.forEach(cls => map.set(cls.id, cls));
+    return map;
+  }, [classes]);
+
+  const unpaidStudents = useMemo(() => {
+    return students
+      .filter(s => s.tinhTrangThanhToan === 'Chưa thanh toán' || s.tinhTrangThanhToan === 'Quá hạn')
+      .filter(student =>
+        student.hoTen.toLowerCase().includes(searchTermUnpaid.toLowerCase()) ||
+        (student.tenLop && student.tenLop.toLowerCase().includes(searchTermUnpaid.toLowerCase()))
+      ).map(student => ({
+        ...student,
+        expectedTuitionFee: calculateTuitionForStudent(student, classesMap),
+      }));
+  }, [students, classesMap, searchTermUnpaid]);
+
+  const paidStudents = useMemo(() => {
+    return students
+      .filter(s => s.tinhTrangThanhToan === 'Đã thanh toán')
+      .filter(student =>
+        student.hoTen.toLowerCase().includes(searchTermPaid.toLowerCase()) ||
+        (student.tenLop && student.tenLop.toLowerCase().includes(searchTermPaid.toLowerCase()))
+      ).map(student => ({
+        ...student,
+        // Placeholder for actual paid amount, for now, we can use class fee
+        paidAmount: calculateTuitionForStudent(student, classesMap), 
+      }));
+  }, [students, classesMap, searchTermPaid]);
+
 
   const handlePayment = (student: HocSinh) => {
     toast({
       title: "Xử lý thanh toán",
       description: `Chức năng thanh toán cho học sinh ${student.hoTen} đang được phát triển.`,
     });
-    // Here, you would typically open a payment dialog or update student's payment status in DB
-    // For now, let's optimistically update the UI and then invalidate queries
-    // This is a simplified example, real implementation would involve backend update
-    // queryClient.setQueryData(['studentsForTuition'], (oldData: HocSinh[] | undefined) => 
-    //   oldData ? oldData.map(s => s.id === student.id ? {...s, tinhTrangThanhToan: 'Đã thanh toán'} : s) : []
-    // );
-    // queryClient.invalidateQueries({ queryKey: ['studentsForTuition'] });
   };
 
   const handleViewReceipt = (student: HocSinh) => {
@@ -94,13 +136,19 @@ export default function HocPhiPage() {
     });
   };
 
+  const combinedError = errorStudents?.message || errorClasses?.message;
+  const isLoading = isLoadingStudents || isLoadingClasses;
 
-  if (isError) {
+
+  if (isErrorStudents || isErrorClasses) {
     return (
       <DashboardLayout>
         <div className="flex flex-col items-center justify-center h-full text-red-500">
-          <p>Lỗi tải dữ liệu học sinh: {error?.message}</p>
-          <Button onClick={() => queryClient.invalidateQueries({ queryKey: ['studentsForTuition'] })} className="mt-4">
+          <p>Lỗi tải dữ liệu: {combinedError}</p>
+          <Button onClick={() => {
+            if(isErrorStudents) queryClient.invalidateQueries({ queryKey: ['studentsForTuition'] });
+            if(isErrorClasses) queryClient.invalidateQueries({ queryKey: ['classesForTuition'] });
+          }} className="mt-4">
             <RefreshCw className="mr-2" /> Thử lại
           </Button>
         </div>
@@ -159,7 +207,7 @@ export default function HocPhiPage() {
                     ) : unpaidStudents.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
-                          {students.length > 0 ? "Không có học sinh nào chưa thanh toán khớp với tìm kiếm." : "Chưa có dữ liệu học sinh."}
+                          {students.length > 0 || classes.length > 0 ? "Không có học sinh nào chưa thanh toán khớp với tìm kiếm." : "Chưa có dữ liệu học sinh hoặc lớp học."}
                         </TableCell>
                       </TableRow>
                     ) : (
@@ -173,7 +221,7 @@ export default function HocPhiPage() {
                               {student.tinhTrangThanhToan}
                             </Badge>
                           </TableCell>
-                          <TableCell>N/A</TableCell> {/* Placeholder for amount */}
+                          <TableCell>{formatCurrencyVND(student.expectedTuitionFee ?? undefined)}</TableCell>
                           <TableCell className="text-right">
                             <Button onClick={() => handlePayment(student)} size="sm">
                               <CreditCard className="mr-2 h-4 w-4" /> Thanh toán
@@ -223,7 +271,7 @@ export default function HocPhiPage() {
                     ) : paidStudents.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
-                         {students.length > 0 ? "Không có học sinh nào đã thanh toán khớp với tìm kiếm." : "Chưa có dữ liệu học sinh."}
+                         {students.length > 0 || classes.length > 0 ? "Không có học sinh nào đã thanh toán khớp với tìm kiếm." : "Chưa có dữ liệu học sinh hoặc lớp học."}
                         </TableCell>
                       </TableRow>
                     ) : (
@@ -233,7 +281,7 @@ export default function HocPhiPage() {
                           <TableCell className="font-medium text-primary">{student.hoTen}</TableCell>
                           <TableCell>{student.tenLop || 'N/A'}</TableCell>
                           <TableCell>{student.ngayThanhToanGanNhat ? new Date(student.ngayThanhToanGanNhat).toLocaleDateString('vi-VN') : 'N/A'}</TableCell>
-                          <TableCell>N/A</TableCell> {/* Placeholder for paid amount */}
+                          <TableCell>{formatCurrencyVND(student.paidAmount ?? undefined)}</TableCell> {/* Placeholder for paid amount */}
                           <TableCell className="text-right">
                             <div className="flex gap-2 justify-end">
                               <Button variant="outline" size="icon" onClick={() => handleViewReceipt(student)} aria-label="Xem biên nhận">
@@ -260,5 +308,3 @@ export default function HocPhiPage() {
     </DashboardLayout>
   );
 }
-
-    
