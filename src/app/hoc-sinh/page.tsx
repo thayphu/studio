@@ -30,8 +30,8 @@ const StudentRowSkeleton = () => (
     <TableCell><Skeleton className="h-4 w-20" /></TableCell>
     <TableCell>
       <div className="flex gap-2">
-        <Skeleton className="h-8 w-16" />
-        <Skeleton className="h-8 w-16" />
+        <Skeleton className="h-8 w-8" />
+        <Skeleton className="h-8 w-8" />
       </div>
     </TableCell>
   </TableRow>
@@ -195,7 +195,7 @@ export default function HocSinhPage() {
                 <TableHead>Ngày ĐK</TableHead>
                 <TableHead>Chu kỳ TT</TableHead>
                 <TableHead>Trạng thái TT</TableHead>
-                <TableHead className="text-right">Hành động</TableHead>
+                <TableHead className="text-right w-[100px]">Hành động</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -227,24 +227,26 @@ export default function HocSinhPage() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="mr-2"
-                        onClick={() => toast({title: "Tính năng đang phát triển", description: "Chỉnh sửa học sinh sẽ được thêm sau."})}
-                        disabled={deleteStudentMutation.isPending}
-                      >
-                        <Edit2 className="mr-1 h-3 w-3" /> Sửa
-                      </Button>
-                      <Button 
-                        variant="destructive" 
-                        size="sm" 
-                        onClick={() => handleDeleteStudent(student.id, student.lopId)}
-                        disabled={deleteStudentMutation.isPending && deleteStudentMutation.variables?.studentId === student.id}
-                      >
-                        {deleteStudentMutation.isPending && deleteStudentMutation.variables?.studentId === student.id ? <RefreshCw className="mr-1 h-3 w-3 animate-spin" /> : <Trash2 className="mr-1 h-3 w-3" />}
-                         Xóa
-                      </Button>
+                      <div className="flex gap-2 justify-end">
+                        <Button 
+                          variant="outline" 
+                          size="icon" 
+                          onClick={() => toast({title: "Tính năng đang phát triển", description: "Chỉnh sửa học sinh sẽ được thêm sau."})}
+                          disabled={deleteStudentMutation.isPending}
+                          aria-label="Sửa học sinh"
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          variant="destructive" 
+                          size="icon" 
+                          onClick={() => handleDeleteStudent(student.id, student.lopId)}
+                          disabled={deleteStudentMutation.isPending && deleteStudentMutation.variables?.studentId === student.id}
+                          aria-label="Xóa học sinh"
+                        >
+                          {deleteStudentMutation.isPending && deleteStudentMutation.variables?.studentId === student.id ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
@@ -256,4 +258,3 @@ export default function HocSinhPage() {
     </DashboardLayout>
   );
 }
-
