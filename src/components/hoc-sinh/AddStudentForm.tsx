@@ -57,6 +57,15 @@ interface AddStudentFormProps {
   existingClasses: LopHoc[];
 }
 
+const capitalizeWords = (str: string): string => {
+  if (!str) return "";
+  return str
+    .toLowerCase()
+    .split(' ')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
+
 export default function AddStudentForm({ onSubmit, onClose, existingClasses }: AddStudentFormProps) {
   const { toast } = useToast();
   const [displayStudentId, setDisplayStudentId] = React.useState('');
@@ -118,9 +127,10 @@ export default function AddStudentForm({ onSubmit, onClose, existingClasses }: A
     const submissionData: Omit<HocSinh, 'tinhTrangThanhToan' | 'tenLop'> = {
       id: displayStudentId,
       ...data,
+      hoTen: capitalizeWords(data.hoTen), // Ensure final submission is also capitalized
       ngaySinh: ngaySinhISO,
       ngayDangKy: data.ngayDangKy.toISOString(),
-      soDienThoai: data.soDienThoai || undefined, // Ensure it's undefined if empty
+      soDienThoai: data.soDienThoai || undefined, 
     };
     onSubmit(submissionData);
     toast({
@@ -141,7 +151,14 @@ export default function AddStudentForm({ onSubmit, onClose, existingClasses }: A
               <FormItem>
                 <FormLabel>Họ và tên học sinh</FormLabel>
                 <FormControl>
-                  <Input placeholder="Ví dụ: Nguyễn Văn A" {...field} />
+                  <Input 
+                    placeholder="Ví dụ: Nguyễn Văn A" 
+                    {...field} 
+                    onChange={(e) => {
+                      const capitalized = capitalizeWords(e.target.value);
+                      field.onChange(capitalized); // Update form state
+                    }}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -304,3 +321,5 @@ export default function AddStudentForm({ onSubmit, onClose, existingClasses }: A
     </Form>
   );
 }
+
+    
