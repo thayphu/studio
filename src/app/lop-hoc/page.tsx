@@ -117,7 +117,7 @@ export default function LopHocPage() {
   };
 
   const handleAddStudentToClass = (classId: string) => {
-    alert(`DEBUG from LopHocPage: Adding student to class ${classId}`); // DEBUGGING ALERT
+    alert(`DEBUG from LopHocPage (function call): Adding student to class ${classId}`); // DEBUGGING ALERT
     toast({
       title: "Chức năng đang phát triển",
       description: `Sẵn sàng thêm học sinh vào lớp ${classId}.`,
@@ -150,8 +150,8 @@ export default function LopHocPage() {
             </Button>
             <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
               <DialogTrigger asChild>
-                <Button onClick={handleOpenAddModal} size="icon" aria-label={TEXTS_VI.addClassTitle}>
-                  <PlusCircle />
+                <Button onClick={handleOpenAddModal} aria-label={TEXTS_VI.addClassTitle}>
+                  <PlusCircle className="mr-2 h-4 w-4" /> {TEXTS_VI.addClassTitle}
                 </Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-[600px]">
@@ -213,3 +213,4 @@ const CardSkeleton = () => (
     </div>
   </div>
 );
+
