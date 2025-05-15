@@ -46,11 +46,10 @@ export default function HocSinhPage() {
     (student.tenLop && student.tenLop.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  const handleAddStudent = (newStudentData: Omit<HocSinh, 'id' | 'tinhTrangThanhToan' | 'tenLop'>) => {
+  const handleAddStudent = (newStudentData: Omit<HocSinh, 'tinhTrangThanhToan' | 'tenLop'>) => {
     const selectedClass = mockClasses.find(cls => cls.id === newStudentData.lopId);
     const newStudent: HocSinh = {
-      ...newStudentData,
-      id: newStudentData.id, // ID is now part of newStudentData passed from form
+      ...newStudentData, // id is already in newStudentData from AddStudentForm
       tinhTrangThanhToan: "Chưa thanh toán",
       tenLop: selectedClass?.tenLop,
     };
@@ -94,7 +93,7 @@ export default function HocSinhPage() {
               <DialogHeader>
                 <DialogTitle>Thêm học sinh mới</DialogTitle>
                 <DialogDescription>
-                  Điền thông tin chi tiết của học sinh để thêm vào hệ thống. Mã HS sẽ được tự động tạo.
+                  Điền thông tin chi tiết của học sinh để thêm vào hệ thống.
                 </DialogDescription>
               </DialogHeader>
               <AddStudentForm
@@ -166,3 +165,4 @@ export default function HocSinhPage() {
     </DashboardLayout>
   );
 }
+
