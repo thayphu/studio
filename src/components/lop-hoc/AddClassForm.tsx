@@ -24,7 +24,8 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { LopHoc, DayOfWeek, PaymentCycle } from "@/lib/types";
-import { ALL_DAYS_OF_WEEK, ALL_PAYMENT_CYCLES, TEXTS_VI } from '@/lib/constants';
+import { ALL_DAYS_OF_WEEK, ALL_PAYMENT_CYCLES } from '@/lib/types';
+import { TEXTS_VI } from '@/lib/constants';
 import { generateId } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 
@@ -223,4 +224,3 @@ export default function AddClassForm({ onSubmit, initialData, onClose }: AddClas
     </Form>
   );
 }
-
