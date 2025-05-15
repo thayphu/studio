@@ -18,8 +18,6 @@ export interface LopHoc {
   trangThai: 'Đang hoạt động' | 'Đã đóng';
 }
 
-// StudentSalutation and ALL_STUDENT_SALUTATIONS removed
-
 export type PaymentStatus = 'Đã thanh toán' | 'Chưa thanh toán' | 'Quá hạn';
 
 export interface HocSinh {
@@ -27,6 +25,7 @@ export interface HocSinh {
   hoTen: string;
   ngaySinh: string; // ISO Date string
   diaChi: string;
+  soDienThoai?: string;
   lopId: string;
   tenLop?: string; // Denormalized for display
   ngayDangKy: string; // ISO Date string
@@ -56,4 +55,3 @@ export interface DiemDanhGhiNhan {
   ngayDiemDanh: string; // ISO Date string
   trangThai: AttendanceStatus;
 }
-

@@ -42,14 +42,14 @@ export default function HocSinhPage() {
   
   const filteredStudents = getStudentDisplayList(studentsList).filter(student =>
     student.hoTen.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    student.id.toLowerCase().includes(searchTerm.toLowerCase()) || // Search by student ID
+    student.id.toLowerCase().includes(searchTerm.toLowerCase()) || 
     (student.tenLop && student.tenLop.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   const handleAddStudent = (newStudentData: Omit<HocSinh, 'tinhTrangThanhToan' | 'tenLop'>) => {
     const selectedClass = mockClasses.find(cls => cls.id === newStudentData.lopId);
     const newStudent: HocSinh = {
-      ...newStudentData, // id is already in newStudentData from AddStudentForm
+      ...newStudentData,
       tinhTrangThanhToan: "Chưa thanh toán",
       tenLop: selectedClass?.tenLop,
     };
@@ -138,6 +138,7 @@ export default function HocSinhPage() {
                 <CardContent className="flex-grow space-y-2 text-sm">
                   <p><strong>Ngày sinh:</strong> {format(new Date(student.ngaySinh), "dd/MM/yyyy", { locale: vi })}</p>
                   <p><strong>Địa chỉ:</strong> {student.diaChi}</p>
+                  {student.soDienThoai && <p><strong>SĐT:</strong> {student.soDienThoai}</p>}
                   <p><strong>Ngày đăng ký:</strong> {format(new Date(student.ngayDangKy), "dd/MM/yyyy", { locale: vi })}</p>
                   <p><strong>Chu kỳ thanh toán:</strong> {student.chuKyThanhToan}</p>
                   <p>
@@ -165,4 +166,3 @@ export default function HocSinhPage() {
     </DashboardLayout>
   );
 }
-
