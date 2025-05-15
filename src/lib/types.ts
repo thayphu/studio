@@ -18,16 +18,16 @@ export interface LopHoc {
   trangThai: 'Đang hoạt động' | 'Đã đóng';
 }
 
-export type StudentSalutation = 'Anh' | 'Chị' | 'Học sinh';
-export const ALL_STUDENT_SALUTATIONS: StudentSalutation[] = ['Anh', 'Chị', 'Học sinh'];
+// StudentSalutation and ALL_STUDENT_SALUTATIONS removed
 
 export type PaymentStatus = 'Đã thanh toán' | 'Chưa thanh toán' | 'Quá hạn';
 
 export interface HocSinh {
-  id: string; // Mã HS: YYYYXXX
+  id: string; // Mã HS: YYYYXXXX
   hoTen: string;
-  danhXung: StudentSalutation;
-  lopId: string; 
+  ngaySinh: string; // ISO Date string
+  diaChi: string;
+  lopId: string;
   tenLop?: string; // Denormalized for display
   ngayDangKy: string; // ISO Date string
   chuKyThanhToan: PaymentCycle;
@@ -56,3 +56,4 @@ export interface DiemDanhGhiNhan {
   ngayDiemDanh: string; // ISO Date string
   trangThai: AttendanceStatus;
 }
+

@@ -1,22 +1,25 @@
 
 "use client";
-import { useState, useEffect } from 'react'; // Added useEffect
+import { useState, useEffect } from 'react';
 import DashboardLayout from '../dashboard-layout';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit2, Trash2, Search } from 'lucide-react'; // Added more icons
+import { PlusCircle, Edit2, Trash2, Search } from 'lucide-react';
 import { TEXTS_VI } from '@/lib/constants';
 import { useToast } from '@/hooks/use-toast';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'; // Added Dialog
-import AddStudentForm from '@/components/hoc-sinh/AddStudentForm'; // Added AddStudentForm
-import type { HocSinh, LopHoc } from '@/lib/types'; // Added HocSinh type
-import { Input } from '@/components/ui/input'; // Added Input for search
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card'; // Added Card components
-import { Badge } from '@/components/ui/badge'; // Added Badge
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
+import AddStudentForm from '@/components/hoc-sinh/AddStudentForm';
+import type { HocSinh, LopHoc } from '@/lib/types';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { format } from "date-fns";
+import { vi } from "date-fns/locale";
 
 // Mock data for LopHoc - ideally fetched from a service or context
 const mockClasses: LopHoc[] = [
   { id: 'lop1', tenLop: 'Lớp 1A', lichHoc: ['Thứ 2', 'Thứ 4', 'Thứ 6'], gioHoc: '17:30 - 19:00', diaDiem: 'Phòng A101', hocPhi: 1200000, chuKyDongPhi: '1 tháng', soHocSinhHienTai: 25, trangThai: 'Đang hoạt động' },
   { id: 'lop2', tenLop: 'Lớp Tiếng Anh Giao Tiếp', lichHoc: ['Thứ 3', 'Thứ 5'], gioHoc: '18:00 - 19:30', diaDiem: 'Phòng B203', hocPhi: 100000, chuKyDongPhi: '8 buổi', soHocSinhHienTai: 15, trangThai: 'Đang hoạt động' },
+  { id: 'lop3', tenLop: 'Luyện thi IELTS', lichHoc: ['Thứ 7', 'Chủ Nhật'], gioHoc: '09:00 - 11:00', diaDiem: 'Phòng C305', hocPhi: 250000, chuKyDongPhi: '10 buổi', soHocSinhHienTai: 10, trangThai: 'Đã đóng' },
 ];
 
 
@@ -25,15 +28,14 @@ export default function HocSinhPage() {
   const [isAddStudentModalOpen, setIsAddStudentModalOpen] = useState(false);
   const [studentsList, setStudentsList] = useState<HocSinh[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  // const [editingStudent, setEditingStudent] = useState<HocSinh | null>(null); // For future edit functionality
+  // const [editingStudent, setEditingStudent] = useState<HocSinh | null>(null);
 
-  // Populate tenLop for students (if not already denormalized)
-  const getStudentDisplayList = (students: HocSinh[]): (HocSinh & { tenLop?: string })[] => {
+  const getStudentDisplayList = (students: HocSinh[]): HocSinh[] => {
     return students.map(student => {
       const lop = mockClasses.find(cls => cls.id === student.lopId);
       return {
         ...student,
-        tenLop: lop ? lop.tenLop : 'N/A'
+        tenLop: lop ? lop.tenLop : 'N/A' // Ensure tenLop is populated
       };
     });
   };
@@ -50,12 +52,11 @@ export default function HocSinhPage() {
   };
 
   const handleOpenAddStudentModal = () => {
-    // setEditingStudent(null); // For future edit functionality
+    // setEditingStudent(null); 
     setIsAddStudentModalOpen(true);
   };
 
   const handleDeleteStudent = (studentId: string) => {
-    // Add confirmation dialog here in a real app
     setStudentsList(prev => prev.filter(s => s.id !== studentId));
     toast({
       title: "Đã xóa học sinh",
@@ -84,13 +85,14 @@ export default function HocSinhPage() {
             <DialogContent className="sm:max-w-[600px]">
               <DialogHeader>
                 <DialogTitle>Thêm học sinh mới</DialogTitle>
-                 {/* <DialogTitle>{editingStudent ? "Chỉnh sửa thông tin học sinh" : "Thêm học sinh mới"}</DialogTitle> */}
+                <DialogDescription>
+                  Điền thông tin chi tiết của học sinh để thêm vào hệ thống. Mã HS sẽ được tự động tạo.
+                </DialogDescription>
               </DialogHeader>
               <AddStudentForm
                 onSubmit={handleAddStudent}
-                // initialData={editingStudent} // For future edit functionality
                 onClose={() => setIsAddStudentModalOpen(false)}
-                existingClasses={mockClasses} // Pass mock classes for now
+                existingClasses={mockClasses}
               />
             </DialogContent>
           </Dialog>
@@ -124,8 +126,9 @@ export default function HocSinhPage() {
                   <CardDescription>Mã HS: {student.id} - Lớp: {student.tenLop || 'N/A'}</CardDescription>
                 </CardHeader>
                 <CardContent className="flex-grow space-y-2 text-sm">
-                  <p><strong>Danh xưng:</strong> {student.danhXung}</p>
-                  <p><strong>Ngày đăng ký:</strong> {new Date(student.ngayDangKy).toLocaleDateString('vi-VN')}</p>
+                  <p><strong>Ngày sinh:</strong> {format(new Date(student.ngaySinh), "dd/MM/yyyy", { locale: vi })}</p>
+                  <p><strong>Địa chỉ:</strong> {student.diaChi}</p>
+                  <p><strong>Ngày đăng ký:</strong> {format(new Date(student.ngayDangKy), "dd/MM/yyyy", { locale: vi })}</p>
                   <p><strong>Chu kỳ thanh toán:</strong> {student.chuKyThanhToan}</p>
                   <p>
                     <strong>Tình trạng thanh toán: </strong> 
@@ -136,8 +139,7 @@ export default function HocSinhPage() {
                 </CardContent>
                 <CardFooter className="flex gap-2 pt-4 border-t">
                   <Button variant="outline" size="sm" className="flex-1" 
-                  // onClick={() => handleOpenEditStudentModal(student)} // For future edit
-                  onClick={() => toast({title: "Tính năng đang phát triển", description: "Chỉnh sửa học sinh sẽ được thêm sau."})}
+                    onClick={() => toast({title: "Tính năng đang phát triển", description: "Chỉnh sửa học sinh sẽ được thêm sau."})}
                   >
                     <Edit2 className="mr-2 h-4 w-4" /> Sửa
                   </Button>

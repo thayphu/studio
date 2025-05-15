@@ -22,8 +22,8 @@ export const generateId = (prefix: string = '', length: number = 8): string => {
 
 export const generateStudentId = (): string => {
   const year = new Date().getFullYear();
-  const randomNumber = Math.floor(Math.random() * 999) + 1; // 001 to 999
-  return `${year}${String(randomNumber).padStart(3, '0')}`;
+  const randomNumber = Math.floor(Math.random() * 10000); // Generates a number between 0 and 9999
+  return `${year}${String(randomNumber).padStart(4, '0')}`; // Pads with leading zeros to ensure 4 digits
 };
 
 export const generateReceiptNumber = (): string => {
@@ -48,3 +48,4 @@ export const dayOfWeekToNumber = (dayName: string): number | undefined => {
   };
   return map[dayName];
 };
+
