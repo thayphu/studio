@@ -94,31 +94,30 @@ export default function PaymentForm({ student, expectedAmount, onSubmit, onClose
   ]);
 
   React.useEffect(() => {
-    const chiPhiBoSung = form.getValues("chiPhiBoSung_soTien") || 0;
-    const hocPhiLinhHoat = form.getValues("hocPhiLinhHoat_soTien") || 0;
-    const khauTru = form.getValues("khauTru_soTien") || 0;
-    const newTotal = expectedAmount + chiPhiBoSung + hocPhiLinhHoat - khauTru;
+    const baseAmountNum = Number(expectedAmount) || 0;
+    const chiPhiBoSungNum = Number(form.getValues("chiPhiBoSung_soTien")) || 0;
+    const hocPhiLinhHoatNum = Number(form.getValues("hocPhiLinhHoat_soTien")) || 0;
+    const khauTruNum = Number(form.getValues("khauTru_soTien")) || 0;
+    
+    const newTotal = baseAmountNum + chiPhiBoSungNum + hocPhiLinhHoatNum - khauTruNum;
     setCalculatedTotal(newTotal < 0 ? 0 : newTotal); // Ensure total is not negative
-  }, [watchedFields, expectedAmount, form]);
+  }, [watchedFields, expectedAmount, form]); // form.getValues reference is stable, but watching specific fields is better
 
 
   function handleSubmit(data: PaymentFormValues) {
-    const finalAmountToPay = expectedAmount + 
+    // data object from Zod will have correctly typed numbers
+    const finalAmountToPay = Number(expectedAmount) + 
                              (data.chiPhiBoSung_soTien || 0) + 
                              (data.hocPhiLinhHoat_soTien || 0) - 
                              (data.khauTru_soTien || 0);
     
     const submissionData: Omit<HocPhiGhiNhan, 'id' | 'hocSinhId' | 'hocSinhTen' | 'lopId' | 'lopTen' | 'hoaDonSo'> = {
       ngayThanhToan: data.ngayThanhToan.toISOString(),
-      soTienDaDong: finalAmountToPay < 0 ? 0 : finalAmountToPay, // Use the calculated total, ensure not negative
-      soTienTheoChuKy: expectedAmount, // This is the base tuition
+      soTienDaDong: finalAmountToPay < 0 ? 0 : finalAmountToPay, 
+      soTienTheoChuKy: Number(expectedAmount) || 0, 
       phuongThucThanhToan: data.phuongThucThanhToan,
       chuKyDongPhi: student.chuKyThanhToan,
       ghiChu: data.ghiChu,
-      // TODO: Optionally, extend HocPhiGhiNhan to store details from tabs
-      // chiPhiBoSung_dienGiai: data.chiPhiBoSung_dienGiai,
-      // hocPhiLinhHoat_soBuoi: data.hocPhiLinhHoat_soBuoi,
-      // khauTru_lyDo: data.khauTru_lyDo,
     };
     onSubmit(submissionData);
   }
@@ -232,7 +231,6 @@ export default function PaymentForm({ student, expectedAmount, onSubmit, onClose
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {/* <SelectItem value="">Không chọn</SelectItem> */}
                       {DIEN_GIAI_CHI_PHI_BO_SUNG.map((item) => (
                         <SelectItem key={item} value={item}>{item}</SelectItem>
                       ))}
@@ -298,7 +296,6 @@ export default function PaymentForm({ student, expectedAmount, onSubmit, onClose
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                       {/* <SelectItem value="">Không chọn</SelectItem> */}
                       {LY_DO_KHAU_TRU.map((item) => (
                         <SelectItem key={item} value={item}>{item}</SelectItem>
                       ))}
@@ -343,6 +340,4 @@ export default function PaymentForm({ student, expectedAmount, onSubmit, onClose
   );
 }
 
-    
-
-    
+      
