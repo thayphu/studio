@@ -8,13 +8,14 @@ import { Download, CreditCard, FileText, Edit2, Trash2, RefreshCw, Search } from
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getStudents } from '@/services/hocSinhService';
 import type { HocSinh } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge'; // For payment status in unpaid tab if needed
+import { Badge } from '@/components/ui/badge';
 
 const StudentRowSkeleton = () => (
   <TableRow>
@@ -260,13 +261,4 @@ export default function HocPhiPage() {
   );
 }
 
-// Minimal Card component structure if not already globally available or for local styling.
-// Assuming Card, CardHeader, CardTitle, CardContent are imported from "@/components/ui/card"
-import { Card as ShadCard, CardContent as ShadCardContent, CardHeader as ShadCardHeader, CardTitle as ShadCardTitle } from "@/components/ui/card";
-
-// You can re-export them or use them directly. For simplicity, I'll assume they are available.
-// If not, define basic versions or import them.
-const Card = ShadCard;
-// const CardHeader = ShadCardHeader; (already imported from ui/card)
-// const CardTitle = ShadCardTitle; (already imported from ui/card)
-// const CardContent = ShadCardContent; (already imported from ui/card)
+    
