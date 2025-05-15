@@ -68,7 +68,7 @@ export default function LopHocPage() {
   };
 
   const handleAddStudentToClass = (classId: string) => {
-    // For now, just show a toast. Later, this would open a student add form/modal.
+    alert(`DEBUG: Nút "Thêm Học Sinh" cho lớp ${classId} được nhấn.`); // ADDED FOR DEBUGGING
     toast({
       title: "Chức năng đang phát triển",
       description: `Sẵn sàng thêm học sinh vào lớp ${classId}.`,
@@ -122,7 +122,7 @@ export default function LopHocPage() {
                 lopHoc={lopHoc} 
                 onEdit={() => handleOpenEditModal(lopHoc)}
                 onDelete={() => handleDeleteClass(lopHoc.id)}
-                onAddStudent={handleAddStudentToClass}
+                onAddStudent={handleAddStudentToClass} 
               />
             ))}
           </div>
