@@ -122,7 +122,7 @@ export default function LopHocPage() {
                 lopHoc={lopHoc} 
                 onEdit={() => handleOpenEditModal(lopHoc)}
                 onDelete={() => handleDeleteClass(lopHoc.id)}
-                onAddStudent={() => handleAddStudentToClass(lopHoc.id)}
+                onAddStudent={handleAddStudentToClass}
               />
             ))}
           </div>
