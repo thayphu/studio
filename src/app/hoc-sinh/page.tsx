@@ -28,7 +28,6 @@ const StudentRowSkeleton = () => (
     <TableCell><Skeleton className="h-4 w-20" /></TableCell>
     <TableCell><Skeleton className="h-4 w-24" /></TableCell>
     <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
     <TableCell>
       <div className="flex gap-2">
         <Skeleton className="h-8 w-16" />
@@ -192,8 +191,6 @@ export default function HocSinhPage() {
                 <TableHead>Mã HS</TableHead>
                 <TableHead>Họ và tên</TableHead>
                 <TableHead>Lớp</TableHead>
-                <TableHead>Ngày sinh</TableHead>
-                <TableHead>Địa chỉ</TableHead>
                 <TableHead>SĐT</TableHead>
                 <TableHead>Ngày ĐK</TableHead>
                 <TableHead>Chu kỳ TT</TableHead>
@@ -210,7 +207,7 @@ export default function HocSinhPage() {
                 </>
               ) : filteredStudents.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={11} className="h-24 text-center text-muted-foreground">
+                  <TableCell colSpan={9} className="h-24 text-center text-muted-foreground">
                     {students.length > 0 ? "Không tìm thấy học sinh nào khớp với tìm kiếm." : "Chưa có học sinh nào. Hãy thêm học sinh mới!"}
                   </TableCell>
                 </TableRow>
@@ -221,8 +218,6 @@ export default function HocSinhPage() {
                     <TableCell>{student.id}</TableCell>
                     <TableCell className="font-medium text-primary">{student.hoTen}</TableCell>
                     <TableCell>{student.tenLop || 'N/A'}</TableCell>
-                    <TableCell>{format(new Date(student.ngaySinh), "dd/MM/yyyy", { locale: vi })}</TableCell>
-                    <TableCell>{student.diaChi}</TableCell>
                     <TableCell>{student.soDienThoai || 'N/A'}</TableCell>
                     <TableCell>{format(new Date(student.ngayDangKy), "dd/MM/yyyy", { locale: vi })}</TableCell>
                     <TableCell>{student.chuKyThanhToan}</TableCell>
@@ -261,3 +256,4 @@ export default function HocSinhPage() {
     </DashboardLayout>
   );
 }
+
