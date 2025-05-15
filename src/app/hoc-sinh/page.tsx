@@ -1,36 +1,154 @@
 
 "use client";
+import { useState, useEffect } from 'react'; // Added useEffect
 import DashboardLayout from '../dashboard-layout';
 import { Button } from '@/components/ui/button';
-import { PlusCircle } from 'lucide-react';
+import { PlusCircle, Edit2, Trash2, Search } from 'lucide-react'; // Added more icons
 import { TEXTS_VI } from '@/lib/constants';
-import { useToast } from '@/hooks/use-toast'; // Added import
+import { useToast } from '@/hooks/use-toast';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'; // Added Dialog
+import AddStudentForm from '@/components/hoc-sinh/AddStudentForm'; // Added AddStudentForm
+import type { HocSinh, LopHoc } from '@/lib/types'; // Added HocSinh type
+import { Input } from '@/components/ui/input'; // Added Input for search
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card'; // Added Card components
+import { Badge } from '@/components/ui/badge'; // Added Badge
+
+// Mock data for LopHoc - ideally fetched from a service or context
+const mockClasses: LopHoc[] = [
+  { id: 'lop1', tenLop: 'Lớp 1A', lichHoc: ['Thứ 2', 'Thứ 4', 'Thứ 6'], gioHoc: '17:30 - 19:00', diaDiem: 'Phòng A101', hocPhi: 1200000, chuKyDongPhi: '1 tháng', soHocSinhHienTai: 25, trangThai: 'Đang hoạt động' },
+  { id: 'lop2', tenLop: 'Lớp Tiếng Anh Giao Tiếp', lichHoc: ['Thứ 3', 'Thứ 5'], gioHoc: '18:00 - 19:30', diaDiem: 'Phòng B203', hocPhi: 100000, chuKyDongPhi: '8 buổi', soHocSinhHienTai: 15, trangThai: 'Đang hoạt động' },
+];
+
 
 export default function HocSinhPage() {
-  const { toast } = useToast(); // Added useToast hook
+  const { toast } = useToast();
+  const [isAddStudentModalOpen, setIsAddStudentModalOpen] = useState(false);
+  const [studentsList, setStudentsList] = useState<HocSinh[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  // const [editingStudent, setEditingStudent] = useState<HocSinh | null>(null); // For future edit functionality
+
+  // Populate tenLop for students (if not already denormalized)
+  const getStudentDisplayList = (students: HocSinh[]): (HocSinh & { tenLop?: string })[] => {
+    return students.map(student => {
+      const lop = mockClasses.find(cls => cls.id === student.lopId);
+      return {
+        ...student,
+        tenLop: lop ? lop.tenLop : 'N/A'
+      };
+    });
+  };
+  
+  const filteredStudents = getStudentDisplayList(studentsList).filter(student =>
+    student.hoTen.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    student.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (student.tenLop && student.tenLop.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
+
+  const handleAddStudent = (newStudent: HocSinh) => {
+    setStudentsList(prev => [...prev, newStudent].sort((a,b) => a.hoTen.localeCompare(b.hoTen, 'vi')));
+    setIsAddStudentModalOpen(false);
+  };
 
   const handleOpenAddStudentModal = () => {
+    // setEditingStudent(null); // For future edit functionality
+    setIsAddStudentModalOpen(true);
+  };
+
+  const handleDeleteStudent = (studentId: string) => {
+    // Add confirmation dialog here in a real app
+    setStudentsList(prev => prev.filter(s => s.id !== studentId));
     toast({
-      title: "Chức năng đang phát triển",
-      description: "Biểu mẫu thêm học sinh sẽ được hiển thị tại đây.",
+      title: "Đã xóa học sinh",
+      description: `Học sinh với mã ${studentId} đã được xóa.`,
       variant: "default",
     });
-    console.log("Attempting to open Add Student modal from HocSinhPage");
   };
+  
+  // const handleOpenEditStudentModal = (student: HocSinh) => {
+  //   setEditingStudent(student);
+  //   setIsAddStudentModalOpen(true);
+  // };
+
 
   return (
     <DashboardLayout>
       <div className="container mx-auto py-8 px-4 md:px-6">
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
           <h1 className="text-3xl font-bold text-foreground">Quản lý Học sinh</h1>
-          <Button onClick={handleOpenAddStudentModal}> {/* Added onClick handler */}
-            <PlusCircle className="mr-2 h-4 w-4" /> Thêm Học sinh
-          </Button>
+           <Dialog open={isAddStudentModalOpen} onOpenChange={setIsAddStudentModalOpen}>
+            <DialogTrigger asChild>
+              <Button onClick={handleOpenAddStudentModal}>
+                <PlusCircle className="mr-2 h-4 w-4" /> Thêm Học sinh
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[600px]">
+              <DialogHeader>
+                <DialogTitle>Thêm học sinh mới</DialogTitle>
+                 {/* <DialogTitle>{editingStudent ? "Chỉnh sửa thông tin học sinh" : "Thêm học sinh mới"}</DialogTitle> */}
+              </DialogHeader>
+              <AddStudentForm
+                onSubmit={handleAddStudent}
+                // initialData={editingStudent} // For future edit functionality
+                onClose={() => setIsAddStudentModalOpen(false)}
+                existingClasses={mockClasses} // Pass mock classes for now
+              />
+            </DialogContent>
+          </Dialog>
         </div>
-        <div className="p-6 bg-card rounded-lg shadow">
-          <p className="text-muted-foreground">Tính năng quản lý học sinh sẽ được triển khai tại đây.</p>
-          <p className="text-muted-foreground">Bao gồm: danh sách học sinh, thêm/sửa/xóa học sinh, thông tin chi tiết, tình trạng thanh toán, v.v.</p>
+
+        <div className="mb-6">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+            <Input
+              type="search"
+              placeholder="Tìm kiếm học sinh (theo tên, mã HS, lớp)..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 w-full"
+            />
+          </div>
         </div>
+
+        {filteredStudents.length === 0 ? (
+          <div className="text-center py-10 bg-card rounded-lg shadow p-6">
+            <p className="text-xl text-muted-foreground">
+              {studentsList.length === 0 ? "Chưa có học sinh nào. Hãy thêm học sinh mới!" : "Không tìm thấy học sinh nào khớp với tìm kiếm."}
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredStudents.map((student) => (
+              <Card key={student.id} className="flex flex-col shadow-lg hover:shadow-xl transition-shadow duration-300">
+                <CardHeader>
+                  <CardTitle className="text-xl font-semibold text-primary">{student.hoTen}</CardTitle>
+                  <CardDescription>Mã HS: {student.id} - Lớp: {student.tenLop || 'N/A'}</CardDescription>
+                </CardHeader>
+                <CardContent className="flex-grow space-y-2 text-sm">
+                  <p><strong>Danh xưng:</strong> {student.danhXung}</p>
+                  <p><strong>Ngày đăng ký:</strong> {new Date(student.ngayDangKy).toLocaleDateString('vi-VN')}</p>
+                  <p><strong>Chu kỳ thanh toán:</strong> {student.chuKyThanhToan}</p>
+                  <p>
+                    <strong>Tình trạng thanh toán: </strong> 
+                    <Badge variant={student.tinhTrangThanhToan === 'Đã thanh toán' ? 'default' : (student.tinhTrangThanhToan === 'Chưa thanh toán' ? 'secondary' : 'destructive')}>
+                      {student.tinhTrangThanhToan}
+                    </Badge>
+                  </p>
+                </CardContent>
+                <CardFooter className="flex gap-2 pt-4 border-t">
+                  <Button variant="outline" size="sm" className="flex-1" 
+                  // onClick={() => handleOpenEditStudentModal(student)} // For future edit
+                  onClick={() => toast({title: "Tính năng đang phát triển", description: "Chỉnh sửa học sinh sẽ được thêm sau."})}
+                  >
+                    <Edit2 className="mr-2 h-4 w-4" /> Sửa
+                  </Button>
+                  <Button variant="destructive" size="sm" className="flex-1" onClick={() => handleDeleteStudent(student.id)}>
+                    <Trash2 className="mr-2 h-4 w-4" /> Xóa
+                  </Button>
+                </CardFooter>
+              </Card>
+            ))}
+          </div>
+        )}
       </div>
     </DashboardLayout>
   );
