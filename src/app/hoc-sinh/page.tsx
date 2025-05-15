@@ -10,8 +10,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import AddStudentForm from '@/components/hoc-sinh/AddStudentForm';
 import type { HocSinh, LopHoc } from '@/lib/types';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -19,24 +19,23 @@ import { getClasses, recalculateAndUpdateClassStudentCount } from '@/services/lo
 import { getStudents, addStudent, deleteStudent as deleteStudentService } from '@/services/hocSinhService';
 import { Skeleton } from '@/components/ui/skeleton';
 
-const StudentCardSkeleton = () => (
-  <Card className="flex flex-col shadow-lg">
-    <CardHeader>
-      <Skeleton className="h-6 w-3/4 mb-1" /> {/* For name and ID */}
-      <Skeleton className="h-4 w-1/2" /> {/* For class name */}
-    </CardHeader>
-    <CardContent className="flex-grow space-y-2 text-sm">
-      <Skeleton className="h-4 w-full" />
-      <Skeleton className="h-4 w-5/6" />
-      <Skeleton className="h-4 w-full" />
-      <Skeleton className="h-4 w-1/2" />
-      <Skeleton className="h-5 w-1/3" /> {/* For badge */}
-    </CardContent>
-    <CardFooter className="flex gap-2 pt-4 border-t">
-      <Skeleton className="h-8 w-1/2" />
-      <Skeleton className="h-8 w-1/2" />
-    </CardFooter>
-  </Card>
+const StudentRowSkeleton = () => (
+  <TableRow>
+    <TableCell><Skeleton className="h-4 w-6" /></TableCell>
+    <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+    <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+    <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+    <TableCell>
+      <div className="flex gap-2">
+        <Skeleton className="h-8 w-16" />
+        <Skeleton className="h-8 w-16" />
+      </div>
+    </TableCell>
+  </TableRow>
 );
 
 
@@ -69,13 +68,10 @@ export default function HocSinhPage() {
       queryClient.invalidateQueries({ queryKey: ['students'] });
       if (addedStudent.lopId) {
         await recalculateAndUpdateClassStudentCount(addedStudent.lopId);
-        queryClient.invalidateQueries({ queryKey: ['classes'] }); // Refresh class list if student count is displayed there
+        queryClient.invalidateQueries({ queryKey: ['classes'] }); 
       }
       setIsAddStudentModalOpen(false);
-      toast({
-        title: "Thêm học sinh thành công!",
-        description: `Học sinh "${addedStudent.hoTen}" đã được thêm vào hệ thống.`,
-      });
+      // Toast for success is now handled within AddStudentForm
     },
     onError: (error: Error) => {
       toast({
@@ -89,7 +85,7 @@ export default function HocSinhPage() {
   const deleteStudentMutation = useMutation({
     mutationFn: async (params: { studentId: string; lopId?: string }) => {
       await deleteStudentService(params.studentId);
-      return params; // Pass params to onSuccess
+      return params; 
     },
     onSuccess: async (params) => {
       queryClient.invalidateQueries({ queryKey: ['students'] });
@@ -113,7 +109,6 @@ export default function HocSinhPage() {
 
 
   const handleAddStudent = (newStudentDataFromForm: Omit<HocSinh, 'tinhTrangThanhToan' | 'tenLop'>) => {
-    // The ID is already generated and included in newStudentDataFromForm by AddStudentForm
     const { id: studentId, ...restOfData } = newStudentDataFromForm;
     addStudentMutation.mutate({ studentData: restOfData, studentId });
   };
@@ -161,9 +156,7 @@ export default function HocSinhPage() {
             <DialogContent className="sm:max-w-[600px]">
               <DialogHeader>
                 <DialogTitle>Thêm học sinh mới</DialogTitle>
-                <DialogDescription>
-                  Điền thông tin chi tiết của học sinh để thêm vào hệ thống.
-                </DialogDescription>
+                 {/* Description removed as per previous request */}
               </DialogHeader>
               {isLoadingClasses ? (
                 <div className="p-6 text-center">Đang tải danh sách lớp...</div>
@@ -191,71 +184,80 @@ export default function HocSinhPage() {
           </div>
         </div>
         
-        {isLoadingStudents ? (
-           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[...Array(3)].map((_, i) => (
-              <StudentCardSkeleton key={i} />
-            ))}
-          </div>
-        ) : filteredStudents.length === 0 && students.length > 0 ? (
-          <div className="text-center py-10 bg-card rounded-lg shadow p-6">
-            <p className="text-xl text-muted-foreground">
-              Không tìm thấy học sinh nào khớp với tìm kiếm.
-            </p>
-          </div>
-        ) : filteredStudents.length === 0 && students.length === 0 ? (
-           <div className="text-center py-10 bg-card rounded-lg shadow p-6">
-            <p className="text-xl text-muted-foreground">
-              Chưa có học sinh nào. Hãy thêm học sinh mới!
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredStudents.map((student) => (
-              <Card key={student.id} className="flex flex-col shadow-lg hover:shadow-xl transition-shadow duration-300">
-                <CardHeader>
-                  <CardTitle className="text-xl font-semibold text-primary">
-                    {student.hoTen} 
-                    <span className="text-sm font-normal text-muted-foreground ml-2">(Mã HS: {student.id})</span>
-                  </CardTitle>
-                  <CardDescription>Lớp: {student.tenLop || 'N/A'}</CardDescription>
-                </CardHeader>
-                <CardContent className="flex-grow space-y-2 text-sm">
-                  <p><strong>Ngày sinh:</strong> {format(new Date(student.ngaySinh), "dd/MM/yyyy", { locale: vi })}</p>
-                  <p><strong>Địa chỉ:</strong> {student.diaChi}</p>
-                  {student.soDienThoai && <p><strong>SĐT:</strong> {student.soDienThoai}</p>}
-                  <p><strong>Ngày đăng ký:</strong> {format(new Date(student.ngayDangKy), "dd/MM/yyyy", { locale: vi })}</p>
-                  <p><strong>Chu kỳ thanh toán:</strong> {student.chuKyThanhToan}</p>
-                  <p>
-                    <strong>Tình trạng thanh toán: </strong> 
-                    <Badge variant={student.tinhTrangThanhToan === 'Đã thanh toán' ? 'default' : (student.tinhTrangThanhToan === 'Chưa thanh toán' ? 'secondary' : 'destructive')}>
-                      {student.tinhTrangThanhToan}
-                    </Badge>
-                  </p>
-                </CardContent>
-                <CardFooter className="flex gap-2 pt-4 border-t">
-                  <Button variant="outline" size="sm" className="flex-1" 
-                    onClick={() => toast({title: "Tính năng đang phát triển", description: "Chỉnh sửa học sinh sẽ được thêm sau."})}
-                    disabled={deleteStudentMutation.isPending}
-                  >
-                    <Edit2 className="mr-2 h-4 w-4" /> Sửa
-                  </Button>
-                  <Button 
-                    variant="destructive" 
-                    size="sm" 
-                    className="flex-1" 
-                    onClick={() => handleDeleteStudent(student.id, student.lopId)}
-                    disabled={deleteStudentMutation.isPending}
-                  >
-                    {deleteStudentMutation.isPending && deleteStudentMutation.variables?.studentId === student.id ? 'Đang xóa...' : <><Trash2 className="mr-2 h-4 w-4" /> Xóa</>}
-                  </Button>
-                </CardFooter>
-              </Card>
-            ))}
-          </div>
-        )}
+        <div className="rounded-lg border overflow-hidden shadow-sm bg-card">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[50px]">STT</TableHead>
+                <TableHead>Mã HS</TableHead>
+                <TableHead>Họ và tên</TableHead>
+                <TableHead>Lớp</TableHead>
+                <TableHead>Ngày sinh</TableHead>
+                <TableHead>Địa chỉ</TableHead>
+                <TableHead>SĐT</TableHead>
+                <TableHead>Ngày ĐK</TableHead>
+                <TableHead>Chu kỳ TT</TableHead>
+                <TableHead>Trạng thái TT</TableHead>
+                <TableHead className="text-right">Hành động</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoadingStudents ? (
+                <>
+                  {[...Array(3)].map((_, i) => (
+                    <StudentRowSkeleton key={i} />
+                  ))}
+                </>
+              ) : filteredStudents.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={11} className="h-24 text-center text-muted-foreground">
+                    {students.length > 0 ? "Không tìm thấy học sinh nào khớp với tìm kiếm." : "Chưa có học sinh nào. Hãy thêm học sinh mới!"}
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredStudents.map((student, index) => (
+                  <TableRow key={student.id}>
+                    <TableCell>{index + 1}</TableCell>
+                    <TableCell>{student.id}</TableCell>
+                    <TableCell className="font-medium text-primary">{student.hoTen}</TableCell>
+                    <TableCell>{student.tenLop || 'N/A'}</TableCell>
+                    <TableCell>{format(new Date(student.ngaySinh), "dd/MM/yyyy", { locale: vi })}</TableCell>
+                    <TableCell>{student.diaChi}</TableCell>
+                    <TableCell>{student.soDienThoai || 'N/A'}</TableCell>
+                    <TableCell>{format(new Date(student.ngayDangKy), "dd/MM/yyyy", { locale: vi })}</TableCell>
+                    <TableCell>{student.chuKyThanhToan}</TableCell>
+                    <TableCell>
+                      <Badge variant={student.tinhTrangThanhToan === 'Đã thanh toán' ? 'default' : (student.tinhTrangThanhToan === 'Chưa thanh toán' ? 'secondary' : 'destructive')}>
+                        {student.tinhTrangThanhToan}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="mr-2"
+                        onClick={() => toast({title: "Tính năng đang phát triển", description: "Chỉnh sửa học sinh sẽ được thêm sau."})}
+                        disabled={deleteStudentMutation.isPending}
+                      >
+                        <Edit2 className="mr-1 h-3 w-3" /> Sửa
+                      </Button>
+                      <Button 
+                        variant="destructive" 
+                        size="sm" 
+                        onClick={() => handleDeleteStudent(student.id, student.lopId)}
+                        disabled={deleteStudentMutation.isPending && deleteStudentMutation.variables?.studentId === student.id}
+                      >
+                        {deleteStudentMutation.isPending && deleteStudentMutation.variables?.studentId === student.id ? <RefreshCw className="mr-1 h-3 w-3 animate-spin" /> : <Trash2 className="mr-1 h-3 w-3" />}
+                         Xóa
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </div>
     </DashboardLayout>
   );
 }
-
