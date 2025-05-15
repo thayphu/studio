@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import DashboardLayout from '../dashboard-layout';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit2, Trash2, Search } from 'lucide-react';
+import { PlusCircle, Edit2, Trash2, Search, RefreshCw } from 'lucide-react';
 import { TEXTS_VI } from '@/lib/constants';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
@@ -14,28 +14,30 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Badge } from '@/components/ui/badge';
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
-
-// Mock data for LopHoc - ideally fetched from a service or context
-const mockClasses: LopHoc[] = [
-  { id: 'lop1', tenLop: 'Lớp 1A', lichHoc: ['Thứ 2', 'Thứ 4', 'Thứ 6'], gioHoc: '17:30 - 19:00', diaDiem: 'Phòng A101', hocPhi: 1200000, chuKyDongPhi: '1 tháng', soHocSinhHienTai: 25, trangThai: 'Đang hoạt động' },
-  { id: 'lop2', tenLop: 'Lớp Tiếng Anh Giao Tiếp', lichHoc: ['Thứ 3', 'Thứ 5'], gioHoc: '18:00 - 19:30', diaDiem: 'Phòng B203', hocPhi: 100000, chuKyDongPhi: '8 buổi', soHocSinhHienTai: 15, trangThai: 'Đang hoạt động' },
-  { id: 'lop3', tenLop: 'Luyện thi IELTS', lichHoc: ['Thứ 7', 'Chủ Nhật'], gioHoc: '09:00 - 11:00', diaDiem: 'Phòng C305', hocPhi: 250000, chuKyDongPhi: '10 buổi', soHocSinhHienTai: 10, trangThai: 'Đã đóng' },
-];
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { getClasses } from '@/services/lopHocService'; // Assuming you have a service for classes
+import { Skeleton } from '@/components/ui/skeleton';
 
 
 export default function HocSinhPage() {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [isAddStudentModalOpen, setIsAddStudentModalOpen] = useState(false);
-  const [studentsList, setStudentsList] = useState<HocSinh[]>([]);
+  const [studentsList, setStudentsList] = useState<HocSinh[]>([]); // Student data will be persisted later
   const [searchTerm, setSearchTerm] = useState('');
-  // const [editingStudent, setEditingStudent] = useState<HocSinh | null>(null);
+
+  // Fetch classes for the AddStudentForm dropdown
+  const { data: existingClasses = [], isLoading: isLoadingClasses, isError: isErrorClasses, error: errorClasses } = useQuery<LopHoc[], Error>({
+    queryKey: ['classes'],
+    queryFn: getClasses,
+  });
 
   const getStudentDisplayList = (students: HocSinh[]): HocSinh[] => {
     return students.map(student => {
-      const lop = mockClasses.find(cls => cls.id === student.lopId);
+      const lop = existingClasses.find(cls => cls.id === student.lopId);
       return {
         ...student,
-        tenLop: lop ? lop.tenLop : 'N/A' // Ensure tenLop is populated
+        tenLop: lop ? lop.tenLop : 'N/A'
       };
     });
   };
@@ -47,36 +49,47 @@ export default function HocSinhPage() {
   );
 
   const handleAddStudent = (newStudentData: Omit<HocSinh, 'tinhTrangThanhToan' | 'tenLop'>) => {
-    const selectedClass = mockClasses.find(cls => cls.id === newStudentData.lopId);
+    const selectedClass = existingClasses.find(cls => cls.id === newStudentData.lopId);
     const newStudent: HocSinh = {
       ...newStudentData,
-      tinhTrangThanhToan: "Chưa thanh toán",
+      tinhTrangThanhToan: "Chưa thanh toán", // Default status
       tenLop: selectedClass?.tenLop,
     };
+    // TODO: Replace with useMutation to add student to Firestore
     setStudentsList(prev => [...prev, newStudent].sort((a,b) => a.hoTen.localeCompare(b.hoTen, 'vi')));
     setIsAddStudentModalOpen(false);
+    toast({
+      title: "Thêm học sinh thành công!",
+      description: `Học sinh "${newStudent.hoTen}" đã được thêm (tạm thời). Tính năng lưu trữ vĩnh viễn sẽ được cập nhật.`,
+    });
   };
 
-
   const handleOpenAddStudentModal = () => {
-    // setEditingStudent(null); 
     setIsAddStudentModalOpen(true);
   };
 
   const handleDeleteStudent = (studentId: string) => {
+    // TODO: Replace with useMutation to delete student from Firestore
     setStudentsList(prev => prev.filter(s => s.id !== studentId));
     toast({
-      title: "Đã xóa học sinh",
+      title: "Đã xóa học sinh (tạm thời)",
       description: `Học sinh với mã ${studentId} đã được xóa.`,
       variant: "default",
     });
   };
   
-  // const handleOpenEditStudentModal = (student: HocSinh) => {
-  //   setEditingStudent(student);
-  //   setIsAddStudentModalOpen(true);
-  // };
-
+  if (isErrorClasses) {
+    return (
+      <DashboardLayout>
+        <div className="flex flex-col items-center justify-center h-full text-red-500">
+          <p>Lỗi tải danh sách lớp học: {errorClasses?.message}</p>
+          <Button onClick={() => queryClient.invalidateQueries({ queryKey: ['classes'] })} className="mt-4">
+            <RefreshCw className="mr-2" /> Thử lại
+          </Button>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -85,8 +98,8 @@ export default function HocSinhPage() {
           <h1 className="text-3xl font-bold text-foreground">Quản lý Học sinh</h1>
            <Dialog open={isAddStudentModalOpen} onOpenChange={setIsAddStudentModalOpen}>
             <DialogTrigger asChild>
-              <Button onClick={handleOpenAddStudentModal}>
-                <PlusCircle className="mr-2 h-4 w-4" /> Thêm Học sinh
+              <Button onClick={handleOpenAddStudentModal} disabled={isLoadingClasses}>
+                <PlusCircle className="mr-2 h-4 w-4" /> {isLoadingClasses ? "Đang tải lớp..." : "Thêm Học sinh"}
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[600px]">
@@ -96,11 +109,15 @@ export default function HocSinhPage() {
                   Điền thông tin chi tiết của học sinh để thêm vào hệ thống.
                 </DialogDescription>
               </DialogHeader>
-              <AddStudentForm
-                onSubmit={handleAddStudent}
-                onClose={() => setIsAddStudentModalOpen(false)}
-                existingClasses={mockClasses}
-              />
+              {isLoadingClasses ? (
+                <div className="p-6 text-center">Đang tải danh sách lớp...</div>
+              ) : (
+                <AddStudentForm
+                  onSubmit={handleAddStudent}
+                  onClose={() => setIsAddStudentModalOpen(false)}
+                  existingClasses={existingClasses} 
+                />
+              )}
             </DialogContent>
           </Dialog>
         </div>
@@ -118,10 +135,16 @@ export default function HocSinhPage() {
           </div>
         </div>
 
-        {filteredStudents.length === 0 ? (
+        {filteredStudents.length === 0 && studentsList.length > 0 ? (
           <div className="text-center py-10 bg-card rounded-lg shadow p-6">
             <p className="text-xl text-muted-foreground">
-              {studentsList.length === 0 ? "Chưa có học sinh nào. Hãy thêm học sinh mới!" : "Không tìm thấy học sinh nào khớp với tìm kiếm."}
+              Không tìm thấy học sinh nào khớp với tìm kiếm.
+            </p>
+          </div>
+        ) : filteredStudents.length === 0 && studentsList.length === 0 ? (
+           <div className="text-center py-10 bg-card rounded-lg shadow p-6">
+            <p className="text-xl text-muted-foreground">
+              Chưa có học sinh nào. Hãy thêm học sinh mới!
             </p>
           </div>
         ) : (

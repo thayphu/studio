@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google'; // Using Inter as a common, readable font
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
+import QueryProvider from '@/components/QueryProvider';
 
 const inter = Inter({ subsets: ['latin', 'vietnamese'] });
 
@@ -19,8 +20,10 @@ export default function RootLayout({
   return (
     <html lang="vi">
       <body className={`${inter.className} antialiased`}>
-        {children}
-        <Toaster />
+        <QueryProvider>
+          {children}
+          <Toaster />
+        </QueryProvider>
       </body>
     </html>
   );
