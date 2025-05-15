@@ -4,7 +4,7 @@ import { formatCurrencyVND } from '@/lib/utils';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { School, CalendarDays, Clock, MapPin, DollarSign, Users, Edit, Trash2, UserPlus, XCircle } from 'lucide-react';
+import { School, CalendarDays, Clock, MapPin, DollarSign, Users, Edit, Trash2, UserPlus, XCircle, Loader2 } from 'lucide-react';
 import { TEXTS_VI } from '@/lib/constants';
 
 interface ClassCardProps {
@@ -12,10 +12,12 @@ interface ClassCardProps {
   onEdit: (lopHoc: LopHoc) => void;
   onDelete: (id: string) => void;
   onAddStudent: (lopHocId: string) => void;
+  isDeleting?: boolean;
+  isUpdating?: boolean; 
   // onCloseClass: (lopHocId: string) => void;
 }
 
-export default function ClassCard({ lopHoc, onEdit, onDelete, onAddStudent }: ClassCardProps) {
+export default function ClassCard({ lopHoc, onEdit, onDelete, onAddStudent, isDeleting, isUpdating }: ClassCardProps) {
   let tongHocPhi: number;
   let hocPhiBuoi: number;
 
@@ -42,8 +44,10 @@ export default function ClassCard({ lopHoc, onEdit, onDelete, onAddStudent }: Cl
     hocPhiBuoi = 0; 
   }
 
+  const actionInProgress = isDeleting || isUpdating;
+
   return (
-    <Card className="flex flex-col h-full shadow-lg hover:shadow-xl transition-shadow duration-300">
+    <Card className={`flex flex-col h-full shadow-lg hover:shadow-xl transition-shadow duration-300 ${actionInProgress ? 'opacity-50 pointer-events-none' : ''}`}>
       <CardHeader className="pb-4">
         <div className="flex justify-between items-start">
           <CardTitle className="text-xl font-semibold text-primary flex items-center">
@@ -98,26 +102,24 @@ export default function ClassCard({ lopHoc, onEdit, onDelete, onAddStudent }: Cl
         </div>
       </CardContent>
       <CardFooter className="flex flex-wrap gap-2 pt-4 border-t">
-        <Button variant="outline" size="icon" onClick={() => onEdit(lopHoc)} aria-label={TEXTS_VI.editButton} className="flex-1 min-w-[40px]">
-          <Edit className="h-4 w-4" />
+        <Button variant="outline" size="icon" onClick={() => onEdit(lopHoc)} aria-label={TEXTS_VI.editButton} className="flex-1 min-w-[40px]" disabled={actionInProgress}>
+          {isUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Edit className="h-4 w-4" />}
         </Button>
-        <Button variant="destructive" size="icon" onClick={() => onDelete(lopHoc.id)} aria-label={TEXTS_VI.deleteButton} className="flex-1 min-w-[40px]">
-          <Trash2 className="h-4 w-4" />
+        <Button variant="destructive" size="icon" onClick={() => onDelete(lopHoc.id)} aria-label={TEXTS_VI.deleteButton} className="flex-1 min-w-[40px]" disabled={actionInProgress}>
+          {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
         </Button>
         <Button 
           variant="secondary" 
           size="icon" 
-          onClick={() => {
-            alert('ClassCard Add Student Button Clicked directly'); // DEBUGGING ALERT
-            onAddStudent(lopHoc.id);
-          }} 
+          onClick={() => onAddStudent(lopHoc.id)} 
           aria-label={TEXTS_VI.addStudentButton} 
           className="flex-1 min-w-[40px]"
+          disabled={actionInProgress}
         >
           <UserPlus className="h-4 w-4" />
         </Button>
         {lopHoc.trangThai === 'Đang hoạt động' && (
-          <Button variant="outline" size="icon" aria-label={TEXTS_VI.closeClassButton} className="flex-1 min-w-[40px] border-amber-500 text-amber-600 hover:bg-amber-50">
+          <Button variant="outline" size="icon" aria-label={TEXTS_VI.closeClassButton} className="flex-1 min-w-[40px] border-amber-500 text-amber-600 hover:bg-amber-50" disabled={actionInProgress}>
             <XCircle className="h-4 w-4" />
           </Button>
         )}

@@ -2,7 +2,7 @@
 "use client";
 
 import { useState } from 'react';
-import { PlusCircle, Filter, Edit, Trash2, UserPlus, RefreshCw } from 'lucide-react';
+import { PlusCircle, Filter, RefreshCw } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -29,24 +29,52 @@ export default function LopHocPage() {
   });
 
   const addClassMutation = useMutation({
-    mutationFn: (newClassData: Omit<LopHoc, 'id' | 'soHocSinhHienTai' | 'trangThai'>) => {
-      const classId = generateId('lop_');
-      return addClass(newClassData, classId);
+    mutationFn: (params: { newClassData: Omit<LopHoc, 'id' | 'soHocSinhHienTai' | 'trangThai'>, classId: string }) => {
+      return addClass(params.newClassData, params.classId);
+    },
+    onMutate: async (params) => {
+      // Cancel any outgoing refetches (so they don't overwrite our optimistic update)
+      await queryClient.cancelQueries({ queryKey: ['classes'] });
+
+      // Snapshot the previous value
+      const previousClasses = queryClient.getQueryData<LopHoc[]>(['classes']);
+
+      // Optimistically update to the new value
+      const optimisticClass: LopHoc = {
+        ...params.newClassData,
+        id: params.classId,
+        soHocSinhHienTai: 0,
+        trangThai: 'Đang hoạt động',
+      };
+      queryClient.setQueryData<LopHoc[]>(['classes'], (old = []) => [...old, optimisticClass].sort((a, b) => a.tenLop.localeCompare(b.tenLop, 'vi')));
+      
+      setIsModalOpen(false); // Close modal immediately
+
+      // Return a context object with the snapshotted value
+      return { previousClasses };
+    },
+    onError: (err, variables, context) => {
+      // If the mutation fails, use the context returned from onMutate to roll back
+      if (context?.previousClasses) {
+        queryClient.setQueryData<LopHoc[]>(['classes'], context.previousClasses);
+      }
+      toast({
+        title: "Lỗi khi thêm lớp",
+        description: err.message,
+        variant: "destructive",
+      });
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['classes'] });
       toast({
         title: "Thêm lớp thành công!",
         description: `Lớp "${data.tenLop}" đã được thêm vào hệ thống.`,
       });
-      setIsModalOpen(false);
+      // No need to close modal here as it's closed in onMutate
+      // No need to invalidate queries here if we rely on onSettled, or if server data matches optimistic update
     },
-    onError: (error) => {
-      toast({
-        title: "Lỗi khi thêm lớp",
-        description: error.message,
-        variant: "destructive",
-      });
+    onSettled: (data, error, variables, context) => {
+      // Always refetch after error or success:
+      queryClient.invalidateQueries({ queryKey: ['classes'] });
     },
   });
 
@@ -55,49 +83,75 @@ export default function LopHocPage() {
       const { id, ...dataToUpdate } = updatedClass;
       return updateClass(id, dataToUpdate);
     },
+    onMutate: async (updatedClass) => {
+      await queryClient.cancelQueries({ queryKey: ['classes'] });
+      const previousClasses = queryClient.getQueryData<LopHoc[]>(['classes']);
+      queryClient.setQueryData<LopHoc[]>(['classes'], (old = []) =>
+        old.map(cls => cls.id === updatedClass.id ? updatedClass : cls).sort((a,b) => a.tenLop.localeCompare(b.tenLop, 'vi'))
+      );
+      setIsModalOpen(false);
+      setEditingClass(null);
+      return { previousClasses };
+    },
+    onError: (err, variables, context) => {
+      if (context?.previousClasses) {
+        queryClient.setQueryData<LopHoc[]>(['classes'], context.previousClasses);
+      }
+      toast({
+        title: "Lỗi khi cập nhật lớp",
+        description: err.message,
+        variant: "destructive",
+      });
+    },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['classes'] });
       toast({
         title: "Cập nhật thành công!",
         description: `Lớp "${variables.tenLop}" đã được cập nhật.`,
       });
-      setIsModalOpen(false);
-      setEditingClass(null);
     },
-    onError: (error) => {
-      toast({
-        title: "Lỗi khi cập nhật lớp",
-        description: error.message,
-        variant: "destructive",
-      });
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['classes'] });
     },
   });
 
   const deleteClassMutation = useMutation({
     mutationFn: deleteClass,
+    onMutate: async (classIdToDelete) => {
+      await queryClient.cancelQueries({ queryKey: ['classes'] });
+      const previousClasses = queryClient.getQueryData<LopHoc[]>(['classes']);
+      queryClient.setQueryData<LopHoc[]>(['classes'], (old = []) =>
+        old.filter(cls => cls.id !== classIdToDelete)
+      );
+      return { previousClasses, classIdToDelete };
+    },
+    onError: (err, classId, context) => {
+      if (context?.previousClasses) {
+        queryClient.setQueryData<LopHoc[]>(['classes'], context.previousClasses);
+      }
+      toast({
+        title: "Lỗi khi xóa lớp học",
+        description: err.message,
+        variant: "destructive",
+      });
+    },
     onSuccess: (_, classId) => {
-      queryClient.invalidateQueries({ queryKey: ['classes'] });
       toast({
         title: "Đã xóa lớp học",
         description: `Lớp học với ID ${classId} đã được xóa.`,
       });
     },
-    onError: (error) => {
-      toast({
-        title: "Lỗi khi xóa lớp học",
-        description: error.message,
-        variant: "destructive",
-      });
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['classes'] });
     },
   });
 
-  const handleSubmitClassForm = (data: LopHoc) => {
+ const handleSubmitClassForm = (data: LopHoc) => {
     if (editingClass) {
       updateClassMutation.mutate(data);
     } else {
-      // For add, 'id' is generated by service, 'soHocSinhHienTai' and 'trangThai' are defaulted
+      const classId = generateId('lop_');
       const { id, soHocSinhHienTai, trangThai, ...newClassData } = data;
-      addClassMutation.mutate(newClassData);
+      addClassMutation.mutate({ newClassData, classId });
     }
   };
   
@@ -117,10 +171,10 @@ export default function LopHocPage() {
   };
 
   const handleAddStudentToClass = (classId: string) => {
-    alert(`DEBUG from LopHocPage (function call): Adding student to class ${classId}`); // DEBUGGING ALERT
+    // alert(`DEBUG from LopHocPage (function call): Adding student to class ${classId}`); // DEBUGGING ALERT
     toast({
       title: "Chức năng đang phát triển",
-      description: `Sẵn sàng thêm học sinh vào lớp ${classId}.`,
+      description: `Sẵn sàng thêm học sinh vào lớp ${classId}. Vui lòng vào trang Học Sinh để thêm.`,
       variant: "default",
     });
     console.log("Attempting to add student to class from LopHocPage:", classId);
@@ -148,7 +202,10 @@ export default function LopHocPage() {
             <Button variant="outline" size="icon" aria-label="Lọc">
               <Filter />
             </Button>
-            <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+            <Dialog open={isModalOpen} onOpenChange={(open) => {
+              setIsModalOpen(open);
+              if (!open) setEditingClass(null); // Reset editingClass when dialog closes
+            }}>
               <DialogTrigger asChild>
                 <Button onClick={handleOpenAddModal} aria-label={TEXTS_VI.addClassTitle}>
                   <PlusCircle className="mr-2 h-4 w-4" /> {TEXTS_VI.addClassTitle}
@@ -161,7 +218,10 @@ export default function LopHocPage() {
                 <AddClassForm 
                   onSubmit={handleSubmitClassForm} 
                   initialData={editingClass}
-                  onClose={() => setIsModalOpen(false)}
+                  onClose={() => {
+                    setIsModalOpen(false);
+                    setEditingClass(null);
+                  }}
                   isSubmitting={addClassMutation.isPending || updateClassMutation.isPending}
                 />
               </DialogContent>
@@ -187,7 +247,9 @@ export default function LopHocPage() {
                 lopHoc={lopHoc} 
                 onEdit={() => handleOpenEditModal(lopHoc)}
                 onDelete={() => handleDeleteClass(lopHoc.id)}
-                onAddStudent={handleAddStudentToClass} 
+                onAddStudent={handleAddStudentToClass}
+                isDeleting={deleteClassMutation.isPending && deleteClassMutation.variables === lopHoc.id}
+                isUpdating={updateClassMutation.isPending && updateClassMutation.variables?.id === lopHoc.id}
               />
             ))}
           </div>
@@ -213,4 +275,3 @@ const CardSkeleton = () => (
     </div>
   </div>
 );
-
