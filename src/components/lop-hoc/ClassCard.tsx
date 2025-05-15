@@ -16,6 +16,32 @@ interface ClassCardProps {
 }
 
 export default function ClassCard({ lopHoc, onEdit, onDelete }: ClassCardProps) {
+  let tongHocPhi: number;
+  let hocPhiBuoi: number;
+
+  const sessionsInCycleMap: { [key: string]: number | undefined } = {
+    '8 buổi': 8,
+    '10 buổi': 10,
+  };
+  const sessionsInDefinedCycle = sessionsInCycleMap[lopHoc.chuKyDongPhi];
+
+  if (sessionsInDefinedCycle) {
+    tongHocPhi = lopHoc.hocPhi * sessionsInDefinedCycle;
+    hocPhiBuoi = lopHoc.hocPhi;
+  } else if (lopHoc.chuKyDongPhi === '1 tháng') {
+    tongHocPhi = lopHoc.hocPhi;
+    const sessionsPerWeek = lopHoc.lichHoc.length;
+    const sessionsPerMonth = sessionsPerWeek * 4; // Assuming 4 weeks per month
+    hocPhiBuoi = sessionsPerMonth > 0 ? lopHoc.hocPhi / sessionsPerMonth : 0;
+  } else if (lopHoc.chuKyDongPhi === 'Theo ngày') {
+    tongHocPhi = lopHoc.hocPhi;
+    hocPhiBuoi = lopHoc.hocPhi;
+  } else {
+    // Fallback for any other undefined cycles
+    tongHocPhi = lopHoc.hocPhi;
+    hocPhiBuoi = 0; 
+  }
+
   return (
     <Card className="flex flex-col h-full shadow-lg hover:shadow-xl transition-shadow duration-300">
       <CardHeader className="pb-4">
@@ -46,11 +72,21 @@ export default function ClassCard({ lopHoc, onEdit, onDelete }: ClassCardProps) 
             {lopHoc.gioHoc}
           </div>
         </div>
-        <div className="flex items-center">
-          <DollarSign className="mr-2 h-5 w-5 text-muted-foreground" />
+        <div className="flex items-start">
+          <DollarSign className="mr-2 h-5 w-5 text-muted-foreground mt-0.5" />
           <div>
-            <span className="font-medium">Học phí: </span>
-            {formatCurrencyVND(lopHoc.hocPhi)} / {lopHoc.chuKyDongPhi}
+            <div>
+              <span className="font-medium">Tổng học phí: </span>
+              <span className="font-bold text-red-600">
+                {formatCurrencyVND(tongHocPhi)}
+              </span>
+              <span className="font-medium"> / {lopHoc.chuKyDongPhi}</span>
+            </div>
+            {hocPhiBuoi > 0 && (
+              <div className="text-xs text-muted-foreground">
+                (Học phí / buổi: {formatCurrencyVND(hocPhiBuoi)})
+              </div>
+            )}
           </div>
         </div>
         <div className="flex items-center">
@@ -68,7 +104,6 @@ export default function ClassCard({ lopHoc, onEdit, onDelete }: ClassCardProps) 
         <Button variant="destructive" size="icon" onClick={() => onDelete(lopHoc.id)} aria-label={TEXTS_VI.deleteButton} className="flex-1 min-w-[40px]">
           <Trash2 className="h-4 w-4" />
         </Button>
-        {/* Placeholder for other actions */}
         <Button variant="secondary" size="icon" aria-label={TEXTS_VI.addStudentButton} className="flex-1 min-w-[40px]">
           <UserPlus className="h-4 w-4" />
         </Button>
