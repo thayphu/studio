@@ -14,76 +14,128 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Badge } from '@/components/ui/badge';
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getClasses } from '@/services/lopHocService'; // Assuming you have a service for classes
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { getClasses, recalculateAndUpdateClassStudentCount } from '@/services/lopHocService';
+import { getStudents, addStudent, deleteStudent as deleteStudentService } from '@/services/hocSinhService';
 import { Skeleton } from '@/components/ui/skeleton';
+
+const StudentCardSkeleton = () => (
+  <Card className="flex flex-col shadow-lg">
+    <CardHeader>
+      <Skeleton className="h-6 w-3/4 mb-1" /> {/* For name and ID */}
+      <Skeleton className="h-4 w-1/2" /> {/* For class name */}
+    </CardHeader>
+    <CardContent className="flex-grow space-y-2 text-sm">
+      <Skeleton className="h-4 w-full" />
+      <Skeleton className="h-4 w-5/6" />
+      <Skeleton className="h-4 w-full" />
+      <Skeleton className="h-4 w-1/2" />
+      <Skeleton className="h-5 w-1/3" /> {/* For badge */}
+    </CardContent>
+    <CardFooter className="flex gap-2 pt-4 border-t">
+      <Skeleton className="h-8 w-1/2" />
+      <Skeleton className="h-8 w-1/2" />
+    </CardFooter>
+  </Card>
+);
 
 
 export default function HocSinhPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isAddStudentModalOpen, setIsAddStudentModalOpen] = useState(false);
-  const [studentsList, setStudentsList] = useState<HocSinh[]>([]); // Student data will be persisted later
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Fetch classes for the AddStudentForm dropdown
   const { data: existingClasses = [], isLoading: isLoadingClasses, isError: isErrorClasses, error: errorClasses } = useQuery<LopHoc[], Error>({
     queryKey: ['classes'],
     queryFn: getClasses,
   });
 
-  const getStudentDisplayList = (students: HocSinh[]): HocSinh[] => {
-    return students.map(student => {
-      const lop = existingClasses.find(cls => cls.id === student.lopId);
-      return {
-        ...student,
-        tenLop: lop ? lop.tenLop : 'N/A'
-      };
-    });
-  };
+  const { data: students = [], isLoading: isLoadingStudents, isError: isErrorStudents, error: errorStudents } = useQuery<HocSinh[], Error>({
+    queryKey: ['students'],
+    queryFn: getStudents,
+  });
   
-  const filteredStudents = getStudentDisplayList(studentsList).filter(student =>
+  const filteredStudents = students.filter(student =>
     student.hoTen.toLowerCase().includes(searchTerm.toLowerCase()) ||
     student.id.toLowerCase().includes(searchTerm.toLowerCase()) || 
     (student.tenLop && student.tenLop.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  const handleAddStudent = (newStudentData: Omit<HocSinh, 'tinhTrangThanhToan' | 'tenLop'>) => {
-    const selectedClass = existingClasses.find(cls => cls.id === newStudentData.lopId);
-    const newStudent: HocSinh = {
-      ...newStudentData,
-      tinhTrangThanhToan: "Chưa thanh toán", // Default status
-      tenLop: selectedClass?.tenLop,
-    };
-    // TODO: Replace with useMutation to add student to Firestore
-    setStudentsList(prev => [...prev, newStudent].sort((a,b) => a.hoTen.localeCompare(b.hoTen, 'vi')));
-    setIsAddStudentModalOpen(false);
-    toast({
-      title: "Thêm học sinh thành công!",
-      description: `Học sinh "${newStudent.hoTen}" đã được thêm (tạm thời). Tính năng lưu trữ vĩnh viễn sẽ được cập nhật.`,
-    });
+  const addStudentMutation = useMutation({
+    mutationFn: (params: { studentData: Omit<HocSinh, 'id' | 'tenLop' | 'tinhTrangThanhToan'>, studentId: string }) => 
+      addStudent(params.studentData, params.studentId),
+    onSuccess: async (addedStudent) => {
+      queryClient.invalidateQueries({ queryKey: ['students'] });
+      if (addedStudent.lopId) {
+        await recalculateAndUpdateClassStudentCount(addedStudent.lopId);
+        queryClient.invalidateQueries({ queryKey: ['classes'] }); // Refresh class list if student count is displayed there
+      }
+      setIsAddStudentModalOpen(false);
+      toast({
+        title: "Thêm học sinh thành công!",
+        description: `Học sinh "${addedStudent.hoTen}" đã được thêm vào hệ thống.`,
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Lỗi khi thêm học sinh",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteStudentMutation = useMutation({
+    mutationFn: async (params: { studentId: string; lopId?: string }) => {
+      await deleteStudentService(params.studentId);
+      return params; // Pass params to onSuccess
+    },
+    onSuccess: async (params) => {
+      queryClient.invalidateQueries({ queryKey: ['students'] });
+      if (params.lopId) {
+        await recalculateAndUpdateClassStudentCount(params.lopId);
+        queryClient.invalidateQueries({ queryKey: ['classes'] });
+      }
+      toast({
+        title: "Đã xóa học sinh",
+        description: `Học sinh với mã ${params.studentId} đã được xóa khỏi hệ thống.`,
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Lỗi khi xóa học sinh",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+
+  const handleAddStudent = (newStudentDataFromForm: Omit<HocSinh, 'tinhTrangThanhToan' | 'tenLop'>) => {
+    // The ID is already generated and included in newStudentDataFromForm by AddStudentForm
+    const { id: studentId, ...restOfData } = newStudentDataFromForm;
+    addStudentMutation.mutate({ studentData: restOfData, studentId });
   };
 
   const handleOpenAddStudentModal = () => {
     setIsAddStudentModalOpen(true);
   };
 
-  const handleDeleteStudent = (studentId: string) => {
-    // TODO: Replace with useMutation to delete student from Firestore
-    setStudentsList(prev => prev.filter(s => s.id !== studentId));
-    toast({
-      title: "Đã xóa học sinh (tạm thời)",
-      description: `Học sinh với mã ${studentId} đã được xóa.`,
-      variant: "default",
-    });
+  const handleDeleteStudent = (studentId: string, lopId?: string) => {
+    deleteStudentMutation.mutate({ studentId, lopId });
   };
   
-  if (isErrorClasses) {
+  if (isErrorClasses || isErrorStudents) {
+    const combinedError = errorClasses?.message || errorStudents?.message;
     return (
       <DashboardLayout>
         <div className="flex flex-col items-center justify-center h-full text-red-500">
-          <p>Lỗi tải danh sách lớp học: {errorClasses?.message}</p>
-          <Button onClick={() => queryClient.invalidateQueries({ queryKey: ['classes'] })} className="mt-4">
+          <p>Lỗi tải dữ liệu: {combinedError}</p>
+          <Button onClick={() => {
+            if(isErrorClasses) queryClient.invalidateQueries({ queryKey: ['classes'] });
+            if(isErrorStudents) queryClient.invalidateQueries({ queryKey: ['students'] });
+          }} className="mt-4">
             <RefreshCw className="mr-2" /> Thử lại
           </Button>
         </div>
@@ -98,8 +150,12 @@ export default function HocSinhPage() {
           <h1 className="text-3xl font-bold text-foreground">Quản lý Học sinh</h1>
            <Dialog open={isAddStudentModalOpen} onOpenChange={setIsAddStudentModalOpen}>
             <DialogTrigger asChild>
-              <Button onClick={handleOpenAddStudentModal} disabled={isLoadingClasses}>
-                <PlusCircle className="mr-2 h-4 w-4" /> {isLoadingClasses ? "Đang tải lớp..." : "Thêm Học sinh"}
+              <Button 
+                onClick={handleOpenAddStudentModal} 
+                disabled={isLoadingClasses || addStudentMutation.isPending}
+              >
+                <PlusCircle className="mr-2 h-4 w-4" /> 
+                {isLoadingClasses ? "Đang tải lớp..." : (addStudentMutation.isPending ? "Đang thêm..." : "Thêm Học sinh")}
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[600px]">
@@ -134,14 +190,20 @@ export default function HocSinhPage() {
             />
           </div>
         </div>
-
-        {filteredStudents.length === 0 && studentsList.length > 0 ? (
+        
+        {isLoadingStudents ? (
+           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[...Array(3)].map((_, i) => (
+              <StudentCardSkeleton key={i} />
+            ))}
+          </div>
+        ) : filteredStudents.length === 0 && students.length > 0 ? (
           <div className="text-center py-10 bg-card rounded-lg shadow p-6">
             <p className="text-xl text-muted-foreground">
               Không tìm thấy học sinh nào khớp với tìm kiếm.
             </p>
           </div>
-        ) : filteredStudents.length === 0 && studentsList.length === 0 ? (
+        ) : filteredStudents.length === 0 && students.length === 0 ? (
            <div className="text-center py-10 bg-card rounded-lg shadow p-6">
             <p className="text-xl text-muted-foreground">
               Chưa có học sinh nào. Hãy thêm học sinh mới!
@@ -174,11 +236,18 @@ export default function HocSinhPage() {
                 <CardFooter className="flex gap-2 pt-4 border-t">
                   <Button variant="outline" size="sm" className="flex-1" 
                     onClick={() => toast({title: "Tính năng đang phát triển", description: "Chỉnh sửa học sinh sẽ được thêm sau."})}
+                    disabled={deleteStudentMutation.isPending}
                   >
                     <Edit2 className="mr-2 h-4 w-4" /> Sửa
                   </Button>
-                  <Button variant="destructive" size="sm" className="flex-1" onClick={() => handleDeleteStudent(student.id)}>
-                    <Trash2 className="mr-2 h-4 w-4" /> Xóa
+                  <Button 
+                    variant="destructive" 
+                    size="sm" 
+                    className="flex-1" 
+                    onClick={() => handleDeleteStudent(student.id, student.lopId)}
+                    disabled={deleteStudentMutation.isPending}
+                  >
+                    {deleteStudentMutation.isPending && deleteStudentMutation.variables?.studentId === student.id ? 'Đang xóa...' : <><Trash2 className="mr-2 h-4 w-4" /> Xóa</>}
                   </Button>
                 </CardFooter>
               </Card>
@@ -189,3 +258,4 @@ export default function HocSinhPage() {
     </DashboardLayout>
   );
 }
+
