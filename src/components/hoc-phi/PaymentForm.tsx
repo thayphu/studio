@@ -100,21 +100,22 @@ export default function PaymentForm({ student, expectedAmount, onSubmit, onClose
     const khauTruNum = Number(form.getValues("khauTru_soTien")) || 0;
     
     const newTotal = baseAmountNum + chiPhiBoSungNum + hocPhiLinhHoatNum - khauTruNum;
-    setCalculatedTotal(newTotal < 0 ? 0 : newTotal); // Ensure total is not negative
-  }, [watchedFields, expectedAmount, form]); // form.getValues reference is stable, but watching specific fields is better
+    setCalculatedTotal(newTotal < 0 ? 0 : newTotal);
+  }, [watchedFields, expectedAmount, form]);
 
 
   function handleSubmit(data: PaymentFormValues) {
-    // data object from Zod will have correctly typed numbers
-    const finalAmountToPay = Number(expectedAmount) + 
-                             (data.chiPhiBoSung_soTien || 0) + 
-                             (data.hocPhiLinhHoat_soTien || 0) - 
-                             (data.khauTru_soTien || 0);
+    const baseAmountNum = Number(expectedAmount) || 0;
+    const chiPhiBoSungNum = Number(data.chiPhiBoSung_soTien) || 0;
+    const hocPhiLinhHoatNum = Number(data.hocPhiLinhHoat_soTien) || 0;
+    const khauTruNum = Number(data.khauTru_soTien) || 0;
+    
+    const finalAmountToPay = baseAmountNum + chiPhiBoSungNum + hocPhiLinhHoatNum - khauTruNum;
     
     const submissionData: Omit<HocPhiGhiNhan, 'id' | 'hocSinhId' | 'hocSinhTen' | 'lopId' | 'lopTen' | 'hoaDonSo'> = {
       ngayThanhToan: data.ngayThanhToan.toISOString(),
       soTienDaDong: finalAmountToPay < 0 ? 0 : finalAmountToPay, 
-      soTienTheoChuKy: Number(expectedAmount) || 0, 
+      soTienTheoChuKy: baseAmountNum, 
       phuongThucThanhToan: data.phuongThucThanhToan,
       chuKyDongPhi: student.chuKyThanhToan,
       ghiChu: data.ghiChu,
@@ -205,106 +206,112 @@ export default function PaymentForm({ student, expectedAmount, onSubmit, onClose
             <TabsTrigger value="khau-tru">Khấu trừ</TabsTrigger>
           </TabsList>
           <TabsContent value="chi-phi-bo-sung" className="mt-4 space-y-4 p-4 border rounded-md">
-            <FormField
-              control={form.control}
-              name="chiPhiBoSung_soTien"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Số tiền (VNĐ)</FormLabel>
-                  <FormControl>
-                    <Input type="number" placeholder="Nhập số tiền" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="chiPhiBoSung_dienGiai"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Diễn giải</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="chiPhiBoSung_soTien"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Số tiền (VNĐ)</FormLabel>
                     <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Chọn diễn giải" />
-                      </SelectTrigger>
+                      <Input type="number" placeholder="Nhập số tiền" {...field} />
                     </FormControl>
-                    <SelectContent>
-                      {DIEN_GIAI_CHI_PHI_BO_SUNG.map((item) => (
-                        <SelectItem key={item} value={item}>{item}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="chiPhiBoSung_dienGiai"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Diễn giải</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Chọn diễn giải" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {DIEN_GIAI_CHI_PHI_BO_SUNG.map((item) => (
+                          <SelectItem key={item} value={item}>{item}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
           </TabsContent>
           <TabsContent value="hoc-phi-linh-hoat" className="mt-4 space-y-4 p-4 border rounded-md">
-            <FormField
-              control={form.control}
-              name="hocPhiLinhHoat_soTien"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Số tiền (VNĐ)</FormLabel>
-                  <FormControl>
-                    <Input type="number" placeholder="Nhập số tiền" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="hocPhiLinhHoat_soBuoi"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Số buổi tương ứng</FormLabel>
-                  <FormControl>
-                    <Input type="number" placeholder="Nhập số buổi" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="hocPhiLinhHoat_soTien"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Số tiền (VNĐ)</FormLabel>
+                    <FormControl>
+                      <Input type="number" placeholder="Nhập số tiền" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="hocPhiLinhHoat_soBuoi"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Số buổi tương ứng</FormLabel>
+                    <FormControl>
+                      <Input type="number" placeholder="Nhập số buổi" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
           </TabsContent>
           <TabsContent value="khau-tru" className="mt-4 space-y-4 p-4 border rounded-md">
-            <FormField
-              control={form.control}
-              name="khauTru_soTien"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Số tiền (VNĐ)</FormLabel>
-                  <FormControl>
-                    <Input type="number" placeholder="Nhập số tiền" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="khauTru_lyDo"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Lý do</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="khauTru_soTien"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Số tiền (VNĐ)</FormLabel>
                     <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Chọn lý do" />
-                      </SelectTrigger>
+                      <Input type="number" placeholder="Nhập số tiền" {...field} />
                     </FormControl>
-                    <SelectContent>
-                      {LY_DO_KHAU_TRU.map((item) => (
-                        <SelectItem key={item} value={item}>{item}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="khauTru_lyDo"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Lý do</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Chọn lý do" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {LY_DO_KHAU_TRU.map((item) => (
+                          <SelectItem key={item} value={item}>{item}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
           </TabsContent>
         </Tabs>
 
@@ -339,5 +346,3 @@ export default function PaymentForm({ student, expectedAmount, onSubmit, onClose
     </Form>
   );
 }
-
-      
