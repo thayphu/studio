@@ -232,7 +232,7 @@ export default function PaymentForm({ student, expectedAmount, onSubmit, onClose
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="">Không chọn</SelectItem>
+                      {/* <SelectItem value="">Không chọn</SelectItem> */}
                       {DIEN_GIAI_CHI_PHI_BO_SUNG.map((item) => (
                         <SelectItem key={item} value={item}>{item}</SelectItem>
                       ))}
@@ -298,7 +298,7 @@ export default function PaymentForm({ student, expectedAmount, onSubmit, onClose
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                       <SelectItem value="">Không chọn</SelectItem>
+                       {/* <SelectItem value="">Không chọn</SelectItem> */}
                       {LY_DO_KHAU_TRU.map((item) => (
                         <SelectItem key={item} value={item}>{item}</SelectItem>
                       ))}
@@ -342,5 +342,7 @@ export default function PaymentForm({ student, expectedAmount, onSubmit, onClose
     </Form>
   );
 }
+
+    
 
     
