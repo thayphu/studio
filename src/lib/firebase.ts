@@ -8,12 +8,12 @@ import { getFirestore } from "firebase/firestore";
 // Your web app's Firebase configuration
 // IMPORTANT: Replace with your actual Firebase project configuration
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_AUTH_DOMAIN",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_STORAGE_BUCKET",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "YOUR_API_KEY", // PASTE YOUR ACTUAL API KEY HERE
+  authDomain: "YOUR_AUTH_DOMAIN", // PASTE YOUR ACTUAL AUTH DOMAIN HERE
+  projectId: "YOUR_PROJECT_ID", // PASTE YOUR ACTUAL PROJECT ID HERE
+  storageBucket: "YOUR_STORAGE_BUCKET", // PASTE YOUR ACTUAL STORAGE BUCKET HERE
+  messagingSenderId: "YOUR_MESSAGING_SENDER_ID", // PASTE YOUR ACTUAL MESSAGING SENDER ID HERE
+  appId: "YOUR_APP_ID" // PASTE YOUR ACTUAL APP ID HERE
 };
 
 // Initialize Firebase
@@ -27,3 +27,4 @@ if (!getApps().length) {
 const db = getFirestore(app);
 
 export { app, db };
+
