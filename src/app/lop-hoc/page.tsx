@@ -33,6 +33,7 @@ export default function LopHocPage() {
       return addClass(params.newClassData, params.classId);
     },
     onMutate: async (params) => {
+      console.log('addClassMutation onMutate called with:', params);
       await queryClient.cancelQueries({ queryKey: ['classes'] });
       const previousClasses = queryClient.getQueryData<LopHoc[]>(['classes']);
       const optimisticClass: LopHoc = {
@@ -42,10 +43,10 @@ export default function LopHocPage() {
         trangThai: 'Đang hoạt động',
       };
       queryClient.setQueryData<LopHoc[]>(['classes'], (old = []) => [...old, optimisticClass].sort((a, b) => a.tenLop.localeCompare(b.tenLop, 'vi')));
-      // setIsModalOpen(false); // Don't close modal immediately in onMutate
       return { previousClasses };
     },
     onError: (err, variables, context) => {
+      console.error('addClassMutation onError called. Error:', err, 'Variables:', variables);
       if (context?.previousClasses) {
         queryClient.setQueryData<LopHoc[]>(['classes'], context.previousClasses);
       }
@@ -56,13 +57,16 @@ export default function LopHocPage() {
       });
     },
     onSuccess: (data) => {
+      console.log('addClassMutation onSuccess called. Data:', data);
       toast({
         title: "Thêm lớp thành công!",
         description: `Lớp "${data.tenLop}" đã được thêm vào hệ thống.`,
       });
-      setIsModalOpen(false); // Close modal here, after successful mutation
+      setIsModalOpen(false);
+      console.log('addClassMutation onSuccess: Modal should be closed and toast shown.');
     },
     onSettled: () => {
+      console.log('addClassMutation onSettled called.');
       queryClient.invalidateQueries({ queryKey: ['classes'] });
     },
   });
@@ -78,8 +82,6 @@ export default function LopHocPage() {
       queryClient.setQueryData<LopHoc[]>(['classes'], (old = []) =>
         old.map(cls => cls.id === updatedClass.id ? updatedClass : cls).sort((a,b) => a.tenLop.localeCompare(b.tenLop, 'vi'))
       );
-      setIsModalOpen(false); // Close modal for edit as well
-      setEditingClass(null);
       return { previousClasses };
     },
     onError: (err, variables, context) => {
@@ -97,8 +99,8 @@ export default function LopHocPage() {
         title: "Cập nhật thành công!",
         description: `Lớp "${variables.tenLop}" đã được cập nhật.`,
       });
-      // setIsModalOpen(false); // Already closed in onMutate for edit
-      // setEditingClass(null);
+      setIsModalOpen(false); 
+      setEditingClass(null);
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['classes'] });
@@ -142,6 +144,7 @@ export default function LopHocPage() {
     } else {
       const classId = generateId('lop_');
       const { id, soHocSinhHienTai, trangThai, ...newClassData } = data;
+      console.log('Calling addClassMutation.mutate with:', { newClassData, classId });
       addClassMutation.mutate({ newClassData, classId });
     }
   };
@@ -265,6 +268,3 @@ const CardSkeleton = () => (
     </div>
   </div>
 );
-
-
-    
