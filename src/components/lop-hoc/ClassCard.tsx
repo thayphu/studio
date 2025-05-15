@@ -11,11 +11,11 @@ interface ClassCardProps {
   lopHoc: LopHoc;
   onEdit: (lopHoc: LopHoc) => void;
   onDelete: (id: string) => void;
-  // onAddStudent: (lopHocId: string) => void;
+  onAddStudent: (lopHocId: string) => void;
   // onCloseClass: (lopHocId: string) => void;
 }
 
-export default function ClassCard({ lopHoc, onEdit, onDelete }: ClassCardProps) {
+export default function ClassCard({ lopHoc, onEdit, onDelete, onAddStudent }: ClassCardProps) {
   let tongHocPhi: number;
   let hocPhiBuoi: number;
 
@@ -104,7 +104,7 @@ export default function ClassCard({ lopHoc, onEdit, onDelete }: ClassCardProps) 
         <Button variant="destructive" size="icon" onClick={() => onDelete(lopHoc.id)} aria-label={TEXTS_VI.deleteButton} className="flex-1 min-w-[40px]">
           <Trash2 className="h-4 w-4" />
         </Button>
-        <Button variant="secondary" size="icon" aria-label={TEXTS_VI.addStudentButton} className="flex-1 min-w-[40px]">
+        <Button variant="secondary" size="icon" onClick={() => onAddStudent(lopHoc.id)} aria-label={TEXTS_VI.addStudentButton} className="flex-1 min-w-[40px]">
           <UserPlus className="h-4 w-4" />
         </Button>
         {lopHoc.trangThai === 'Đang hoạt động' && (

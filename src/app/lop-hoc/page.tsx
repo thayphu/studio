@@ -10,6 +10,7 @@ import ClassCard from '@/components/lop-hoc/ClassCard';
 import type { LopHoc } from '@/lib/types';
 import { TEXTS_VI } from '@/lib/constants';
 import DashboardLayout from '../dashboard-layout';
+import { useToast } from '@/hooks/use-toast';
 
 // Mock data for LopHoc
 const initialClasses: LopHoc[] = [
@@ -25,6 +26,7 @@ export default function LopHocPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClass, setEditingClass] = useState<LopHoc | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const { toast } = useToast();
 
   useEffect(() => {
     // Simulate data fetching
@@ -48,6 +50,11 @@ export default function LopHocPage() {
   const handleDeleteClass = (classId: string) => {
     // Add confirmation dialog here in a real app
     setClasses(prevClasses => prevClasses.filter(c => c.id !== classId));
+    toast({
+      title: "Đã xóa lớp học",
+      description: `Lớp học với ID ${classId} đã được xóa.`,
+      variant: "default",
+    });
   };
 
   const handleOpenEditModal = (lopHoc: LopHoc) => {
@@ -58,6 +65,16 @@ export default function LopHocPage() {
   const handleOpenAddModal = () => {
     setEditingClass(null);
     setIsModalOpen(true);
+  };
+
+  const handleAddStudentToClass = (classId: string) => {
+    // For now, just show a toast. Later, this would open a student add form/modal.
+    toast({
+      title: "Chức năng đang phát triển",
+      description: `Sẵn sàng thêm học sinh vào lớp ${classId}.`,
+      variant: "default",
+    });
+    console.log("Attempting to add student to class:", classId);
   };
 
   if (isLoading) {
@@ -76,7 +93,7 @@ export default function LopHocPage() {
             <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
               <DialogTrigger asChild>
                 <Button onClick={handleOpenAddModal} size="icon" aria-label={TEXTS_VI.addClassTitle}>
-                  <PlusCircle className="h-4 w-4" />
+                  <PlusCircle />
                 </Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-[600px]">
@@ -104,7 +121,8 @@ export default function LopHocPage() {
                 key={lopHoc.id} 
                 lopHoc={lopHoc} 
                 onEdit={() => handleOpenEditModal(lopHoc)}
-                onDelete={() => handleDeleteClass(lopHoc.id)} 
+                onDelete={() => handleDeleteClass(lopHoc.id)}
+                onAddStudent={() => handleAddStudentToClass(lopHoc.id)}
               />
             ))}
           </div>
