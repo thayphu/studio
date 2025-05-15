@@ -5,6 +5,8 @@ export const ALL_DAYS_OF_WEEK: DayOfWeek[] = ['Thứ 2', 'Thứ 3', 'Thứ 4', '
 export type PaymentCycle = '1 tháng' | '8 buổi' | '10 buổi' | 'Theo ngày';
 export const ALL_PAYMENT_CYCLES: PaymentCycle[] = ['1 tháng', '8 buổi', '10 buổi', 'Theo ngày'];
 
+export type PaymentMethod = 'Tiền mặt' | 'Chuyển khoản' | 'Khác';
+export const ALL_PAYMENT_METHODS: PaymentMethod[] = ['Tiền mặt', 'Chuyển khoản', 'Khác'];
 
 export interface LopHoc {
   id: string;
@@ -36,15 +38,20 @@ export interface HocSinh {
 }
 
 export interface HocPhiGhiNhan {
-  id: string;
+  id: string; // Tự động tạo khi ghi nhận
   hocSinhId: string;
   hocSinhTen?: string; // Denormalized
+  lopId?: string; 
   lopTen?: string; // Denormalized
-  ngayDong: string; // ISO Date string
-  soTien: number;
-  chuKyDaDong: PaymentCycle;
-  hoaDonSo: string; // YYYY-XXX
+  ngayThanhToan: string; // ISO Date string, from form
+  soTienDaDong: number; // from form
+  soTienTheoChuKy: number; // expected tuition fee for the cycle
+  phuongThucThanhToan: PaymentMethod; // from form
+  chuKyDongPhi: PaymentCycle; // from student/class
+  ghiChu?: string; // from form
+  hoaDonSo?: string; // Tự động tạo dạng YYYY-XXXX
 }
+
 
 export type AttendanceStatus = 'Có mặt' | 'Vắng mặt' | 'GV nghỉ' | 'Học bù';
 
@@ -55,3 +62,4 @@ export interface DiemDanhGhiNhan {
   ngayDiemDanh: string; // ISO Date string
   trangThai: AttendanceStatus;
 }
+

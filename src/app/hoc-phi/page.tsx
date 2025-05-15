@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import DashboardLayout from '../dashboard-layout';
 import { TEXTS_VI } from '@/lib/constants';
 import { Download, CreditCard, FileText, Edit2, Trash2, RefreshCw, Search } from 'lucide-react';
@@ -9,15 +9,18 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getStudents } from '@/services/hocSinhService';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
+import { getStudents, updateStudent } from '@/services/hocSinhService';
 import { getClasses } from '@/services/lopHocService';
-import type { HocSinh, LopHoc } from '@/lib/types';
+import type { HocSinh, LopHoc, HocPhiGhiNhan } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { formatCurrencyVND } from '@/lib/utils';
+import { formatCurrencyVND, generateReceiptNumber } from '@/lib/utils';
+import PaymentForm from '@/components/hoc-phi/PaymentForm';
+// import { recordPayment } from '@/services/hocPhiService'; // To be created
 
 const StudentRowSkeleton = () => (
   <TableRow>
@@ -53,7 +56,6 @@ const calculateTuitionForStudent = (student: HocSinh, classesMap: Map<string, Lo
   } else if (studentClass.chuKyDongPhi === '1 tháng' || studentClass.chuKyDongPhi === 'Theo ngày') {
     tongHocPhi = studentClass.hocPhi;
   } else {
-    // Fallback for any other undefined cycles, or if hocPhi itself is the total
     tongHocPhi = studentClass.hocPhi; 
   }
   return tongHocPhi;
@@ -65,6 +67,8 @@ export default function HocPhiPage() {
   const queryClient = useQueryClient();
   const [searchTermUnpaid, setSearchTermUnpaid] = useState('');
   const [searchTermPaid, setSearchTermPaid] = useState('');
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [studentForPayment, setStudentForPayment] = useState<HocSinh | null>(null);
 
   const { data: students = [], isLoading: isLoadingStudents, isError: isErrorStudents, error: errorStudents } = useQuery<HocSinh[], Error>({
     queryKey: ['studentsForTuition'],
@@ -102,18 +106,76 @@ export default function HocPhiPage() {
         (student.tenLop && student.tenLop.toLowerCase().includes(searchTermPaid.toLowerCase()))
       ).map(student => ({
         ...student,
-        // Placeholder for actual paid amount, for now, we can use class fee
         paidAmount: calculateTuitionForStudent(student, classesMap), 
       }));
   }, [students, classesMap, searchTermPaid]);
 
+  const recordPaymentMutation = useMutation({
+    mutationFn: async (paymentData: { studentId: string, paymentDetails: Omit<HocPhiGhiNhan, 'id' | 'hocSinhId' | 'hocSinhTen' | 'lopTen' | 'hoaDonSo'> }) => {
+      // Placeholder for actual service call
+      // await recordPayment(paymentData.studentId, paymentData.paymentDetails); 
+      // For now, directly update student status
+      await updateStudent(paymentData.studentId, { 
+        tinhTrangThanhToan: 'Đã thanh toán',
+        ngayThanhToanGanNhat: paymentData.paymentDetails.ngayThanhToan 
+      });
+      return paymentData;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['studentsForTuition'] });
+      setIsPaymentModalOpen(false);
+      setStudentForPayment(null);
+      toast({
+        title: "Thanh toán thành công!",
+        description: `Đã ghi nhận thanh toán cho học sinh.`,
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Lỗi khi ghi nhận thanh toán",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
 
-  const handlePayment = (student: HocSinh) => {
-    toast({
-      title: "Xử lý thanh toán",
-      description: `Chức năng thanh toán cho học sinh ${student.hoTen} đang được phát triển.`,
-    });
+
+  const handleOpenPaymentModal = (student: HocSinh) => {
+    setStudentForPayment(student);
+    setIsPaymentModalOpen(true);
   };
+
+  const handleProcessPayment = (paymentDetails: Omit<HocPhiGhiNhan, 'id' | 'hocSinhId' | 'hocSinhTen' | 'lopTen' | 'hoaDonSo'>) => {
+    if (!studentForPayment) return;
+    
+    // Here you would normally call a service to save the HocPhiGhiNhan record
+    // and then update the student's status.
+    // For now, we will directly call the mutation to update the student.
+    
+    recordPaymentMutation.mutate({ studentId: studentForPayment.id, paymentDetails });
+    
+    // Example of creating a full HocPhiGhiNhan object if needed
+    // const fullPaymentRecord: HocPhiGhiNhan = {
+    //   id: generateId('txn_'), // Or generated by backend
+    //   hocSinhId: studentForPayment.id,
+    //   hocSinhTen: studentForPayment.hoTen,
+    //   lopId: studentForPayment.lopId,
+    //   lopTen: studentForPayment.tenLop,
+    //   hoaDonSo: generateReceiptNumber(),
+    //   ...paymentDetails
+    // };
+    // console.log("Payment to be processed:", fullPaymentRecord);
+    // toast({
+    //   title: "Xử lý thanh toán",
+    //   description: `Đang xử lý thanh toán cho ${studentForPayment.hoTen}. Dữ liệu: ${JSON.stringify(paymentDetails)}`,
+    // });
+    // setIsPaymentModalOpen(false);
+    // setStudentForPayment(null);
+    // // Placeholder: update student status and refetch data
+    // // In a real app, you'd make an API call here.
+    // queryClient.invalidateQueries({ queryKey: ['studentsForTuition'] });
+  };
+
 
   const handleViewReceipt = (student: HocSinh) => {
     toast({
@@ -155,6 +217,8 @@ export default function HocPhiPage() {
       </DashboardLayout>
     );
   }
+  
+  const currentExpectedTuition = studentForPayment ? calculateTuitionForStudent(studentForPayment, classesMap) : 0;
 
   return (
     <DashboardLayout>
@@ -223,7 +287,7 @@ export default function HocPhiPage() {
                           </TableCell>
                           <TableCell>{formatCurrencyVND(student.expectedTuitionFee ?? undefined)}</TableCell>
                           <TableCell className="text-right">
-                            <Button onClick={() => handlePayment(student)} size="sm">
+                            <Button onClick={() => handleOpenPaymentModal(student)} size="sm">
                               <CreditCard className="mr-2 h-4 w-4" /> Thanh toán
                             </Button>
                           </TableCell>
@@ -281,7 +345,7 @@ export default function HocPhiPage() {
                           <TableCell className="font-medium text-primary">{student.hoTen}</TableCell>
                           <TableCell>{student.tenLop || 'N/A'}</TableCell>
                           <TableCell>{student.ngayThanhToanGanNhat ? new Date(student.ngayThanhToanGanNhat).toLocaleDateString('vi-VN') : 'N/A'}</TableCell>
-                          <TableCell>{formatCurrencyVND(student.paidAmount ?? undefined)}</TableCell> {/* Placeholder for paid amount */}
+                          <TableCell>{formatCurrencyVND(student.paidAmount ?? undefined)}</TableCell>
                           <TableCell className="text-right">
                             <div className="flex gap-2 justify-end">
                               <Button variant="outline" size="icon" onClick={() => handleViewReceipt(student)} aria-label="Xem biên nhận">
@@ -304,6 +368,30 @@ export default function HocPhiPage() {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {studentForPayment && (
+          <Dialog open={isPaymentModalOpen} onOpenChange={(isOpen) => {
+            setIsPaymentModalOpen(isOpen);
+            if (!isOpen) setStudentForPayment(null);
+          }}>
+            <DialogContent className="sm:max-w-[600px]">
+              <DialogHeader>
+                <DialogTitle>Thanh toán học phí cho {studentForPayment.hoTen}</DialogTitle>
+              </DialogHeader>
+              <PaymentForm 
+                student={studentForPayment}
+                expectedAmount={currentExpectedTuition ?? 0}
+                onSubmit={handleProcessPayment}
+                onClose={() => {
+                  setIsPaymentModalOpen(false);
+                  setStudentForPayment(null);
+                }}
+                isSubmitting={recordPaymentMutation.isPending}
+              />
+            </DialogContent>
+          </Dialog>
+        )}
+
       </div>
     </DashboardLayout>
   );
