@@ -33,13 +33,8 @@ export default function LopHocPage() {
       return addClass(params.newClassData, params.classId);
     },
     onMutate: async (params) => {
-      // Cancel any outgoing refetches (so they don't overwrite our optimistic update)
       await queryClient.cancelQueries({ queryKey: ['classes'] });
-
-      // Snapshot the previous value
       const previousClasses = queryClient.getQueryData<LopHoc[]>(['classes']);
-
-      // Optimistically update to the new value
       const optimisticClass: LopHoc = {
         ...params.newClassData,
         id: params.classId,
@@ -47,14 +42,10 @@ export default function LopHocPage() {
         trangThai: 'Đang hoạt động',
       };
       queryClient.setQueryData<LopHoc[]>(['classes'], (old = []) => [...old, optimisticClass].sort((a, b) => a.tenLop.localeCompare(b.tenLop, 'vi')));
-      
-      setIsModalOpen(false); // Close modal immediately
-
-      // Return a context object with the snapshotted value
+      // setIsModalOpen(false); // Don't close modal immediately in onMutate
       return { previousClasses };
     },
     onError: (err, variables, context) => {
-      // If the mutation fails, use the context returned from onMutate to roll back
       if (context?.previousClasses) {
         queryClient.setQueryData<LopHoc[]>(['classes'], context.previousClasses);
       }
@@ -69,11 +60,9 @@ export default function LopHocPage() {
         title: "Thêm lớp thành công!",
         description: `Lớp "${data.tenLop}" đã được thêm vào hệ thống.`,
       });
-      // No need to close modal here as it's closed in onMutate
-      // No need to invalidate queries here if we rely on onSettled, or if server data matches optimistic update
+      setIsModalOpen(false); // Close modal here, after successful mutation
     },
-    onSettled: (data, error, variables, context) => {
-      // Always refetch after error or success:
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['classes'] });
     },
   });
@@ -89,7 +78,7 @@ export default function LopHocPage() {
       queryClient.setQueryData<LopHoc[]>(['classes'], (old = []) =>
         old.map(cls => cls.id === updatedClass.id ? updatedClass : cls).sort((a,b) => a.tenLop.localeCompare(b.tenLop, 'vi'))
       );
-      setIsModalOpen(false);
+      setIsModalOpen(false); // Close modal for edit as well
       setEditingClass(null);
       return { previousClasses };
     },
@@ -108,6 +97,8 @@ export default function LopHocPage() {
         title: "Cập nhật thành công!",
         description: `Lớp "${variables.tenLop}" đã được cập nhật.`,
       });
+      // setIsModalOpen(false); // Already closed in onMutate for edit
+      // setEditingClass(null);
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['classes'] });
@@ -156,7 +147,6 @@ export default function LopHocPage() {
   };
   
   const handleDeleteClass = (classId: string) => {
-    // Add confirmation dialog here in a real app
     deleteClassMutation.mutate(classId);
   };
 
@@ -186,7 +176,7 @@ export default function LopHocPage() {
         <div className="flex flex-col items-center justify-center h-full text-red-500">
           <p>Lỗi tải danh sách lớp học: {error.message}</p>
           <Button onClick={() => queryClient.invalidateQueries({ queryKey: ['classes'] })} className="mt-4">
-            <RefreshCw className="mr-2" /> Thử lại
+            <RefreshCw className="mr-2 h-4 w-4" /> Thử lại
           </Button>
         </div>
       </DashboardLayout>
@@ -204,10 +194,10 @@ export default function LopHocPage() {
             </Button>
             <Dialog open={isModalOpen} onOpenChange={(open) => {
               setIsModalOpen(open);
-              if (!open) setEditingClass(null); // Reset editingClass when dialog closes
+              if (!open) setEditingClass(null); 
             }}>
               <DialogTrigger asChild>
-                <Button onClick={handleOpenAddModal} aria-label={TEXTS_VI.addClassTitle}>
+                 <Button onClick={handleOpenAddModal} aria-label={TEXTS_VI.addClassTitle}>
                   <PlusCircle className="mr-2 h-4 w-4" /> {TEXTS_VI.addClassTitle}
                 </Button>
               </DialogTrigger>
@@ -275,3 +265,6 @@ const CardSkeleton = () => (
     </div>
   </div>
 );
+
+
+    
