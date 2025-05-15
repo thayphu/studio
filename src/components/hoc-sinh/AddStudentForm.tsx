@@ -45,19 +45,22 @@ const studentFormSchema = z.object({
   lopId: z.string().min(1, { message: "Vui lòng chọn lớp học." }),
   ngayDangKy: z.date({ required_error: "Ngày đăng ký không được để trống." }),
   chuKyThanhToan: z.enum(ALL_PAYMENT_CYCLES as [PaymentCycle, ...PaymentCycle[]], { message: "Chu kỳ thanh toán không hợp lệ." }),
+  // id is generated, not part of the form input for creation
 });
 
-type StudentFormValues = z.infer<typeof studentFormSchema>;
+// Values that the form will handle directly
+type StudentFormInputValues = z.infer<typeof studentFormSchema>;
 
+// Props for the form component
 interface AddStudentFormProps {
-  onSubmit: (data: HocSinh) => void;
+  onSubmit: (data: Omit<HocSinh, 'tinhTrangThanhToan' | 'tenLop'>) => void; // onSubmit now expects an object that includes the ID
   onClose: () => void;
-  existingClasses: LopHoc[]; // Changed from optional, must provide classes
+  existingClasses: LopHoc[];
 }
 
 export default function AddStudentForm({ onSubmit, onClose, existingClasses }: AddStudentFormProps) {
   const { toast } = useToast();
-  const form = useForm<StudentFormValues>({
+  const form = useForm<StudentFormInputValues>({
     resolver: zodResolver(studentFormSchema),
     defaultValues: {
       hoTen: "",
@@ -65,7 +68,7 @@ export default function AddStudentForm({ onSubmit, onClose, existingClasses }: A
       diaChi: "",
       lopId: "",
       ngayDangKy: new Date(),
-      chuKyThanhToan: "1 tháng", // Default, will be updated
+      chuKyThanhToan: "1 tháng", 
     },
   });
 
@@ -80,21 +83,18 @@ export default function AddStudentForm({ onSubmit, onClose, existingClasses }: A
     }
   }, [selectedLopId, existingClasses, form]);
 
-  function handleSubmit(data: StudentFormValues) {
-    const selectedClass = existingClasses.find(cls => cls.id === data.lopId);
-    const newStudent: HocSinh = {
-      id: generateStudentId(),
+  function handleSubmit(data: StudentFormInputValues) {
+    const studentId = generateStudentId(); // Generate ID here
+    const submissionData: Omit<HocSinh, 'tinhTrangThanhToan' | 'tenLop'> = {
+      id: studentId,
       ...data,
       ngaySinh: data.ngaySinh.toISOString(),
       ngayDangKy: data.ngayDangKy.toISOString(),
-      tinhTrangThanhToan: "Chưa thanh toán", // Default status
-      tenLop: selectedClass?.tenLop, // Store class name
-      // chuKyThanhToan is already in data from form
     };
-    onSubmit(newStudent);
+    onSubmit(submissionData);
     toast({
       title: "Thêm học sinh thành công!",
-      description: `Học sinh "${newStudent.hoTen}" đã được thêm vào hệ thống với mã HS: ${newStudent.id}.`,
+      description: `Học sinh "${submissionData.hoTen}" đã được thêm vào hệ thống với mã HS: ${submissionData.id}.`,
       variant: "default",
     });
   }

@@ -42,14 +42,22 @@ export default function HocSinhPage() {
   
   const filteredStudents = getStudentDisplayList(studentsList).filter(student =>
     student.hoTen.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    student.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    student.id.toLowerCase().includes(searchTerm.toLowerCase()) || // Search by student ID
     (student.tenLop && student.tenLop.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  const handleAddStudent = (newStudent: HocSinh) => {
+  const handleAddStudent = (newStudentData: Omit<HocSinh, 'id' | 'tinhTrangThanhToan' | 'tenLop'>) => {
+    const selectedClass = mockClasses.find(cls => cls.id === newStudentData.lopId);
+    const newStudent: HocSinh = {
+      ...newStudentData,
+      id: newStudentData.id, // ID is now part of newStudentData passed from form
+      tinhTrangThanhToan: "Chưa thanh toán",
+      tenLop: selectedClass?.tenLop,
+    };
     setStudentsList(prev => [...prev, newStudent].sort((a,b) => a.hoTen.localeCompare(b.hoTen, 'vi')));
     setIsAddStudentModalOpen(false);
   };
+
 
   const handleOpenAddStudentModal = () => {
     // setEditingStudent(null); 
@@ -122,8 +130,11 @@ export default function HocSinhPage() {
             {filteredStudents.map((student) => (
               <Card key={student.id} className="flex flex-col shadow-lg hover:shadow-xl transition-shadow duration-300">
                 <CardHeader>
-                  <CardTitle className="text-xl font-semibold text-primary">{student.hoTen}</CardTitle>
-                  <CardDescription>Mã HS: {student.id} - Lớp: {student.tenLop || 'N/A'}</CardDescription>
+                  <CardTitle className="text-xl font-semibold text-primary">
+                    {student.hoTen} 
+                    <span className="text-sm font-normal text-muted-foreground ml-2">(Mã HS: {student.id})</span>
+                  </CardTitle>
+                  <CardDescription>Lớp: {student.tenLop || 'N/A'}</CardDescription>
                 </CardHeader>
                 <CardContent className="flex-grow space-y-2 text-sm">
                   <p><strong>Ngày sinh:</strong> {format(new Date(student.ngaySinh), "dd/MM/yyyy", { locale: vi })}</p>
