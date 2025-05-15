@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { PlusCircle, Filter } from 'lucide-react';
+import { PlusCircle, Filter, Edit, Trash2, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import AddClassForm from '@/components/lop-hoc/AddClassForm';
@@ -15,8 +15,8 @@ import { useToast } from '@/hooks/use-toast';
 // Mock data for LopHoc
 const initialClasses: LopHoc[] = [
   { id: 'lop1', tenLop: 'Lớp 1A', lichHoc: ['Thứ 2', 'Thứ 4', 'Thứ 6'], gioHoc: '17:30 - 19:00', diaDiem: 'Phòng A101', hocPhi: 1200000, chuKyDongPhi: '1 tháng', soHocSinhHienTai: 25, trangThai: 'Đang hoạt động' },
-  { id: 'lop2', tenLop: 'Lớp Tiếng Anh Giao Tiếp', lichHoc: ['Thứ 3', 'Thứ 5'], gioHoc: '18:00 - 19:30', diaDiem: 'Phòng B203', hocPhi: 800000, chuKyDongPhi: '8 buổi', soHocSinhHienTai: 15, trangThai: 'Đang hoạt động' },
-  { id: 'lop3', tenLop: 'Luyện thi IELTS', lichHoc: ['Thứ 7', 'Chủ Nhật'], gioHoc: '09:00 - 11:00', diaDiem: 'Phòng C305', hocPhi: 2500000, chuKyDongPhi: '10 buổi', soHocSinhHienTai: 10, trangThai: 'Đã đóng' },
+  { id: 'lop2', tenLop: 'Lớp Tiếng Anh Giao Tiếp', lichHoc: ['Thứ 3', 'Thứ 5'], gioHoc: '18:00 - 19:30', diaDiem: 'Phòng B203', hocPhi: 100000, chuKyDongPhi: '8 buổi', soHocSinhHienTai: 15, trangThai: 'Đang hoạt động' }, // 100k/buổi * 8 = 800k
+  { id: 'lop3', tenLop: 'Luyện thi IELTS', lichHoc: ['Thứ 7', 'Chủ Nhật'], gioHoc: '09:00 - 11:00', diaDiem: 'Phòng C305', hocPhi: 250000, chuKyDongPhi: '10 buổi', soHocSinhHienTai: 10, trangThai: 'Đã đóng' }, // 250k/buổi * 10 = 2.5M
   { id: 'lop4', tenLop: 'Toán Tư Duy Lớp 3', lichHoc: ['Thứ 2', 'Thứ 5'], gioHoc: '16:00 - 17:30', diaDiem: 'Phòng A102', hocPhi: 1000000, chuKyDongPhi: '1 tháng', soHocSinhHienTai: 18, trangThai: 'Đang hoạt động' },
 ];
 
@@ -68,13 +68,13 @@ export default function LopHocPage() {
   };
 
   const handleAddStudentToClass = (classId: string) => {
-    alert(`DEBUG: Nút "Thêm Học Sinh" cho lớp ${classId} được nhấn.`); // ADDED FOR DEBUGGING
+    alert(`DEBUG from LopHocPage: Adding student to class ${classId}`); // DEBUGGING ALERT
     toast({
       title: "Chức năng đang phát triển",
       description: `Sẵn sàng thêm học sinh vào lớp ${classId}.`,
       variant: "default",
     });
-    console.log("Attempting to add student to class:", classId);
+    console.log("Attempting to add student to class from LopHocPage:", classId);
   };
 
   if (isLoading) {
@@ -88,7 +88,7 @@ export default function LopHocPage() {
           <h1 className="text-3xl font-bold text-foreground">Danh sách Lớp học</h1>
           <div className="flex gap-2">
             <Button variant="outline" size="icon" aria-label="Lọc">
-              <Filter className="h-4 w-4" />
+              <Filter />
             </Button>
             <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
               <DialogTrigger asChild>
