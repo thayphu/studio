@@ -70,13 +70,13 @@ export default function LopHocPage() {
         <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
           <h1 className="text-3xl font-bold text-foreground">Danh sách Lớp học</h1>
           <div className="flex gap-2">
-            <Button variant="outline">
-              <Filter className="mr-2 h-4 w-4" /> Lọc
+            <Button variant="outline" size="icon" aria-label="Lọc">
+              <Filter className="h-4 w-4" />
             </Button>
             <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
               <DialogTrigger asChild>
-                <Button onClick={handleOpenAddModal}>
-                  <PlusCircle className="mr-2 h-4 w-4" /> {TEXTS_VI.addClassTitle}
+                <Button onClick={handleOpenAddModal} size="icon" aria-label={TEXTS_VI.addClassTitle}>
+                  <PlusCircle className="h-4 w-4" />
                 </Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-[600px]">

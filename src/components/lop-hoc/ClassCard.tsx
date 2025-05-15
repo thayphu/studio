@@ -62,19 +62,19 @@ export default function ClassCard({ lopHoc, onEdit, onDelete }: ClassCardProps) 
         </div>
       </CardContent>
       <CardFooter className="flex flex-wrap gap-2 pt-4 border-t">
-        <Button variant="outline" size="sm" onClick={() => onEdit(lopHoc)} className="flex-1 min-w-[80px]">
-          <Edit className="mr-1.5 h-4 w-4" /> {TEXTS_VI.editButton}
+        <Button variant="outline" size="icon" onClick={() => onEdit(lopHoc)} aria-label={TEXTS_VI.editButton} className="flex-1 min-w-[40px]">
+          <Edit className="h-4 w-4" />
         </Button>
-        <Button variant="destructive" size="sm" onClick={() => onDelete(lopHoc.id)} className="flex-1 min-w-[80px]">
-          <Trash2 className="mr-1.5 h-4 w-4" /> {TEXTS_VI.deleteButton}
+        <Button variant="destructive" size="icon" onClick={() => onDelete(lopHoc.id)} aria-label={TEXTS_VI.deleteButton} className="flex-1 min-w-[40px]">
+          <Trash2 className="h-4 w-4" />
         </Button>
         {/* Placeholder for other actions */}
-        <Button variant="secondary" size="sm" className="flex-1 min-w-[80px]">
-          <UserPlus className="mr-1.5 h-4 w-4" /> {TEXTS_VI.addStudentButton}
+        <Button variant="secondary" size="icon" aria-label={TEXTS_VI.addStudentButton} className="flex-1 min-w-[40px]">
+          <UserPlus className="h-4 w-4" />
         </Button>
         {lopHoc.trangThai === 'Đang hoạt động' && (
-          <Button variant="outline" size="sm" className="flex-1 min-w-[80px] border-amber-500 text-amber-600 hover:bg-amber-50">
-            <XCircle className="mr-1.5 h-4 w-4" /> {TEXTS_VI.closeClassButton}
+          <Button variant="outline" size="icon" aria-label={TEXTS_VI.closeClassButton} className="flex-1 min-w-[40px] border-amber-500 text-amber-600 hover:bg-amber-50">
+            <XCircle className="h-4 w-4" />
           </Button>
         )}
       </CardFooter>
