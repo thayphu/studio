@@ -5,7 +5,7 @@ import * as React from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { format } from "date-fns";
+import { format, parse } from "date-fns";
 import { vi } from "date-fns/locale";
 import { CalendarIcon } from "lucide-react";
 
@@ -40,20 +40,17 @@ import { useToast } from "@/hooks/use-toast";
 
 const studentFormSchema = z.object({
   hoTen: z.string().min(3, { message: "Họ tên phải có ít nhất 3 ký tự." }),
-  ngaySinh: z.date({ required_error: "Ngày sinh không được để trống." }),
+  ngaySinh: z.string().regex(/^\d{2}\/\d{2}\/\d{4}$/, { message: "Ngày sinh phải có định dạng DD/MM/YYYY." }),
   diaChi: z.string().min(5, { message: "Địa chỉ phải có ít nhất 5 ký tự." }),
   lopId: z.string().min(1, { message: "Vui lòng chọn lớp học." }),
   ngayDangKy: z.date({ required_error: "Ngày đăng ký không được để trống." }),
   chuKyThanhToan: z.enum(ALL_PAYMENT_CYCLES as [PaymentCycle, ...PaymentCycle[]], { message: "Chu kỳ thanh toán không hợp lệ." }),
-  // id is generated, not part of the form input for creation
 });
 
-// Values that the form will handle directly
 type StudentFormInputValues = z.infer<typeof studentFormSchema>;
 
-// Props for the form component
 interface AddStudentFormProps {
-  onSubmit: (data: Omit<HocSinh, 'tinhTrangThanhToan' | 'tenLop'>) => void; // onSubmit now expects an object that includes the ID
+  onSubmit: (data: Omit<HocSinh, 'tinhTrangThanhToan' | 'tenLop'>) => void;
   onClose: () => void;
   existingClasses: LopHoc[];
 }
@@ -64,7 +61,7 @@ export default function AddStudentForm({ onSubmit, onClose, existingClasses }: A
     resolver: zodResolver(studentFormSchema),
     defaultValues: {
       hoTen: "",
-      ngaySinh: undefined, 
+      ngaySinh: "", 
       diaChi: "",
       lopId: "",
       ngayDangKy: new Date(),
@@ -84,11 +81,38 @@ export default function AddStudentForm({ onSubmit, onClose, existingClasses }: A
   }, [selectedLopId, existingClasses, form]);
 
   function handleSubmit(data: StudentFormInputValues) {
-    const studentId = generateStudentId(); // Generate ID here
+    const studentId = generateStudentId();
+    
+    let ngaySinhISO: string;
+    try {
+      const parsedNgaySinh = parse(data.ngaySinh, "dd/MM/yyyy", new Date());
+      if (isNaN(parsedNgaySinh.getTime())) {
+        throw new Error("Ngày sinh không hợp lệ");
+      }
+       // Check if year is reasonable
+      const year = parsedNgaySinh.getFullYear();
+      if (year < 1900 || year > new Date().getFullYear()) {
+         toast({
+            title: "Năm sinh không hợp lệ",
+            description: "Vui lòng nhập năm sinh trong khoảng 1900 đến năm hiện tại.",
+            variant: "destructive",
+        });
+        return;
+      }
+      ngaySinhISO = parsedNgaySinh.toISOString();
+    } catch (error) {
+      toast({
+        title: "Định dạng ngày sinh không đúng",
+        description: "Vui lòng nhập ngày sinh theo định dạng DD/MM/YYYY và đảm bảo ngày hợp lệ.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const submissionData: Omit<HocSinh, 'tinhTrangThanhToan' | 'tenLop'> = {
       id: studentId,
       ...data,
-      ngaySinh: data.ngaySinh.toISOString(),
+      ngaySinh: ngaySinhISO,
       ngayDangKy: data.ngayDangKy.toISOString(),
     };
     onSubmit(submissionData);
@@ -121,40 +145,11 @@ export default function AddStudentForm({ onSubmit, onClose, existingClasses }: A
             control={form.control}
             name="ngaySinh"
             render={({ field }) => (
-              <FormItem className="flex flex-col">
-                <FormLabel>Ngày sinh</FormLabel>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <FormControl>
-                      <Button
-                        variant={"outline"}
-                        className={cn(
-                          "w-full pl-3 text-left font-normal",
-                          !field.value && "text-muted-foreground"
-                        )}
-                      >
-                        {field.value ? (
-                          format(field.value, "dd/MM/yyyy", { locale: vi })
-                        ) : (
-                          <span>Chọn ngày sinh</span>
-                        )}
-                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                      </Button>
-                    </FormControl>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={field.value}
-                      onSelect={field.onChange}
-                      disabled={(date) =>
-                        date > new Date() || date < new Date("1900-01-01")
-                      }
-                      initialFocus
-                      locale={vi}
-                    />
-                  </PopoverContent>
-                </Popover>
+              <FormItem>
+                <FormLabel>Ngày sinh (DD/MM/YYYY)</FormLabel>
+                <FormControl>
+                  <Input placeholder="Ví dụ: 25/12/2000" {...field} />
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}
@@ -276,3 +271,4 @@ export default function AddStudentForm({ onSubmit, onClose, existingClasses }: A
     </Form>
   );
 }
+
