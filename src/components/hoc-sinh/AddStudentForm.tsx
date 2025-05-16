@@ -5,7 +5,7 @@ import * as React from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { format, parse } from "date-fns";
+import { format, parse, parseISO } from "date-fns";
 import { vi } from "date-fns/locale";
 import { CalendarIcon } from "lucide-react";
 
@@ -47,14 +47,18 @@ const studentFormSchema = z.object({
   lopId: z.string().min(1, { message: "Vui lòng chọn lớp học." }),
   ngayDangKy: z.date({ required_error: "Ngày đăng ký không được để trống." }),
   chuKyThanhToan: z.enum(ALL_PAYMENT_CYCLES as [PaymentCycle, ...PaymentCycle[]], { message: "Chu kỳ thanh toán không hợp lệ." }),
+  // No need for id in form schema, it's generated or comes from initialData
 });
 
 type StudentFormInputValues = z.infer<typeof studentFormSchema>;
 
 interface AddStudentFormProps {
-  onSubmit: (data: Omit<HocSinh, 'tinhTrangThanhToan' | 'tenLop'>) => void;
+  onSubmit: (data: HocSinh) => void; // Now expects full HocSinh for edit, Omit<...> for add
   onClose: () => void;
   existingClasses: LopHoc[];
+  initialData?: HocSinh | null;
+  isEditing?: boolean;
+  isSubmitting?: boolean;
 }
 
 const capitalizeWords = (str: string): string => {
@@ -66,7 +70,7 @@ const capitalizeWords = (str: string): string => {
     .join(' ');
 };
 
-export default function AddStudentForm({ onSubmit, onClose, existingClasses }: AddStudentFormProps) {
+export default function AddStudentForm({ onSubmit, onClose, existingClasses, initialData, isEditing = false, isSubmitting = false }: AddStudentFormProps) {
   const { toast } = useToast();
   const [displayStudentId, setDisplayStudentId] = React.useState('');
 
@@ -84,10 +88,34 @@ export default function AddStudentForm({ onSubmit, onClose, existingClasses }: A
   });
 
   const selectedLopId = form.watch('lopId');
+  const formTitle = isEditing ? "Chỉnh sửa thông tin học sinh" : "Thêm học sinh mới";
+  const submitButtonText = isEditing ? "Lưu thay đổi" : TEXTS_VI.saveButton;
 
   React.useEffect(() => {
-    setDisplayStudentId(generateStudentId());
-  }, []);
+    if (isEditing && initialData) {
+      setDisplayStudentId(initialData.id);
+      form.reset({
+        hoTen: initialData.hoTen,
+        ngaySinh: format(parseISO(initialData.ngaySinh), "dd/MM/yyyy", { locale: vi }),
+        diaChi: initialData.diaChi,
+        soDienThoai: initialData.soDienThoai || "",
+        lopId: initialData.lopId,
+        ngayDangKy: parseISO(initialData.ngayDangKy),
+        chuKyThanhToan: initialData.chuKyThanhToan,
+      });
+    } else if (!isEditing) {
+      setDisplayStudentId(generateStudentId());
+      form.reset({ // Reset to defaults for add mode
+        hoTen: "",
+        ngaySinh: "", 
+        diaChi: "",
+        soDienThoai: "",
+        lopId: "",
+        ngayDangKy: new Date(),
+        chuKyThanhToan: "1 tháng",
+      });
+    }
+  }, [isEditing, initialData, form]);
 
   React.useEffect(() => {
     if (selectedLopId && existingClasses) {
@@ -124,20 +152,26 @@ export default function AddStudentForm({ onSubmit, onClose, existingClasses }: A
       return;
     }
 
-    const submissionData: Omit<HocSinh, 'tinhTrangThanhToan' | 'tenLop'> = {
-      id: displayStudentId,
+    const submissionData: HocSinh = {
+      id: isEditing && initialData ? initialData.id : displayStudentId,
       ...data,
-      hoTen: capitalizeWords(data.hoTen), // Ensure final submission is also capitalized
+      hoTen: capitalizeWords(data.hoTen),
       ngaySinh: ngaySinhISO,
       ngayDangKy: data.ngayDangKy.toISOString(),
-      soDienThoai: data.soDienThoai || undefined, 
+      soDienThoai: data.soDienThoai || undefined,
+      // These fields are only relevant for edit, but kept for type consistency if add mode also sends full HocSinh
+      tenLop: isEditing && initialData ? initialData.tenLop : undefined, 
+      tinhTrangThanhToan: isEditing && initialData ? initialData.tinhTrangThanhToan : "Chưa thanh toán",
+      ngayThanhToanGanNhat: isEditing && initialData ? initialData.ngayThanhToanGanNhat : undefined,
+      soBuoiDaHocTrongChuKy: isEditing && initialData ? initialData.soBuoiDaHocTrongChuKy : undefined,
     };
     onSubmit(submissionData);
-    toast({
-      title: "Thêm học sinh thành công!",
-      description: `Học sinh "${submissionData.hoTen}" đã được thêm vào hệ thống với mã HS: ${submissionData.id}.`,
-      variant: "default",
-    });
+    if (!isEditing) {
+        toast({
+        title: "Thêm học sinh thành công!",
+        description: `Học sinh "${submissionData.hoTen}" đã được thêm với mã HS: ${submissionData.id}.`,
+        });
+    }
   }
 
   return (
@@ -156,7 +190,7 @@ export default function AddStudentForm({ onSubmit, onClose, existingClasses }: A
                     {...field} 
                     onChange={(e) => {
                       const capitalized = capitalizeWords(e.target.value);
-                      field.onChange(capitalized); // Update form state
+                      field.onChange(capitalized);
                     }}
                   />
                 </FormControl>
@@ -165,12 +199,15 @@ export default function AddStudentForm({ onSubmit, onClose, existingClasses }: A
             )}
           />
           <div className="space-y-1">
-              <Label htmlFor="autoGeneratedStudentId">Mã HS (tự động)</Label>
+              <Label htmlFor="autoGeneratedStudentId">Mã HS {isEditing ? "" : "(tự động)"}</Label>
               <p 
                 id="autoGeneratedStudentId" 
-                className="text-sm text-muted-foreground h-10 flex items-center px-3 py-2 border rounded-md bg-muted/50 w-full"
+                className={cn(
+                    "text-sm h-10 flex items-center px-3 py-2 border rounded-md w-full",
+                    isEditing ? "text-muted-foreground bg-muted/50" : "text-foreground"
+                )}
               >
-                  {displayStudentId || 'Đang tạo...'}
+                  {displayStudentId || (isEditing ? initialData?.id : 'Đang tạo...')}
               </p>
           </div>
         </div>
@@ -269,7 +306,7 @@ export default function AddStudentForm({ onSubmit, onClose, existingClasses }: A
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Lớp</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <Select onValueChange={field.onChange} value={field.value}>
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue placeholder="Chọn lớp học" />
@@ -291,7 +328,7 @@ export default function AddStudentForm({ onSubmit, onClose, existingClasses }: A
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Chu kỳ thanh toán</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value} disabled={!selectedLopId}>
+                <Select onValueChange={field.onChange} value={field.value} disabled={!selectedLopId && !isEditing}>
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue placeholder="Chọn chu kỳ (tự động theo lớp)" />
@@ -310,16 +347,14 @@ export default function AddStudentForm({ onSubmit, onClose, existingClasses }: A
         </div>
 
         <div className="flex justify-end gap-2 pt-4">
-          <Button type="button" variant="outline" onClick={onClose}>
+          <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
             {TEXTS_VI.cancelButton}
           </Button>
-          <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground">
-            {TEXTS_VI.saveButton}
+          <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isSubmitting}>
+            {isSubmitting ? "Đang xử lý..." : submitButtonText}
           </Button>
         </div>
       </form>
     </Form>
   );
 }
-
-    

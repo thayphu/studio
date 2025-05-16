@@ -1,6 +1,6 @@
 
 "use client";
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import DashboardLayout from '../dashboard-layout';
 import { Button } from '@/components/ui/button';
 import { PlusCircle, Edit2, Trash2, Search, RefreshCw } from 'lucide-react';
@@ -15,18 +15,18 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
-  AlertDialogTitle as AlertDialogTitleComponent, // Renamed to avoid conflict
+  AlertDialogTitle as AlertDialogTitleComponent,
 } from "@/components/ui/alert-dialog";
 import AddStudentForm from '@/components/hoc-sinh/AddStudentForm';
 import type { HocSinh, LopHoc } from '@/lib/types';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { vi } from "date-fns/locale";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getClasses, recalculateAndUpdateClassStudentCount } from '@/services/lopHocService';
-import { getStudents, addStudent, deleteStudent as deleteStudentService } from '@/services/hocSinhService';
+import { getStudents, addStudent, deleteStudent as deleteStudentService, updateStudent as updateStudentService } from '@/services/hocSinhService';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const StudentRowSkeleton = () => (
@@ -52,6 +52,8 @@ export default function HocSinhPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isAddStudentModalOpen, setIsAddStudentModalOpen] = useState(false);
+  const [isEditStudentModalOpen, setIsEditStudentModalOpen] = useState(false);
+  const [editingStudent, setEditingStudent] = useState<HocSinh | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [studentToDelete, setStudentToDelete] = useState<HocSinh | null>(null);
@@ -66,11 +68,13 @@ export default function HocSinhPage() {
     queryFn: getStudents,
   });
   
-  const filteredStudents = students.filter(student =>
-    student.hoTen.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    student.id.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    (student.tenLop && student.tenLop.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  const filteredStudents = useMemo(() => {
+    return (students || []).filter(student =>
+      student.hoTen.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      student.id.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      (student.tenLop && student.tenLop.toLowerCase().includes(searchTerm.toLowerCase()))
+    );
+  }, [students, searchTerm]);
 
   const addStudentMutation = useMutation({
     mutationFn: (params: { studentData: Omit<HocSinh, 'id' | 'tenLop' | 'tinhTrangThanhToan'>, studentId: string }) => 
@@ -82,7 +86,7 @@ export default function HocSinhPage() {
         queryClient.invalidateQueries({ queryKey: ['classes'] }); 
       }
       setIsAddStudentModalOpen(false);
-      // Toast for success is now handled within AddStudentForm
+      // Toast for success is handled within AddStudentForm
     },
     onError: (error: Error) => {
       toast({
@@ -92,6 +96,37 @@ export default function HocSinhPage() {
       });
     },
   });
+
+  const updateStudentMutation = useMutation({
+    mutationFn: (studentData: HocSinh) => updateStudentService(studentData.id, studentData),
+    onSuccess: async (updatedStudent) => {
+      queryClient.invalidateQueries({ queryKey: ['students'] });
+      // If class was changed, update counts for old and new class
+      if (editingStudent?.lopId !== updatedStudent.lopId) {
+        if (editingStudent?.lopId) {
+          await recalculateAndUpdateClassStudentCount(editingStudent.lopId);
+        }
+        if (updatedStudent.lopId) {
+          await recalculateAndUpdateClassStudentCount(updatedStudent.lopId);
+        }
+        queryClient.invalidateQueries({ queryKey: ['classes'] });
+      }
+      setIsEditStudentModalOpen(false);
+      setEditingStudent(null);
+      toast({
+        title: "Cập nhật thành công!",
+        description: `Thông tin học sinh "${updatedStudent.hoTen}" đã được cập nhật.`,
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Lỗi khi cập nhật học sinh",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
 
   const deleteStudentMutation = useMutation({
     mutationFn: async (params: { studentId: string; lopId?: string }) => {
@@ -123,12 +158,18 @@ export default function HocSinhPage() {
   });
 
 
-  const handleAddStudent = (newStudentDataFromForm: Omit<HocSinh, 'tinhTrangThanhToan' | 'tenLop'>) => {
+  const handleAddStudentSubmit = (newStudentDataFromForm: Omit<HocSinh, 'tinhTrangThanhToan' | 'tenLop'>) => {
     const { id: studentId, ...restOfData } = newStudentDataFromForm;
     addStudentMutation.mutate({ studentData: restOfData, studentId });
   };
 
+  const handleUpdateStudentSubmit = (updatedStudentDataFromForm: HocSinh) => {
+    updateStudentMutation.mutate(updatedStudentDataFromForm);
+  };
+
   const handleOpenAddStudentModal = () => {
+    setEditingStudent(null);
+    setIsEditStudentModalOpen(false);
     setIsAddStudentModalOpen(true);
   };
   
@@ -144,11 +185,16 @@ export default function HocSinhPage() {
   };
   
   const handleEditStudent = (student: HocSinh) => {
-    toast({
-      title: "Tính năng đang phát triển",
-      description: `Chỉnh sửa thông tin học sinh "${student.hoTen}" sẽ được triển khai sau.`,
-    });
+    setEditingStudent(student);
+    setIsAddStudentModalOpen(false);
+    setIsEditStudentModalOpen(true);
   };
+
+  const closeDialogs = () => {
+    setIsAddStudentModalOpen(false);
+    setIsEditStudentModalOpen(false);
+    setEditingStudent(null);
+  }
 
   if (isErrorClasses || isErrorStudents) {
     const combinedError = errorClasses?.message || errorStudents?.message;
@@ -160,7 +206,7 @@ export default function HocSinhPage() {
             if(isErrorClasses) queryClient.invalidateQueries({ queryKey: ['classes'] });
             if(isErrorStudents) queryClient.invalidateQueries({ queryKey: ['students'] });
           }} className="mt-4">
-            <RefreshCw className="mr-2" /> Thử lại
+            <RefreshCw className="mr-2 h-4 w-4" /> Thử lại
           </Button>
         </div>
       </DashboardLayout>
@@ -172,32 +218,44 @@ export default function HocSinhPage() {
       <div className="container mx-auto py-8 px-4 md:px-6">
         <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
           <h1 className="text-3xl font-bold text-foreground">Quản lý Học sinh</h1>
-           <Dialog open={isAddStudentModalOpen} onOpenChange={setIsAddStudentModalOpen}>
-            <DialogTrigger asChild>
-              <Button 
-                onClick={handleOpenAddStudentModal} 
-                disabled={isLoadingClasses || addStudentMutation.isPending}
-              >
-                <PlusCircle className="mr-2 h-4 w-4" /> 
-                {isLoadingClasses ? "Đang tải lớp..." : (addStudentMutation.isPending ? "Đang thêm..." : "Thêm Học sinh")}
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[600px]">
-              <DialogHeader>
-                <DialogTitle>Thêm học sinh mới</DialogTitle>
-              </DialogHeader>
-              {isLoadingClasses ? (
-                <div className="p-6 text-center">Đang tải danh sách lớp...</div>
-              ) : (
-                <AddStudentForm
-                  onSubmit={handleAddStudent}
-                  onClose={() => setIsAddStudentModalOpen(false)}
-                  existingClasses={existingClasses} 
-                />
-              )}
-            </DialogContent>
-          </Dialog>
+          {/* Dialog for Adding Student - Triggered by button */}
+          <DialogTrigger asChild>
+             <Button 
+              onClick={handleOpenAddStudentModal} 
+              disabled={isLoadingClasses || addStudentMutation.isPending || updateStudentMutation.isPending}
+            >
+              <PlusCircle className="mr-2 h-4 w-4" /> 
+              {isLoadingClasses ? "Đang tải lớp..." : "Thêm Học sinh"}
+            </Button>
+          </DialogTrigger>
         </div>
+
+        {/* Combined Dialog for Add/Edit Student */}
+        <Dialog open={isAddStudentModalOpen || isEditStudentModalOpen} onOpenChange={(open) => {
+          if (!open) closeDialogs();
+          // Individual states are set by their respective open handlers
+        }}>
+          <DialogContent className="sm:max-w-[600px]">
+            <DialogHeader>
+              <DialogTitle>
+                {isEditStudentModalOpen && editingStudent ? "Chỉnh sửa thông tin học sinh" : "Thêm học sinh mới"}
+              </DialogTitle>
+            </DialogHeader>
+            {isLoadingClasses && (isAddStudentModalOpen || isEditStudentModalOpen) ? (
+              <div className="p-6 text-center">Đang tải danh sách lớp...</div>
+            ) : ( (isAddStudentModalOpen || (isEditStudentModalOpen && editingStudent)) &&
+              <AddStudentForm
+                onSubmit={isEditStudentModalOpen && editingStudent ? handleUpdateStudentSubmit : handleAddStudentSubmit}
+                onClose={closeDialogs}
+                existingClasses={existingClasses}
+                initialData={editingStudent} 
+                isEditing={isEditStudentModalOpen && !!editingStudent}
+                isSubmitting={addStudentMutation.isPending || updateStudentMutation.isPending}
+              />
+            )}
+          </DialogContent>
+        </Dialog>
+
 
         <div className="mb-6">
           <div className="relative">
@@ -231,13 +289,13 @@ export default function HocSinhPage() {
               {isLoadingStudents ? (
                 <>
                   {[...Array(5)].map((_, i) => ( 
-                    <StudentRowSkeleton key={i} />
+                    <StudentRowSkeleton key={`student-skel-${i}`} />
                   ))}
                 </>
               ) : filteredStudents.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={9} className="h-24 text-center text-muted-foreground">
-                    {students.length > 0 ? "Không tìm thấy học sinh nào khớp với tìm kiếm." : "Chưa có học sinh nào. Hãy thêm học sinh mới!"}
+                    {(students || []).length > 0 ? "Không tìm thấy học sinh nào khớp với tìm kiếm." : "Chưa có học sinh nào. Hãy thêm học sinh mới!"}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -248,7 +306,7 @@ export default function HocSinhPage() {
                     <TableCell className="font-medium text-primary">{student.hoTen}</TableCell>
                     <TableCell>{student.tenLop || 'N/A'}</TableCell>
                     <TableCell>{student.soDienThoai || 'N/A'}</TableCell>
-                    <TableCell>{format(new Date(student.ngayDangKy), "dd/MM/yyyy", { locale: vi })}</TableCell>
+                    <TableCell>{format(parseISO(student.ngayDangKy), "dd/MM/yyyy", { locale: vi })}</TableCell>
                     <TableCell>{student.chuKyThanhToan}</TableCell>
                     <TableCell>
                       <Badge variant={student.tinhTrangThanhToan === 'Đã thanh toán' ? 'default' : (student.tinhTrangThanhToan === 'Chưa thanh toán' ? 'secondary' : 'destructive')}>
@@ -261,7 +319,7 @@ export default function HocSinhPage() {
                           variant="outline" 
                           size="icon" 
                           onClick={() => handleEditStudent(student)}
-                          disabled={deleteStudentMutation.isPending || addStudentMutation.isPending}
+                          disabled={deleteStudentMutation.isPending || addStudentMutation.isPending || updateStudentMutation.isPending}
                           aria-label="Sửa học sinh"
                         >
                           <Edit2 className="h-4 w-4" />
@@ -312,4 +370,3 @@ export default function HocSinhPage() {
     </DashboardLayout>
   );
 }
-
