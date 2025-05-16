@@ -31,7 +31,7 @@ import ClassAttendanceCard, { ClassAttendanceCardSkeleton } from '@/components/d
 import { format, parse } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle as ShadCardTitle } from '@/components/ui/card'; // Renamed CardTitle to avoid conflict if any
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle as ShadCardTitle } from '@/components/ui/card'; 
 import { Badge } from '@/components/ui/badge';
 
 
@@ -113,26 +113,33 @@ export default function DiemDanhPage() {
       await saveAttendance(data.lop.id, data.date, attendanceData);
       
       console.log(`[DiemDanhPage] Attempting to create GiaoVienVangRecord for class: ${data.lop.tenLop}`);
-      await createGiaoVienVangRecord(data.lop.id, data.lop.tenLop, data.date); 
-      console.log(`[DiemDanhPage] markTeacherAbsentMutation finished creating GiaoVienVangRecord for class: ${data.lop.tenLop}`);
-      return data; 
+      const createdRecord = await createGiaoVienVangRecord(data.lop.id, data.lop.tenLop, data.date); 
+      console.log(`[DiemDanhPage] markTeacherAbsentMutation finished. Created GiaoVienVangRecord:`, createdRecord);
+      return { ...data, createdRecord };
     },
-    onSuccess: (data) => {
-      toast({
-        title: "Đã ghi nhận GV vắng",
-        description: `Buổi học ngày ${format(data.date, 'dd/MM/yyyy')} của lớp ${data.lop.tenLop} đã được ghi nhận là GV vắng và một yêu cầu học bù đã được tạo.`,
-      });
-      queryClient.invalidateQueries({ queryKey: ['attendance', data.lop.id, format(data.date, 'yyyyMMdd')] });
-      queryClient.invalidateQueries({ queryKey: ['studentsInClass', data.lop.id] });
+    onSuccess: (result) => { // result is { lop: LopHoc; date: Date; createdRecord: GiaoVienVangRecord | null }
+      if (result.createdRecord && result.createdRecord.id) { // Check if a new record was actually created by the service
+        toast({
+          title: "Đã ghi nhận GV vắng",
+          description: `Buổi học ngày ${format(result.date, 'dd/MM/yyyy')} của lớp ${result.lop.tenLop} đã được ghi nhận là GV vắng và một yêu cầu học bù đã được tạo.`,
+        });
+      } else {
+         toast({
+          title: "GV Vắng (Đã tồn tại)",
+          description: `Buổi học ngày ${format(result.date, 'dd/MM/yyyy')} của lớp ${result.lop.tenLop} đã được cập nhật là GV vắng. Yêu cầu học bù cho ngày này đã tồn tại.`,
+        });
+      }
+      queryClient.invalidateQueries({ queryKey: ['attendance', result.lop.id, format(result.date, 'yyyyMMdd')] });
+      queryClient.invalidateQueries({ queryKey: ['studentsInClass', result.lop.id] });
       queryClient.invalidateQueries({ queryKey: ['pendingMakeupClasses'] }); 
-      console.log(`[DiemDanhPage] markTeacherAbsentMutation onSuccess for class ${data.lop.tenLop}. Invalidated pendingMakeupClasses query.`);
+      console.log(`[DiemDanhPage] markTeacherAbsentMutation onSuccess for class ${result.lop.tenLop}. Invalidated pendingMakeupClasses query.`);
     },
     onError: (error: Error, variables) => {
       toast({
         title: `Lỗi khi ghi nhận GV vắng cho lớp ${variables.lop.tenLop}`,
         description: `${error.message}. Hãy kiểm tra console của server Next.js để biết chi tiết, đặc biệt là lỗi liên quan đến việc tạo bản ghi học bù trong Firestore (ví dụ: PERMISSION_DENIED hoặc lỗi service).`,
         variant: "destructive",
-        duration: 10000, // Longer duration for more complex error message
+        duration: 10000, 
       });
       console.error(`[DiemDanhPage] Error in markTeacherAbsentMutation for class ${variables.lop.tenLop}:`, error);
     },

@@ -1,7 +1,7 @@
 
 'use server';
 import { db } from '@/lib/firebase';
-import { collection, addDoc, query, where, getDocs, Timestamp, orderBy, serverTimestamp as firestoreServerTimestamp } from "firebase/firestore"; // Added serverTimestamp
+import { collection, addDoc, query, where, getDocs, Timestamp, orderBy, serverTimestamp as firestoreServerTimestamp } from "firebase/firestore";
 import type { GiaoVienVangRecord, MakeupClassStatus } from '@/lib/types';
 import { format } from 'date-fns';
 
@@ -11,40 +11,67 @@ export const createGiaoVienVangRecord = async (
   classId: string,
   className: string,
   originalDate: Date
-): Promise<GiaoVienVangRecord> => {
-  console.log(`[giaoVienVangService] Attempting to create GiaoVienVangRecord for classId: ${classId}, className: ${className}, originalDate: ${originalDate.toISOString()}`);
+): Promise<GiaoVienVangRecord | null> => { // Return null if duplicate prevented or error
   const formattedOriginalDate = format(originalDate, 'yyyyMMdd');
-  
-  // Data to be stored, excluding the auto-generated id
-  const recordToStore = {
-    classId,
-    className,
-    originalDate: formattedOriginalDate,
-    status: 'chờ xếp lịch' as MakeupClassStatus,
-    createdAt: new Date().toISOString(), // ISO string for general use
-    createdAtTimestamp: firestoreServerTimestamp() // Firestore server timestamp for reliable ordering
-  };
+  console.log(`[giaoVienVangService] Attempting to create GiaoVienVangRecord for classId: ${classId}, className: ${className}, originalDate: ${formattedOriginalDate}`);
+
+  // Check for existing pending makeup record for the same class and date
+  const existingQuery = query(
+    collection(db, GIAO_VIEN_VANG_COLLECTION),
+    where("classId", "==", classId),
+    where("originalDate", "==", formattedOriginalDate),
+    where("status", "==", "chờ xếp lịch")
+  );
 
   try {
+    const existingSnapshot = await getDocs(existingQuery);
+    if (!existingSnapshot.empty) {
+      console.warn(`[giaoVienVangService] A 'chờ xếp lịch' record already exists for class ${className} on ${formattedOriginalDate}. Not creating a new one.`);
+      // Optionally, return the first existing record found
+      const existingDoc = existingSnapshot.docs[0];
+      const existingData = existingDoc.data();
+      return {
+        id: existingDoc.id,
+        classId: existingData.classId,
+        className: existingData.className,
+        originalDate: existingData.originalDate,
+        status: existingData.status,
+        createdAt: existingData.createdAtTimestamp instanceof Timestamp 
+                      ? existingData.createdAtTimestamp.toDate().toISOString() 
+                      : (existingData.createdAt || new Date().toISOString()),
+        makeupDate: existingData.makeupDate,
+        makeupTime: existingData.makeupTime,
+        notes: existingData.notes,
+      };
+    }
+
+    const recordToStore = {
+      classId,
+      className,
+      originalDate: formattedOriginalDate,
+      status: 'chờ xếp lịch' as MakeupClassStatus,
+      createdAt: new Date().toISOString(), // Keep for compatibility if needed, but prefer timestamp
+      createdAtTimestamp: firestoreServerTimestamp()
+    };
+
     const docRef = await addDoc(collection(db, GIAO_VIEN_VANG_COLLECTION), recordToStore);
     console.log(`[giaoVienVangService] Successfully created GiaoVienVangRecord with ID: ${docRef.id} for class ${className} on ${formattedOriginalDate}`);
     
-    // Construct the GiaoVienVangRecord object to return, matching the type
-    // For createdAtTimestamp, we can't know the exact server value yet without another read,
-    // so we'll return the client's timestamp as string for 'createdAt' as per type.
-    // The actual server timestamp is in Firestore.
     const createdRecord: GiaoVienVangRecord = {
       id: docRef.id,
       classId: recordToStore.classId,
       className: recordToStore.className,
       originalDate: recordToStore.originalDate,
       status: recordToStore.status,
-      createdAt: recordToStore.createdAt, // Matches type, client-side ISO string
-      // Note: GiaoVienVangRecord type doesn't have createdAtTimestamp, it's for Firestore query
+      createdAt: recordToStore.createdAt, 
     };
     return createdRecord;
+
   } catch (error) {
-    console.error("[giaoVienVangService] Error creating GiaoVienVangRecord in Firestore:", error);
+    console.error("[giaoVienVangService] Error in createGiaoVienVangRecord:", error);
+    // This error will propagate to the mutation's onError handler
+    // Consider if this function should throw or return null/error object
+    // For now, rethrowing seems appropriate for mutation's onError to catch.
     throw error; 
   }
 };
@@ -63,15 +90,12 @@ export const getPendingMakeupClasses = async (): Promise<GiaoVienVangRecord[]> =
     querySnapshot.forEach((doc) => {
       const data = doc.data();
       console.log(`[giaoVienVangService] Fetched document: ${doc.id}, data:`, data);
-      // Ensure the data conforms to GiaoVienVangRecord, especially 'createdAt'
       const record: GiaoVienVangRecord = {
         id: doc.id,
         classId: data.classId,
         className: data.className,
         originalDate: data.originalDate,
         status: data.status,
-        // If createdAtTimestamp exists and is a Timestamp, convert its toDate().toISOString() to 'createdAt'
-        // If data.createdAt (string) exists, use it. Fallback to a new date string.
         createdAt: data.createdAtTimestamp instanceof Timestamp 
                       ? data.createdAtTimestamp.toDate().toISOString() 
                       : (data.createdAt || new Date().toISOString()),
@@ -84,7 +108,7 @@ export const getPendingMakeupClasses = async (): Promise<GiaoVienVangRecord[]> =
     
     console.log(`[giaoVienVangService] Successfully fetched ${records.length} pending makeup classes.`);
     if (records.length === 0) {
-        console.log("[giaoVienVangService] No pending makeup classes found matching status 'chờ xếp lịch'. Check Firestore 'giaoVienVangRecords' collection for documents with status 'chờ xếp lịch' AND a 'createdAtTimestamp' field.");
+        console.log("[giaoVienVangService] No pending makeup classes found matching status 'chờ xếp lịch'. Check Firestore 'giaoVienVangRecords' collection for documents with status 'chờ xếp lịch' AND a 'createdAtTimestamp' field of type Firestore Timestamp.");
     }
     return records;
   } catch (error) {
@@ -95,9 +119,3 @@ export const getPendingMakeupClasses = async (): Promise<GiaoVienVangRecord[]> =
     throw error;
   }
 };
-
-// Future functions:
-// export const scheduleMakeupClass = async (recordId: string, makeupDate: Date, makeupTime: string, notes?: string) => { ... }
-// export const cancelMakeupClass = async (recordId: string, notes?: string) => { ... }
-// export const completeMakeupClass = async (recordId: string) => { ... }
-
