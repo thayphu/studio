@@ -25,9 +25,9 @@ export const createGiaoVienVangRecord = async (
   try {
     const docRef = await addDoc(collection(db, GIAO_VIEN_VANG_COLLECTION), {
       ...newRecordData,
-      createdAtTimestamp: Timestamp.fromDate(new Date(newRecordData.createdAt))
+      createdAtTimestamp: Timestamp.fromDate(new Date(newRecordData.createdAt)) // For Firestore server-side ordering
     });
-    console.log(`[giaoVienVangService] Successfully created GiaoVienVangRecord with ID: ${docRef.id}`);
+    console.log(`[giaoVienVangService] Successfully created GiaoVienVangRecord with ID: ${docRef.id} for class ${className} on ${formattedOriginalDate}`);
     return { ...newRecordData, id: docRef.id };
   } catch (error) {
     console.error("[giaoVienVangService] Error creating GiaoVienVangRecord:", error);
@@ -41,7 +41,7 @@ export const getPendingMakeupClasses = async (): Promise<GiaoVienVangRecord[]> =
   const q = query(
     collection(db, GIAO_VIEN_VANG_COLLECTION),
     where("status", "==", "chờ xếp lịch"),
-    orderBy("createdAtTimestamp", "desc")
+    orderBy("createdAtTimestamp", "desc") // Show newest pending records first
   );
 
   try {
@@ -51,12 +51,15 @@ export const getPendingMakeupClasses = async (): Promise<GiaoVienVangRecord[]> =
       records.push({ id: doc.id, ...doc.data() } as GiaoVienVangRecord);
     });
     console.log(`[giaoVienVangService] Fetched ${records.length} pending makeup classes.`);
+    if (records.length === 0) {
+        console.log("[giaoVienVangService] No pending makeup classes found matching status 'chờ xếp lịch'. Check Firestore 'giaoVienVangRecords' collection for documents with status 'chờ xếp lịch'.");
+    }
     return records;
   } catch (error) {
     console.error("[giaoVienVangService] Error fetching pending makeup classes:", error);
     // Suggest checking Firestore indexes if a specific error type is caught
     if ((error as any)?.code === 'failed-precondition') {
-        console.error("[giaoVienVangService] Firestore Precondition Failed: This often means a required index is missing. Please check your Firestore indexes for the 'giaoVienVangRecords' collection, ensuring an index exists for 'status' (ASC) and 'createdAtTimestamp' (DESC).");
+        console.error("[giaoVienVangService] Firestore Precondition Failed: This often means a required index is missing. Please check your Firestore indexes for the 'giaoVienVangRecords' collection, ensuring an index exists for 'status' (ASC) and 'createdAtTimestamp' (DESC). Check server logs for a direct link to create the index.");
     }
     throw error;
   }

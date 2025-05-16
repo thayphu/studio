@@ -113,8 +113,9 @@ export default function DiemDanhPage() {
       await saveAttendance(data.lop.id, data.date, attendanceData);
       
       console.log(`[DiemDanhPage] Creating GiaoVienVangRecord for class: ${data.lop.tenLop}`);
-      await createGiaoVienVangRecord(data.lop.id, data.lop.tenLop, data.date);
-      console.log(`[DiemDanhPage] markTeacherAbsentMutation finished for class: ${data.lop.tenLop}`);
+      // This is the critical call
+      await createGiaoVienVangRecord(data.lop.id, data.lop.tenLop, data.date); 
+      console.log(`[DiemDanhPage] markTeacherAbsentMutation finished creating GiaoVienVangRecord for class: ${data.lop.tenLop}`);
       return data; 
     },
     onSuccess: (data) => {
@@ -129,8 +130,9 @@ export default function DiemDanhPage() {
     onError: (error: Error, variables) => {
       toast({
         title: `Lỗi khi ghi nhận GV vắng cho lớp ${variables.lop.tenLop}`,
-        description: error.message,
+        description: `${error.message}. Vui lòng kiểm tra console của server Next.js để biết thêm chi tiết, đặc biệt là lỗi liên quan đến việc tạo bản ghi học bù trong Firestore.`,
         variant: "destructive",
+        duration: 7000,
       });
       console.error(`[DiemDanhPage] Error in markTeacherAbsentMutation for class ${variables.lop.tenLop}:`, error);
     },
