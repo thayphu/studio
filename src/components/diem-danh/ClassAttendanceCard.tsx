@@ -89,8 +89,8 @@ export default function ClassAttendanceCard({
     if (isLoadingClassStudents || isLoadingAttendance || !studentsInClass || !classAttendanceToday) {
       return false;
     }
-    if (lop.soHocSinhHienTai === 0 && Object.keys(classAttendanceToday).length === 0) return false; // No students, no attendance yet
-    if (lop.soHocSinhHienTai > 0 && Object.keys(classAttendanceToday).length === 0) return false; // Students exist, but no attendance record for this date
+    if (lop.soHocSinhHienTai === 0 && Object.keys(classAttendanceToday).length === 0) return false; 
+    if (lop.soHocSinhHienTai > 0 && Object.keys(classAttendanceToday).length === 0) return false; 
 
     return studentsInClass.length > 0 && studentsInClass.every(student => classAttendanceToday[student.id] === 'GV nghỉ');
   }, [classAttendanceToday, studentsInClass, lop.soHocSinhHienTai, isLoadingClassStudents, isLoadingAttendance]);
@@ -171,7 +171,7 @@ export default function ClassAttendanceCard({
           variant={isSessionMarkedTeacherAbsent ? "secondary" : "outline"}
           className={isSessionMarkedTeacherAbsent ? "border-yellow-500 text-yellow-600" : "border-amber-500 text-amber-600 hover:bg-amber-50"}
           size="lg"
-          disabled={isAnyActionInProgress || isSessionMarkedTeacherAbsent || allMarkedPresent}
+          disabled={isAnyActionInProgress || isSessionMarkedTeacherAbsent}
         >
           {isMarkingTeacherAbsent && selectedClassForActionId === lop.id ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -186,3 +186,4 @@ export default function ClassAttendanceCard({
     </Card>
   );
 }
+
