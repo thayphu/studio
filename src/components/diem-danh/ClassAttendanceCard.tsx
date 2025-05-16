@@ -90,9 +90,10 @@ export default function ClassAttendanceCard({
       return false;
     }
     if (lop.soHocSinhHienTai === 0 && Object.keys(classAttendanceToday).length === 0) return false; 
-    if (lop.soHocSinhHienTai > 0 && Object.keys(classAttendanceToday).length === 0) return false; 
+    if (lop.soHocSinhHienTai > 0 && Object.keys(classAttendanceToday).length === 0 && studentsInClass && studentsInClass.length > 0) return false;
 
-    return studentsInClass.length > 0 && studentsInClass.every(student => classAttendanceToday[student.id] === 'GV nghỉ');
+
+    return studentsInClass && studentsInClass.length > 0 && studentsInClass.every(student => classAttendanceToday[student.id] === 'GV nghỉ');
   }, [classAttendanceToday, studentsInClass, lop.soHocSinhHienTai, isLoadingClassStudents, isLoadingAttendance]);
 
 
@@ -143,7 +144,7 @@ export default function ClassAttendanceCard({
           ) : isSessionMarkedTeacherAbsent ? (
              <span className="font-medium text-yellow-600">Tất cả HS được ghi nhận GV vắng</span>
           ) : allMarkedPresent ? (
-             <span className="font-medium text-green-600">Đã điểm danh đủ</span>
+             <span className="font-medium text-green-600">Đã điểm danh</span>
           ) : (
             <span className="font-medium">Đã điểm danh: {attendedCount} / {lop.soHocSinhHienTai}</span>
           )}
@@ -186,4 +187,3 @@ export default function ClassAttendanceCard({
     </Card>
   );
 }
-
