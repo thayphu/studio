@@ -134,23 +134,27 @@ export default function ReceiptTemplate({ student, receiptNumber, paidAmount }: 
     // });
     if (receiptRef.current) {
       try {
-        const html2canvas = (await import('html2canvas')).default; // Dynamic import
-        const canvas = await html2canvas(receiptRef.current, {
-          scale: 2, 
-          useCORS: true, 
-          backgroundColor: '#ffffff', 
-        });
-        const image = canvas.toDataURL('image/png', 1.0);
-        const link = document.createElement('a');
-        link.href = image;
-        link.download = `BienNhan_${receiptNumber}_${student.hoTen.replace(/\s+/g, '_')}.png`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        // const html2canvas = (await import('html2canvas')).default; // Dynamic import // Temporarily commented out
         toast({
-          title: "Xuất biên nhận thành công!",
-          description: "Biên nhận đã được tải xuống dưới dạng file ảnh.",
+          title: "Chức năng đang phát triển",
+          description: "Tính năng xuất biên nhận sang file ảnh sẽ sớm được cập nhật. Vui lòng cài đặt 'html2canvas' và khởi động lại server.",
         });
+        // const canvas = await html2canvas(receiptRef.current, { // Temporarily commented out
+        //   scale: 2, 
+        //   useCORS: true, 
+        //   backgroundColor: '#ffffff', 
+        // });
+        // const image = canvas.toDataURL('image/png', 1.0);
+        // const link = document.createElement('a');
+        // link.href = image;
+        // link.download = `BienNhan_${receiptNumber}_${student.hoTen.replace(/\s+/g, '_')}.png`;
+        // document.body.appendChild(link);
+        // link.click();
+        // document.body.removeChild(link);
+        // toast({
+        //   title: "Xuất biên nhận thành công!",
+        //   description: "Biên nhận đã được tải xuống dưới dạng file ảnh.",
+        // });
       } catch (error) {
         console.error("Error exporting receipt to image:", error);
         toast({
@@ -199,7 +203,10 @@ export default function ReceiptTemplate({ student, receiptNumber, paidAmount }: 
           <h2 className="text-xl font-semibold mb-2 text-foreground">Thông tin học sinh</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
             <div><span className="font-medium text-foreground">Họ và tên:</span> <span className="text-indigo-700 font-semibold">{student.hoTen}</span></div>
-            <div><span className="font-medium text-foreground">Lớp:</span> {student.tenLop || 'N/A'}</div>
+            <div>
+                <span className="font-medium text-foreground">Lớp:</span> {student.tenLop || 'N/A'}
+                <span className="font-medium text-foreground ml-4">Mã HS:</span> {student.id}
+            </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 mt-1">
             <div><span className="font-medium text-foreground">Ngày đăng ký:</span> {format(new Date(student.ngayDangKy), "dd/MM/yyyy")}</div>
