@@ -10,11 +10,10 @@ import { TEXTS_VI } from '@/lib/constants';
 interface ClassCardProps {
   lopHoc: LopHoc;
   onEdit: (lopHoc: LopHoc) => void;
-  onDelete: (id: string) => void;
+  onDelete: (lopHoc: LopHoc) => void; // Changed to pass the whole LopHoc object
   onAddStudent: (lopHocId: string) => void;
   isDeleting?: boolean;
-  isUpdating?: boolean; 
-  // onCloseClass: (lopHocId: string) => void;
+  isUpdating?: boolean;
 }
 
 export default function ClassCard({ lopHoc, onEdit, onDelete, onAddStudent, isDeleting, isUpdating }: ClassCardProps) {
@@ -41,7 +40,7 @@ export default function ClassCard({ lopHoc, onEdit, onDelete, onAddStudent, isDe
   } else {
     // Fallback for any other undefined cycles
     tongHocPhi = lopHoc.hocPhi;
-    hocPhiBuoi = 0; 
+    hocPhiBuoi = 0;
   }
 
   const actionInProgress = isDeleting || isUpdating;
@@ -102,24 +101,23 @@ export default function ClassCard({ lopHoc, onEdit, onDelete, onAddStudent, isDe
         </div>
       </CardContent>
       <CardFooter className="flex flex-wrap gap-2 pt-4 border-t">
-        <Button variant="outline" size="icon" onClick={() => onEdit(lopHoc)} aria-label={TEXTS_VI.editButton} className="flex-1 min-w-[40px]" disabled={actionInProgress}>
+        <Button variant="outline" size="icon" onClick={() => onEdit(lopHoc)} aria-label={TEXTS_VI.editButton} disabled={actionInProgress}>
           {isUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Edit className="h-4 w-4" />}
         </Button>
-        <Button variant="destructive" size="icon" onClick={() => onDelete(lopHoc.id)} aria-label={TEXTS_VI.deleteButton} className="flex-1 min-w-[40px]" disabled={actionInProgress}>
+        <Button variant="destructive" size="icon" onClick={() => onDelete(lopHoc)} aria-label={TEXTS_VI.deleteButton} disabled={actionInProgress}>
           {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
         </Button>
-        <Button 
-          variant="secondary" 
-          size="icon" 
-          onClick={() => onAddStudent(lopHoc.id)} 
-          aria-label={TEXTS_VI.addStudentButton} 
-          className="flex-1 min-w-[40px]"
+        <Button
+          variant="secondary"
+          size="icon"
+          onClick={() => onAddStudent(lopHoc.id)}
+          aria-label={TEXTS_VI.addStudentButton}
           disabled={actionInProgress}
         >
           <UserPlus className="h-4 w-4" />
         </Button>
         {lopHoc.trangThai === 'Đang hoạt động' && (
-          <Button variant="outline" size="icon" aria-label={TEXTS_VI.closeClassButton} className="flex-1 min-w-[40px] border-amber-500 text-amber-600 hover:bg-amber-50" disabled={actionInProgress}>
+          <Button variant="outline" size="icon" aria-label={TEXTS_VI.closeClassButton} className="border-amber-500 text-amber-600 hover:bg-amber-50" disabled={actionInProgress}>
             <XCircle className="h-4 w-4" />
           </Button>
         )}

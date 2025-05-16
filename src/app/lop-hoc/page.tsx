@@ -4,9 +4,19 @@
 import { useState } from 'react';
 import { PlusCircle, Filter, RefreshCw } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useRouter } from 'next/navigation'; // Added for navigation
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import AddClassForm from '@/components/lop-hoc/AddClassForm';
 import ClassCard from '@/components/lop-hoc/ClassCard';
 import type { LopHoc } from '@/lib/types';
@@ -20,10 +30,13 @@ import { Skeleton } from '@/components/ui/skeleton';
 export default function LopHocPage() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const router = useRouter(); // Initialize router
+  const router = useRouter();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClass, setEditingClass] = useState<LopHoc | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [classToDelete, setClassToDelete] = useState<LopHoc | null>(null);
+
 
   const { data: classes = [], isLoading, isError, error } = useQuery<LopHoc[], Error>({
     queryKey: ['classes'],
@@ -60,8 +73,7 @@ export default function LopHocPage() {
     },
     onSuccess: (data) => {
       console.log('addClassMutation onSuccess called. Data:', data);
-      // Modal is closed here to ensure it only closes on success
-      setIsModalOpen(false);
+      setIsModalOpen(false); // Close modal on success
       toast({
         title: "Thêm lớp thành công!",
         description: `Lớp "${data.tenLop}" đã được thêm vào hệ thống.`,
@@ -102,7 +114,7 @@ export default function LopHocPage() {
         title: "Cập nhật thành công!",
         description: `Lớp "${variables.tenLop}" đã được cập nhật.`,
       });
-      setIsModalOpen(false); 
+      setIsModalOpen(false);
       setEditingClass(null);
     },
     onSettled: () => {
@@ -146,22 +158,39 @@ export default function LopHocPage() {
       updateClassMutation.mutate(data);
     } else {
       const classId = generateId('lop_');
-      // Destructure to exclude client-side only or default fields before sending to mutation
       const { id, soHocSinhHienTai, trangThai, ...newClassData } = data;
       console.log('Calling addClassMutation.mutate with:', { newClassData, classId });
       addClassMutation.mutate({ newClassData, classId });
     }
   };
-  
-  const handleDeleteClass = (classId: string) => {
-    deleteClassMutation.mutate(classId);
+
+  const handleOpenDeleteDialog = (lopHoc: LopHoc) => {
+    if (lopHoc.soHocSinhHienTai > 0) {
+      toast({
+        title: "Không thể xóa lớp học",
+        description: `Lớp "${lopHoc.tenLop}" vẫn còn ${lopHoc.soHocSinhHienTai} học sinh. Vui lòng chuyển hoặc xóa hết học sinh trước khi xóa lớp.`,
+        variant: "destructive",
+        duration: 5000,
+      });
+      return;
+    }
+    setClassToDelete(lopHoc);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const confirmDeleteClass = () => {
+    if (classToDelete) {
+      deleteClassMutation.mutate(classToDelete.id);
+      setIsDeleteDialogOpen(false);
+      setClassToDelete(null);
+    }
   };
 
   const handleOpenEditModal = (lopHoc: LopHoc) => {
     setEditingClass(lopHoc);
     setIsModalOpen(true);
   };
-  
+
   const handleOpenAddModal = () => {
     setEditingClass(null);
     setIsModalOpen(true);
@@ -170,7 +199,7 @@ export default function LopHocPage() {
   const handleAddStudentToClass = (classId: string) => {
     alert(`LopHocPage: Yêu cầu thêm học sinh vào lớp ${classId}. Chuyển đến trang quản lý học sinh.`);
     console.log("Attempting to navigate to student page for class:", classId);
-    router.push('/hoc-sinh'); // Navigate to the student management page
+    router.push('/hoc-sinh');
   };
 
   if (isError) {
@@ -197,7 +226,7 @@ export default function LopHocPage() {
             </Button>
             <Dialog open={isModalOpen} onOpenChange={(open) => {
               setIsModalOpen(open);
-              if (!open) setEditingClass(null); 
+              if (!open) setEditingClass(null);
             }}>
               <DialogTrigger asChild>
                  <Button onClick={handleOpenAddModal} aria-label={TEXTS_VI.addClassTitle}>
@@ -208,8 +237,8 @@ export default function LopHocPage() {
                 <DialogHeader>
                   <DialogTitle>{editingClass ? TEXTS_VI.editButton + " lớp học" : TEXTS_VI.addClassTitle}</DialogTitle>
                 </DialogHeader>
-                <AddClassForm 
-                  onSubmit={handleSubmitClassForm} 
+                <AddClassForm
+                  onSubmit={handleSubmitClassForm}
                   initialData={editingClass}
                   onClose={() => {
                     setIsModalOpen(false);
@@ -235,12 +264,12 @@ export default function LopHocPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {classes.map((lopHoc) => (
-              <ClassCard 
-                key={lopHoc.id} 
-                lopHoc={lopHoc} 
+              <ClassCard
+                key={lopHoc.id}
+                lopHoc={lopHoc}
                 onEdit={() => handleOpenEditModal(lopHoc)}
-                onDelete={() => handleDeleteClass(lopHoc.id)}
-                onAddStudent={handleAddStudentToClass} // Pass the handler directly
+                onDelete={() => handleOpenDeleteDialog(lopHoc)} // Updated to pass whole object
+                onAddStudent={handleAddStudentToClass}
                 isDeleting={deleteClassMutation.isPending && deleteClassMutation.variables === lopHoc.id}
                 isUpdating={updateClassMutation.isPending && updateClassMutation.variables?.id === lopHoc.id}
               />
@@ -248,6 +277,25 @@ export default function LopHocPage() {
           </div>
         )}
       </div>
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Xác nhận xóa lớp học</AlertDialogTitle>
+            <AlertDialogDescription>
+              Bạn có chắc chắn muốn xóa lớp học "{classToDelete?.tenLop}" không? Hành động này không thể hoàn tác.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setClassToDelete(null)}>Hủy</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteClass}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Xác nhận Xóa
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
   );
 }
@@ -268,4 +316,3 @@ const CardSkeleton = () => (
     </div>
   </div>
 );
-
