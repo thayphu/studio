@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle as ShadDialogTitle } from '@/components/ui/dialog'; // Renamed DialogTitle to avoid conflict
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,7 +18,7 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
-  AlertDialogTitle as AlertDialogTitleComponent, // Renamed to avoid conflict
+  AlertDialogTitle as AlertDialogTitleComponent, 
 } from "@/components/ui/alert-dialog";
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { getStudents, updateStudent } from '@/services/hocSinhService';
@@ -30,6 +30,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { formatCurrencyVND, generateReceiptNumber } from '@/lib/utils';
 import PaymentForm from '@/components/hoc-phi/PaymentForm';
+import ReceiptTemplate from '@/components/hoc-phi/ReceiptTemplate';
 // import { recordPayment } from '@/services/hocPhiService'; // To be created
 
 const StudentRowSkeleton = () => (
@@ -80,7 +81,11 @@ export default function HocPhiPage() {
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [studentForPayment, setStudentForPayment] = useState<HocSinh | null>(null);
   const [isDeleteReceiptDialogOpen, setIsDeleteReceiptDialogOpen] = useState(false);
-  const [receiptToDelete, setReceiptToDelete] = useState<HocSinh | null>(null); // Using HocSinh as placeholder for receipt context
+  const [receiptToDelete, setReceiptToDelete] = useState<HocSinh | null>(null); 
+  const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
+  const [studentForReceipt, setStudentForReceipt] = useState<HocSinh | null>(null);
+  const [currentReceiptNumber, setCurrentReceiptNumber] = useState('');
+
 
   const { data: studentsData = [], isLoading: isLoadingStudents, isError: isErrorStudents, error: errorStudents } = useQuery<HocSinh[], Error>({
     queryKey: ['studentsForTuition'],
@@ -172,11 +177,10 @@ export default function HocPhiPage() {
   };
 
 
-  const handleViewReceipt = (student: HocSinh) => {
-    toast({
-      title: "Xem biên nhận",
-      description: `Chức năng xem biên nhận cho ${student.hoTen} đang được phát triển.`,
-    });
+ const handleViewReceipt = (student: HocSinh) => {
+    setStudentForReceipt(student);
+    setCurrentReceiptNumber(generateReceiptNumber()); // Generate a new receipt number each time
+    setIsReceiptModalOpen(true);
   };
   
   const handleEditReceipt = (student: HocSinh) => {
@@ -225,6 +229,8 @@ export default function HocPhiPage() {
   }
   
   const currentExpectedTuition = studentForPayment ? calculateTuitionForStudent(studentForPayment, classesMap) : 0;
+  const currentPaidAmountForReceipt = studentForReceipt ? calculateTuitionForStudent(studentForReceipt, classesMap) : 0;
+
 
   return (
     <DashboardLayout>
@@ -387,7 +393,7 @@ export default function HocPhiPage() {
           }}>
             <DialogContent className="sm:max-w-[600px]">
               <DialogHeader>
-                <DialogTitle>Thanh toán học phí cho {studentForPayment.hoTen}</DialogTitle>
+                <ShadDialogTitle>Thanh toán học phí cho {studentForPayment.hoTen}</ShadDialogTitle>
               </DialogHeader>
               <PaymentForm 
                 student={studentForPayment}
@@ -428,7 +434,24 @@ export default function HocPhiPage() {
           </AlertDialog>
         )}
 
+        {studentForReceipt && (
+          <Dialog open={isReceiptModalOpen} onOpenChange={(isOpen) => {
+            setIsReceiptModalOpen(isOpen);
+            if(!isOpen) setStudentForReceipt(null);
+          }}>
+            <DialogContent className="sm:max-w-3xl p-0"> {/* Adjusted max-width for receipt */}
+              {/* No DialogHeader here, ReceiptTemplate has its own title */}
+              <ReceiptTemplate 
+                student={studentForReceipt} 
+                receiptNumber={currentReceiptNumber}
+                paidAmount={currentPaidAmountForReceipt} 
+              />
+            </DialogContent>
+          </Dialog>
+        )}
+
       </div>
     </DashboardLayout>
   );
 }
+
