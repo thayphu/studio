@@ -63,9 +63,15 @@ export interface DiemDanhGhiNhan {
   ngayDiemDanh: string; // ISO Date string (YYYYMMDD)
   trangThai: AttendanceStatus;
   ghiChu?: string;
+  // Add hoTen and tenLop for modal display if needed directly from this record
+  hoTen?: string; // Denormalized student name
+  tenLop?: string; // Denormalized class name
 }
 
+
 export type MakeupClassStatus = 'chờ xếp lịch' | 'đã xếp lịch' | 'đã hoàn thành' | 'đã hủy';
+export const ALL_MAKEUP_CLASS_STATUSES: MakeupClassStatus[] = ['chờ xếp lịch' , 'đã xếp lịch' , 'đã hoàn thành' , 'đã hủy'];
+
 
 export interface GiaoVienVangRecord {
   id: string; // Auto-generated
@@ -78,3 +84,4 @@ export interface GiaoVienVangRecord {
   notes?: string;
   createdAt: string; // ISO Date string
 }
+
