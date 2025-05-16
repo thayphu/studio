@@ -6,15 +6,15 @@ import { Button } from '@/components/ui/button';
 import { PlusCircle, Edit2, Trash2, Search, RefreshCw } from 'lucide-react';
 import { TEXTS_VI } from '@/lib/constants';
 import { useToast } from '@/hooks/use-toast';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
-  AlertDialogDescription,
+  AlertDialogDescription as ShadAlertDialogDescription, // Alias
   AlertDialogFooter,
-  AlertDialogHeader,
+  AlertDialogHeader as ShadAlertDialogHeader, // Alias
   AlertDialogTitle as AlertDialogTitleComponent,
 } from "@/components/ui/alert-dialog";
 import AddStudentForm from '@/components/hoc-sinh/AddStudentForm';
@@ -37,7 +37,6 @@ const StudentRowSkeleton = () => (
     <TableCell><Skeleton className="h-4 w-24" /></TableCell>
     <TableCell><Skeleton className="h-4 w-20" /></TableCell>
     <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-    {/* <TableCell><Skeleton className="h-4 w-20" /></TableCell> */}
     <TableCell><Skeleton className="h-4 w-20" /></TableCell>
     <TableCell>
       <div className="flex gap-2 justify-end">
@@ -102,6 +101,7 @@ export default function HocSinhPage() {
   const updateStudentMutation = useMutation({
     mutationFn: (studentData: HocSinh) => updateStudentService(studentData.id, studentData),
     onSuccess: async (_data, updatedStudentDataFromForm) => { 
+      console.log("[HocSinhPage] updateStudentMutation onSuccess. Data from form:", updatedStudentDataFromForm);
       queryClient.invalidateQueries({ queryKey: ['students'] });
 
       const studentBeforeEdit = editingStudent; 
@@ -109,12 +109,14 @@ export default function HocSinhPage() {
 
       // Recalculate for the class the student is NOW associated with (if any)
       if (studentAfterEdit.lopId) {
+        console.log(`[HocSinhPage] Recalculating count for new/current class: ${studentAfterEdit.lopId}`);
         await recalculateAndUpdateClassStudentCount(studentAfterEdit.lopId);
       }
 
       // If the student WAS in a class, and that class is DIFFERENT from the new class,
       // then recalculate for the OLD class as well.
       if (studentBeforeEdit?.lopId && studentBeforeEdit.lopId !== studentAfterEdit.lopId) {
+        console.log(`[HocSinhPage] Recalculating count for old class: ${studentBeforeEdit.lopId}`);
         await recalculateAndUpdateClassStudentCount(studentBeforeEdit.lopId);
       }
       
@@ -189,7 +191,7 @@ export default function HocSinhPage() {
   const handleOpenAddStudentModal = () => {
     console.log("[HocSinhPage] handleOpenAddStudentModal called");
     setEditingStudent(null);
-    setIsEditStudentModalOpen(false); // Ensure edit modal is closed
+    setIsEditStudentModalOpen(false); 
     setIsAddStudentModalOpen(true);
     console.log("[HocSinhPage] States after handleOpenAddStudentModal: isEditStudentModalOpen=false, isAddStudentModalOpen=true");
   };
@@ -210,7 +212,7 @@ export default function HocSinhPage() {
     setEditingStudent(student);
     setIsAddStudentModalOpen(false); 
     setIsEditStudentModalOpen(true);
-    console.log("[HocSinhPage] States after handleEditStudent: isEditStudentModalOpen=true, isAddStudentModalOpen=false");
+    console.log("[HocSinhPage] States after handleEditStudent: isEditStudentModalOpen=true, isAddStudentModalOpen=false, editingStudent set to:", student);
   };
 
   const closeDialogs = () => {
@@ -255,14 +257,16 @@ export default function HocSinhPage() {
         {/* Combined Dialog for Add/Edit Student */}
         <Dialog open={isAddStudentModalOpen || isEditStudentModalOpen} onOpenChange={(open) => {
           if (!open) closeDialogs();
-          else if (!editingStudent) setIsAddStudentModalOpen(true)
-          else setIsEditStudentModalOpen(true) 
+          // No specific setIs... needed here as open prop controls it directly
         }}>
           <DialogContent className="sm:max-w-[600px]">
             <DialogHeader>
               <DialogTitle>
                 {isEditStudentModalOpen && editingStudent ? "Chỉnh sửa thông tin học sinh" : "Thêm học sinh mới"}
               </DialogTitle>
+              <DialogDescription>
+                {isEditStudentModalOpen && editingStudent ? "Cập nhật các thông tin dưới đây cho học sinh." : "Điền đầy đủ thông tin để thêm học sinh vào hệ thống."}
+              </DialogDescription>
             </DialogHeader>
             {isLoadingClasses && (isAddStudentModalOpen || isEditStudentModalOpen) ? (
               <div className="p-6 text-center">Đang tải danh sách lớp...</div>
@@ -369,14 +373,17 @@ export default function HocSinhPage() {
       {studentToDelete && (
         <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
           <AlertDialogContent>
-            <AlertDialogHeader>
+            <ShadAlertDialogHeader>
               <AlertDialogTitleComponent>Xác nhận xóa học sinh</AlertDialogTitleComponent>
-              <AlertDialogDescription>
+              <ShadAlertDialogDescription>
                 Bạn có chắc chắn muốn xóa học sinh "{studentToDelete?.hoTen}" (Mã HS: {studentToDelete?.id}) không? Hành động này không thể hoàn tác.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
+              </ShadAlertDialogDescription>
+            </ShadAlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel onClick={() => setStudentToDelete(null)}>Hủy</AlertDialogCancel>
+              <AlertDialogCancel onClick={() => {
+                  setIsDeleteDialogOpen(false);
+                  setStudentToDelete(null);
+                }}>Hủy</AlertDialogCancel>
               <AlertDialogAction
                 onClick={confirmDeleteStudent}
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
@@ -393,4 +400,3 @@ export default function HocSinhPage() {
     </DashboardLayout>
   );
 }
-

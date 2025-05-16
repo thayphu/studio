@@ -6,16 +6,16 @@ import { PlusCircle, Filter, RefreshCw } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
-  AlertDialogDescription,
+  AlertDialogDescription as ShadAlertDialogDescription, // Alias to avoid conflict
   AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
+  AlertDialogHeader as ShadAlertDialogHeader, // Alias to avoid conflict
+  AlertDialogTitle as ShadAlertDialogTitle, // Alias to avoid conflict
 } from "@/components/ui/alert-dialog";
 import AddClassForm from '@/components/lop-hoc/AddClassForm';
 import ClassCard from '@/components/lop-hoc/ClassCard';
@@ -236,6 +236,9 @@ export default function LopHocPage() {
               <DialogContent className="sm:max-w-[600px]">
                 <DialogHeader>
                   <DialogTitle>{editingClass ? TEXTS_VI.editButton + " lớp học" : TEXTS_VI.addClassTitle}</DialogTitle>
+                  <DialogDescription>
+                    {editingClass ? "Cập nhật thông tin chi tiết cho lớp học." : "Điền thông tin chi tiết để tạo lớp học mới."}
+                  </DialogDescription>
                 </DialogHeader>
                 <AddClassForm
                   onSubmit={handleSubmitClassForm}
@@ -268,7 +271,7 @@ export default function LopHocPage() {
                 key={lopHoc.id}
                 lopHoc={lopHoc}
                 onEdit={() => handleOpenEditModal(lopHoc)}
-                onDelete={() => handleOpenDeleteDialog(lopHoc)} // Updated to pass whole object
+                onDelete={() => handleOpenDeleteDialog(lopHoc)}
                 onAddStudent={handleAddStudentToClass}
                 isDeleting={deleteClassMutation.isPending && deleteClassMutation.variables === lopHoc.id}
                 isUpdating={updateClassMutation.isPending && updateClassMutation.variables?.id === lopHoc.id}
@@ -279,12 +282,12 @@ export default function LopHocPage() {
       </div>
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Xác nhận xóa lớp học</AlertDialogTitle>
-            <AlertDialogDescription>
+          <ShadAlertDialogHeader>
+            <ShadAlertDialogTitle>Xác nhận xóa lớp học</ShadAlertDialogTitle>
+            <ShadAlertDialogDescription>
               Bạn có chắc chắn muốn xóa lớp học "{classToDelete?.tenLop}" không? Hành động này không thể hoàn tác.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
+            </ShadAlertDialogDescription>
+          </ShadAlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setClassToDelete(null)}>Hủy</AlertDialogCancel>
             <AlertDialogAction

@@ -8,14 +8,14 @@ import { Download, CreditCard, FileText, Edit2, Trash2, RefreshCw, Search, Loade
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle as ShadDialogTitle } from '@/components/ui/dialog'; // Renamed DialogTitle to avoid conflict
+import { Card, CardContent, CardHeader, CardTitle, CardDescription as ShadCardDescription } from "@/components/ui/card"; // Renamed DialogTitle to avoid conflict
+import { Dialog, DialogContent, DialogHeader, DialogTitle as ShadDialogTitle, DialogDescription } from '@/components/ui/dialog'; // Renamed DialogTitle to avoid conflict
 import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
-  AlertDialogDescription,
+  AlertDialogDescription as ShadAlertDialogDescriptionComponent, // Alias for AlertDialog
   AlertDialogFooter,
   AlertDialogHeader as ShadAlertDialogHeader, // Renamed to avoid conflict with DialogHeader
   AlertDialogTitle as AlertDialogTitleComponent, 
@@ -89,12 +89,12 @@ export default function HocPhiPage() {
 
 
   const { data: studentsData, isLoading: isLoadingStudents, isError: isErrorStudents, error: errorStudents } = useQuery<HocSinh[], Error>({
-    queryKey: ['students'], // Changed from ['studentsForTuition']
+    queryKey: ['students'], 
     queryFn: getStudents,
   });
 
   const { data: classesData, isLoading: isLoadingClasses, isError: isErrorClasses, error: errorClasses } = useQuery<LopHoc[], Error>({
-    queryKey: ['classes'], // Changed from ['classesForTuition']
+    queryKey: ['classes'], 
     queryFn: getClasses,
   });
 
@@ -148,7 +148,7 @@ export default function HocPhiPage() {
       return paymentData;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['students'] }); // Changed from ['studentsForTuition']
+      queryClient.invalidateQueries({ queryKey: ['students'] }); 
       setIsPaymentModalOpen(false);
       setStudentForPayment(null);
       toast({
@@ -221,8 +221,8 @@ export default function HocPhiPage() {
         <div className="flex flex-col items-center justify-center h-full text-red-500">
           <p>Lỗi tải dữ liệu: {combinedError}</p>
           <Button onClick={() => {
-            if(isErrorStudents) queryClient.invalidateQueries({ queryKey: ['students'] }); // Changed
-            if(isErrorClasses) queryClient.invalidateQueries({ queryKey: ['classes'] }); // Changed
+            if(isErrorStudents) queryClient.invalidateQueries({ queryKey: ['students'] }); 
+            if(isErrorClasses) queryClient.invalidateQueries({ queryKey: ['classes'] }); 
           }} className="mt-4">
             <RefreshCw className="mr-2 h-4 w-4" /> Thử lại
           </Button>
@@ -255,6 +255,7 @@ export default function HocPhiPage() {
             <Card className="shadow-md">
               <CardHeader>
                 <CardTitle>Danh sách học sinh chưa thanh toán</CardTitle>
+                <ShadCardDescription>Các học sinh cần hoàn tất học phí cho chu kỳ hiện tại.</ShadCardDescription>
                 <div className="relative mt-4">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                   <Input
@@ -324,6 +325,7 @@ export default function HocPhiPage() {
              <Card className="shadow-md">
               <CardHeader>
                 <CardTitle>Danh sách học sinh đã thanh toán</CardTitle>
+                <ShadCardDescription>Các học sinh đã hoàn tất học phí cho chu kỳ này.</ShadCardDescription>
                  <div className="relative mt-4">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                   <Input
@@ -397,6 +399,7 @@ export default function HocPhiPage() {
             <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-y-auto">
               <DialogHeader>
                 <ShadDialogTitle>Thanh toán học phí cho {studentForPayment.hoTen}</ShadDialogTitle>
+                <DialogDescription>Xác nhận và xử lý thanh toán học phí cho học sinh.</DialogDescription>
               </DialogHeader>
               <PaymentForm 
                 student={studentForPayment}
@@ -417,9 +420,9 @@ export default function HocPhiPage() {
             <AlertDialogContent>
               <ShadAlertDialogHeader>
                 <AlertDialogTitleComponent>Xác nhận xóa biên nhận</AlertDialogTitleComponent>
-                <AlertDialogDescription>
+                <ShadAlertDialogDescriptionComponent>
                   Bạn có chắc chắn muốn xóa biên nhận học phí cho học sinh "{receiptToDelete.hoTen}" không? Hành động này (hiện tại) không thể hoàn tác.
-                </AlertDialogDescription>
+                </ShadAlertDialogDescriptionComponent>
               </ShadAlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel onClick={() => {
@@ -446,8 +449,9 @@ export default function HocPhiPage() {
             }
           }}>
             <DialogContent className="sm:max-w-3xl p-0 max-h-[85vh] overflow-y-auto">
-               <DialogHeader className="sr-only"> {/* Visually hidden title for accessibility */}
+               <DialogHeader className="sr-only">
                 <ShadDialogTitle>Biên nhận học phí cho {studentForReceipt.hoTen}</ShadDialogTitle>
+                <DialogDescription className="sr-only">Chi tiết biên nhận học phí của học sinh {studentForReceipt.hoTen}.</DialogDescription>
               </DialogHeader>
               <ReceiptTemplate 
                 student={studentForReceipt} 
@@ -463,4 +467,3 @@ export default function HocPhiPage() {
     </DashboardLayout>
   );
 }
-
