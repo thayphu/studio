@@ -163,17 +163,35 @@ export default function BaoCaoPage() {
       case 'totalStudents':
         return (
           <Table>
-            <TableHeader><TableRow><TableHead>STT</TableHead><TableHead>Họ và tên</TableHead><TableHead>Lớp</TableHead><TableHead>Mã HS</TableHead><TableHead>Ghi chú</TableHead></TableRow></TableHeader>
+            <TableHeader>
+              <TableRow>
+                <TableHead>STT</TableHead>
+                <TableHead>Họ và tên</TableHead>
+                <TableHead>Lớp</TableHead>
+                <TableHead>Mã HS</TableHead>
+                <TableHead className="text-right">Tổng tiền đóng (ước tính)</TableHead>
+                <TableHead className="text-center">Tổng buổi học</TableHead>
+                <TableHead className="text-center">Có mặt</TableHead>
+                <TableHead className="text-center">Vắng mặt</TableHead>
+              </TableRow>
+            </TableHeader>
             <TableBody>
-              {modalData.students?.map((student, index) => (
-                <TableRow key={student.id}>
-                  <TableCell>{index + 1}</TableCell>
-                  <TableCell>{student.hoTen}</TableCell>
-                  <TableCell>{student.tenLop || 'N/A'}</TableCell>
-                  <TableCell>{student.id}</TableCell>
-                  <TableCell className="text-xs text-muted-foreground">Số lần đóng HP, tổng tiền đóng, tổng buổi học, có mặt, vắng mặt: (dữ liệu chưa có)</TableCell>
-                </TableRow>
-              ))}
+              {modalData.students?.map((student, index) => {
+                const tuitionPaid = student.tinhTrangThanhToan === 'Đã thanh toán' ? calculateTuitionForStudent(student, classesMap) : 0;
+                return (
+                  <TableRow key={student.id}>
+                    <TableCell>{index + 1}</TableCell>
+                    <TableCell>{student.hoTen}</TableCell>
+                    <TableCell>{student.tenLop || 'N/A'}</TableCell>
+                    <TableCell>{student.id}</TableCell>
+                    <TableCell className="text-right">{formatCurrencyVND(tuitionPaid ?? 0)}</TableCell>
+                    <TableCell className="text-center text-xs text-muted-foreground">(N/A)</TableCell>
+                    <TableCell className="text-center text-xs text-muted-foreground">(N/A)</TableCell>
+                    <TableCell className="text-center text-xs text-muted-foreground">(N/A)</TableCell>
+                  </TableRow>
+                );
+              })}
+               <TableRow><TableCell colSpan={8} className="text-xs text-muted-foreground text-center">Lưu ý: "Tổng tiền đóng" là ước tính dựa trên trạng thái thanh toán hiện tại. Số buổi học, có mặt, vắng mặt chi tiết sẽ được cập nhật sau.</TableCell></TableRow>
             </TableBody>
           </Table>
         );
@@ -356,7 +374,6 @@ export default function BaoCaoPage() {
                 error={isErrorTeacherAbsentSummary}
               />
             </div>
-            {/* Removed Phân tích nhanh placeholder card */}
           </TabsContent>
 
           <TabsContent value="tai-chinh">
@@ -442,5 +459,3 @@ export default function BaoCaoPage() {
     </DashboardLayout>
   );
 }
-
-    
