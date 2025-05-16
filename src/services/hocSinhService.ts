@@ -77,3 +77,4 @@ export const deleteStudent = async (studentId: string): Promise<void> => {
   const studentDocRef = doc(db, "hocSinh", studentId);
   await deleteDoc(studentDocRef);
 };
+
