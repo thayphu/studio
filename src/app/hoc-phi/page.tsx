@@ -89,12 +89,12 @@ export default function HocPhiPage() {
 
 
   const { data: studentsData, isLoading: isLoadingStudents, isError: isErrorStudents, error: errorStudents } = useQuery<HocSinh[], Error>({
-    queryKey: ['studentsForTuition'],
+    queryKey: ['students'], // Changed from ['studentsForTuition']
     queryFn: getStudents,
   });
 
   const { data: classesData, isLoading: isLoadingClasses, isError: isErrorClasses, error: errorClasses } = useQuery<LopHoc[], Error>({
-    queryKey: ['classesForTuition'],
+    queryKey: ['classes'], // Changed from ['classesForTuition']
     queryFn: getClasses,
   });
 
@@ -148,7 +148,7 @@ export default function HocPhiPage() {
       return paymentData;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['studentsForTuition'] });
+      queryClient.invalidateQueries({ queryKey: ['students'] }); // Changed from ['studentsForTuition']
       setIsPaymentModalOpen(false);
       setStudentForPayment(null);
       toast({
@@ -208,7 +208,7 @@ export default function HocPhiPage() {
     setIsDeleteReceiptDialogOpen(false);
     setReceiptToDelete(null);
     // queryClient.invalidateQueries({ queryKey: ['receipts'] }); // If you have a receipts query
-    // queryClient.invalidateQueries({ queryKey: ['studentsForTuition'] }); // May need to revert student status if deleting a real payment
+    // queryClient.invalidateQueries({ queryKey: ['students'] }); // May need to revert student status if deleting a real payment
   };
 
   const combinedError = errorStudents?.message || errorClasses?.message;
@@ -221,8 +221,8 @@ export default function HocPhiPage() {
         <div className="flex flex-col items-center justify-center h-full text-red-500">
           <p>Lỗi tải dữ liệu: {combinedError}</p>
           <Button onClick={() => {
-            if(isErrorStudents) queryClient.invalidateQueries({ queryKey: ['studentsForTuition'] });
-            if(isErrorClasses) queryClient.invalidateQueries({ queryKey: ['classesForTuition'] });
+            if(isErrorStudents) queryClient.invalidateQueries({ queryKey: ['students'] }); // Changed
+            if(isErrorClasses) queryClient.invalidateQueries({ queryKey: ['classes'] }); // Changed
           }} className="mt-4">
             <RefreshCw className="mr-2 h-4 w-4" /> Thử lại
           </Button>
@@ -446,7 +446,7 @@ export default function HocPhiPage() {
             }
           }}>
             <DialogContent className="sm:max-w-3xl p-0 max-h-[85vh] overflow-y-auto">
-              <DialogHeader className="sr-only">
+               <DialogHeader className="sr-only"> {/* Visually hidden title for accessibility */}
                 <ShadDialogTitle>Biên nhận học phí cho {studentForReceipt.hoTen}</ShadDialogTitle>
               </DialogHeader>
               <ReceiptTemplate 
@@ -463,5 +463,4 @@ export default function HocPhiPage() {
     </DashboardLayout>
   );
 }
-
 
