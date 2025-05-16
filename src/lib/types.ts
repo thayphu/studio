@@ -60,18 +60,21 @@ export interface DiemDanhGhiNhan {
   id: string; // Auto-generated when recording
   hocSinhId: string;
   lopId: string;
-  ngayDiemDanh: string; // ISO Date string
+  ngayDiemDanh: string; // ISO Date string (YYYYMMDD)
   trangThai: AttendanceStatus;
   ghiChu?: string;
 }
 
-// Placeholder for future Makeup Class records
+export type MakeupClassStatus = 'chờ xếp lịch' | 'đã xếp lịch' | 'đã hoàn thành' | 'đã hủy';
+
 export interface GiaoVienVangRecord {
-  id: string;
+  id: string; // Auto-generated
   classId: string;
-  originalDate: string; // YYYYMMDD
-  status: 'pending_makeup' | 'makeup_scheduled' | 'makeup_completed' | 'makeup_cancelled';
-  makeupDate?: string; // YYYYMMDD
-  makeupTime?: string; // HH:mm - HH:mm
+  className: string; // Denormalized for easier display
+  originalDate: string; // YYYYMMDD format
+  status: MakeupClassStatus;
+  makeupDate?: string; // YYYYMMDD format, if scheduled
+  makeupTime?: string; // e.g., "18:00 - 19:30", if scheduled
   notes?: string;
+  createdAt: string; // ISO Date string
 }
