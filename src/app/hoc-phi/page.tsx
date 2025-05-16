@@ -283,7 +283,7 @@ export default function HocPhiPage() {
                     ) : unpaidStudents.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
-                          {studentsData.length > 0 || classesData.length > 0 ? "Không có học sinh nào chưa thanh toán khớp với tìm kiếm." : "Chưa có dữ liệu học sinh hoặc lớp học."}
+                          {(studentsData || []).length > 0 || (classesData || []).length > 0 ? "Không có học sinh nào chưa thanh toán khớp với tìm kiếm." : "Chưa có dữ liệu học sinh hoặc lớp học."}
                         </TableCell>
                       </TableRow>
                     ) : (
@@ -352,7 +352,7 @@ export default function HocPhiPage() {
                     ) : paidStudents.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
-                         {studentsData.length > 0 || classesData.length > 0 ? "Không có học sinh nào đã thanh toán khớp với tìm kiếm." : "Chưa có dữ liệu học sinh hoặc lớp học."}
+                         {(studentsData || []).length > 0 || (classesData || []).length > 0 ? "Không có học sinh nào đã thanh toán khớp với tìm kiếm." : "Chưa có dữ liệu học sinh hoặc lớp học."}
                         </TableCell>
                       </TableRow>
                     ) : (
@@ -439,7 +439,7 @@ export default function HocPhiPage() {
             setIsReceiptModalOpen(isOpen);
             if(!isOpen) setStudentForReceipt(null);
           }}>
-            <DialogContent className="sm:max-w-3xl p-0">
+            <DialogContent className="sm:max-w-3xl p-0 max-h-[85vh] overflow-y-auto">
               <DialogHeader className="sr-only">
                 <ShadDialogTitle>Biên nhận học phí cho {studentForReceipt.hoTen}</ShadDialogTitle>
               </DialogHeader>
