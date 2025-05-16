@@ -4,12 +4,22 @@
 import { useState, useMemo, useEffect } from 'react';
 import DashboardLayout from '../dashboard-layout';
 import { TEXTS_VI } from '@/lib/constants';
-import { Download, CreditCard, FileText, Edit2, Trash2, RefreshCw, Search } from 'lucide-react';
+import { Download, CreditCard, FileText, Edit2, Trash2, RefreshCw, Search, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle as AlertDialogTitleComponent, // Renamed to avoid conflict
+} from "@/components/ui/alert-dialog";
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { getStudents, updateStudent } from '@/services/hocSinhService';
 import { getClasses } from '@/services/lopHocService';
@@ -69,6 +79,8 @@ export default function HocPhiPage() {
   const [searchTermPaid, setSearchTermPaid] = useState('');
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [studentForPayment, setStudentForPayment] = useState<HocSinh | null>(null);
+  const [isDeleteReceiptDialogOpen, setIsDeleteReceiptDialogOpen] = useState(false);
+  const [receiptToDelete, setReceiptToDelete] = useState<HocSinh | null>(null); // Using HocSinh as placeholder for receipt context
 
   const { data: studentsData = [], isLoading: isLoadingStudents, isError: isErrorStudents, error: errorStudents } = useQuery<HocSinh[], Error>({
     queryKey: ['studentsForTuition'],
@@ -82,14 +94,15 @@ export default function HocPhiPage() {
 
   const classesMap = useMemo(() => {
     const currentClasses = classesData || [];
+    if (currentClasses.length === 0 && !isLoadingClasses) return new Map<string, LopHoc>();
     const map = new Map<string, LopHoc>();
     currentClasses.forEach(cls => map.set(cls.id, cls));
     return map;
-  }, [classesData]);
+  }, [classesData, isLoadingClasses]);
 
   const unpaidStudents = useMemo(() => {
     const currentStudents = studentsData || [];
-    if (currentStudents.length === 0 && !isLoadingStudents) return []; // Optimization if no students
+    if (currentStudents.length === 0 && !isLoadingStudents) return []; 
 
     return currentStudents
       .filter(s => s.tinhTrangThanhToan === 'Chưa thanh toán' || s.tinhTrangThanhToan === 'Quá hạn')
@@ -104,7 +117,7 @@ export default function HocPhiPage() {
 
   const paidStudents = useMemo(() => {
     const currentStudents = studentsData || [];
-    if (currentStudents.length === 0 && !isLoadingStudents) return []; // Optimization
+    if (currentStudents.length === 0 && !isLoadingStudents) return [];
 
     return currentStudents
       .filter(s => s.tinhTrangThanhToan === 'Đã thanh toán')
@@ -173,11 +186,22 @@ export default function HocPhiPage() {
     });
   };
 
-  const handleDeleteReceipt = (student: HocSinh) => {
+  const handleOpenDeleteReceiptDialog = (student: HocSinh) => {
+    setReceiptToDelete(student);
+    setIsDeleteReceiptDialogOpen(true);
+  };
+
+  const confirmDeleteReceipt = () => {
+    if (!receiptToDelete) return;
+    // Placeholder for actual receipt deletion logic
     toast({
-      title: "Xóa biên nhận",
-      description: `Chức năng xóa biên nhận cho ${student.hoTen} đang được phát triển.`,
+      title: "Đã xóa biên nhận (giả lập)",
+      description: `Biên nhận cho học sinh ${receiptToDelete.hoTen} đã được xóa (chức năng đang được phát triển).`,
     });
+    setIsDeleteReceiptDialogOpen(false);
+    setReceiptToDelete(null);
+    // queryClient.invalidateQueries({ queryKey: ['receipts'] }); // If you have a receipts query
+    // queryClient.invalidateQueries({ queryKey: ['studentsForTuition'] }); // May need to revert student status if deleting a real payment
   };
 
   const combinedError = errorStudents?.message || errorClasses?.message;
@@ -193,7 +217,7 @@ export default function HocPhiPage() {
             if(isErrorStudents) queryClient.invalidateQueries({ queryKey: ['studentsForTuition'] });
             if(isErrorClasses) queryClient.invalidateQueries({ queryKey: ['classesForTuition'] });
           }} className="mt-4">
-            <RefreshCw className="mr-2" /> Thử lại
+            <RefreshCw className="mr-2 h-4 w-4" /> Thử lại
           </Button>
         </div>
       </DashboardLayout>
@@ -269,8 +293,13 @@ export default function HocPhiPage() {
                           </TableCell>
                           <TableCell>{formatCurrencyVND(student.expectedTuitionFee ?? undefined)}</TableCell>
                           <TableCell className="text-right">
-                            <Button onClick={() => handleOpenPaymentModal(student)} size="sm">
-                              <CreditCard className="mr-2 h-4 w-4" /> Thanh toán
+                            <Button onClick={() => handleOpenPaymentModal(student)} size="sm" disabled={recordPaymentMutation.isPending}>
+                              {recordPaymentMutation.isPending && recordPaymentMutation.variables?.studentId === student.id ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              ) : (
+                                <CreditCard className="mr-2 h-4 w-4" />
+                              )}
+                              Thanh toán
                             </Button>
                           </TableCell>
                         </TableRow>
@@ -336,7 +365,7 @@ export default function HocPhiPage() {
                               <Button variant="outline" size="icon" onClick={() => handleEditReceipt(student)} aria-label="Sửa biên nhận">
                                 <Edit2 className="h-4 w-4" />
                               </Button>
-                               <Button variant="destructive" size="icon" onClick={() => handleDeleteReceipt(student)} aria-label="Xóa biên nhận">
+                               <Button variant="destructive" size="icon" onClick={() => handleOpenDeleteReceiptDialog(student)} aria-label="Xóa biên nhận">
                                 <Trash2 className="h-4 w-4" />
                               </Button>
                             </div>
@@ -374,9 +403,32 @@ export default function HocPhiPage() {
           </Dialog>
         )}
 
+        {receiptToDelete && (
+          <AlertDialog open={isDeleteReceiptDialogOpen} onOpenChange={setIsDeleteReceiptDialogOpen}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitleComponent>Xác nhận xóa biên nhận</AlertDialogTitleComponent>
+                <AlertDialogDescription>
+                  Bạn có chắc chắn muốn xóa biên nhận học phí cho học sinh "{receiptToDelete.hoTen}" không? Hành động này (hiện tại) không thể hoàn tác.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel onClick={() => {
+                  setIsDeleteReceiptDialogOpen(false);
+                  setReceiptToDelete(null);
+                }}>Hủy</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={confirmDeleteReceipt}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  Xác nhận Xóa
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
+
       </div>
     </DashboardLayout>
   );
 }
-
-    
