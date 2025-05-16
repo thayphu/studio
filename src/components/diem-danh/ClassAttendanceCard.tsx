@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { CalendarDays, Clock, Users, CheckCircle, CheckCheck, Ban, UserX, Loader2 } from 'lucide-react';
+import { CalendarDays, Clock, Users, CheckCircle, CheckCheck, Ban, UserX, Loader2, RotateCcw } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { getAttendanceForClassOnDate } from '@/services/diemDanhService';
 import { getStudentsByClassId } from '@/services/hocSinhService';
@@ -19,9 +19,11 @@ interface ClassAttendanceCardProps {
   selectedDate: Date;
   onDiemDanhClick: (lop: LopHoc) => void;
   onMarkTeacherAbsent: (lop: LopHoc) => void;
+  onCancelTeacherAbsentClick: (lop: LopHoc) => void; // New prop
   isLoadingStudentsForModal: boolean;
   isSavingAttendance: boolean;
   isMarkingTeacherAbsent: boolean;
+  isCancellingTeacherAbsent: boolean; // New prop
   selectedClassForActionId: string | null;
 }
 
@@ -61,9 +63,11 @@ export default function ClassAttendanceCard({
   selectedDate,
   onDiemDanhClick,
   onMarkTeacherAbsent,
+  onCancelTeacherAbsentClick,
   isLoadingStudentsForModal,
   isSavingAttendance,
   isMarkingTeacherAbsent,
+  isCancellingTeacherAbsent,
   selectedClassForActionId
 }: ClassAttendanceCardProps) {
   const formattedDateKey = format(selectedDate, 'yyyyMMdd');
@@ -92,7 +96,6 @@ export default function ClassAttendanceCard({
     if (lop.soHocSinhHienTai === 0 && Object.keys(classAttendanceToday).length === 0) return false;
     if (lop.soHocSinhHienTai > 0 && Object.keys(classAttendanceToday).length === 0 && studentsInClass && studentsInClass.length > 0) return false;
 
-
     return studentsInClass && studentsInClass.length > 0 && studentsInClass.every(student => classAttendanceToday[student.id] === 'GV nghỉ');
   }, [classAttendanceToday, studentsInClass, lop.soHocSinhHienTai, isLoadingClassStudents, isLoadingAttendance]);
 
@@ -102,12 +105,13 @@ export default function ClassAttendanceCard({
   }, [isLoadingAttendance, classAttendanceToday, lop.soHocSinhHienTai, attendedCount, isSessionMarkedTeacherAbsent]);
 
   const isButtonLoading = (isLoadingStudentsForModal && selectedClassForActionId === lop.id);
-  const isSavingOrMarkingInProgress = (isSavingAttendance && selectedClassForActionId === lop.id) || (isMarkingTeacherAbsent && selectedClassForActionId === lop.id);
+  const isSavingOrMarkingInProgress = (isSavingAttendance && selectedClassForActionId === lop.id) || (isMarkingTeacherAbsent && selectedClassForActionId === lop.id) || (isCancellingTeacherAbsent && selectedClassForActionId === lop.id);
 
   const isAnyActionInProgress = isButtonLoading || isSavingOrMarkingInProgress;
 
-  const attendanceButtonLabel = allMarkedPresent ? "Đã điểm danh đủ" : "Điểm danh";
+  const attendanceButtonLabel = allMarkedPresent ? "Đã điểm danh" : "Điểm danh";
   const teacherAbsentButtonLabel = isSessionMarkedTeacherAbsent ? "Đã ghi GV vắng" : "GV vắng";
+  const cancelTeacherAbsentButtonLabel = "Hủy GV vắng";
 
   return (
     <Card className="flex flex-col shadow-md hover:shadow-lg transition-shadow">
@@ -156,11 +160,11 @@ export default function ClassAttendanceCard({
       <CardFooter className="grid grid-cols-2 gap-2 pt-4 border-t">
         <Button
           onClick={() => onDiemDanhClick(lop)}
-          className={cn(!allMarkedPresent && !isSessionMarkedTeacherAbsent && !isAnyActionInProgress && "flashing-button")}
           variant={allMarkedPresent ? "default" : "default"}
           size="icon"
           aria-label={attendanceButtonLabel}
           disabled={isAnyActionInProgress || allMarkedPresent || isSessionMarkedTeacherAbsent}
+          className={cn(!allMarkedPresent && !isSessionMarkedTeacherAbsent && !isAnyActionInProgress && "flashing-button")}
         >
           {isButtonLoading || (isSavingAttendance && selectedClassForActionId === lop.id) ? (
             <Loader2 className="animate-spin" />
@@ -170,24 +174,39 @@ export default function ClassAttendanceCard({
             <CheckCircle />
           )}
         </Button>
-        <Button
-          onClick={() => onMarkTeacherAbsent(lop)}
-          variant={isSessionMarkedTeacherAbsent ? "secondary" : "outline"}
-          className={isSessionMarkedTeacherAbsent ? "border-yellow-500 text-yellow-600" : "border-amber-500 text-amber-600 hover:bg-amber-50"}
-          size="icon"
-          aria-label={teacherAbsentButtonLabel}
-          disabled={isAnyActionInProgress || isSessionMarkedTeacherAbsent}
-        >
-          {isMarkingTeacherAbsent && selectedClassForActionId === lop.id ? (
-            <Loader2 className="animate-spin" />
-          ) : isSessionMarkedTeacherAbsent ? (
-             <Ban />
-          ) : (
-            <UserX />
-          )}
-        </Button>
+        
+        {isSessionMarkedTeacherAbsent ? (
+          <Button
+            onClick={() => onCancelTeacherAbsentClick(lop)}
+            variant="outline"
+            className="border-blue-500 text-blue-600 hover:bg-blue-50"
+            size="icon"
+            aria-label={cancelTeacherAbsentButtonLabel}
+            disabled={isAnyActionInProgress}
+          >
+            {isCancellingTeacherAbsent && selectedClassForActionId === lop.id ? (
+              <Loader2 className="animate-spin" />
+            ) : (
+              <RotateCcw />
+            )}
+          </Button>
+        ) : (
+          <Button
+            onClick={() => onMarkTeacherAbsent(lop)}
+            variant={isSessionMarkedTeacherAbsent ? "secondary" : "outline"}
+            className={isSessionMarkedTeacherAbsent ? "border-yellow-500 text-yellow-600" : "border-amber-500 text-amber-600 hover:bg-amber-50"}
+            size="icon"
+            aria-label={teacherAbsentButtonLabel}
+            disabled={isAnyActionInProgress || isSessionMarkedTeacherAbsent}
+          >
+            {isMarkingTeacherAbsent && selectedClassForActionId === lop.id ? (
+              <Loader2 className="animate-spin" />
+            ) : (
+              <UserX />
+            )}
+          </Button>
+        )}
       </CardFooter>
     </Card>
   );
 }
-

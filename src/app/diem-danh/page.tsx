@@ -7,11 +7,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getClasses } from '@/services/lopHocService';
 import { getStudentsByClassId } from '@/services/hocSinhService';
 import { getAttendanceForClassOnDate, saveAttendance } from '@/services/diemDanhService';
-import { createGiaoVienVangRecord, getPendingMakeupClasses } from '@/services/giaoVienVangService';
+import { createGiaoVienVangRecord, getPendingMakeupClasses, deleteGiaoVienVangRecordByClassAndDate } from '@/services/giaoVienVangService';
 import type { LopHoc, DayOfWeek, HocSinh, AttendanceStatus, GiaoVienVangRecord } from '@/lib/types';
 import { ALL_DAYS_OF_WEEK } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
-import { RefreshCw, AlertCircle, CalendarIcon, CheckCheck, UserX, Ban, CalendarPlus, ListChecks } from 'lucide-react';
+import { RefreshCw, AlertCircle, CalendarIcon, CheckCheck, UserX, Ban, CalendarPlus, ListChecks, RotateCcw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -67,6 +67,9 @@ export default function DiemDanhPage() {
   const [classToMarkTeacherAbsent, setClassToMarkTeacherAbsent] = useState<LopHoc | null>(null);
   const [isTeacherAbsentConfirmOpen, setIsTeacherAbsentConfirmOpen] = useState(false);
 
+  const [classToCancelTeacherAbsent, setClassToCancelTeacherAbsent] = useState<LopHoc | null>(null);
+  const [isCancelTeacherAbsentConfirmOpen, setIsCancelTeacherAbsentConfirmOpen] = useState(false);
+
 
   useEffect(() => {
     setIsClient(true);
@@ -117,8 +120,8 @@ export default function DiemDanhPage() {
       console.log(`[DiemDanhPage] markTeacherAbsentMutation finished. Created GiaoVienVangRecord:`, createdRecord);
       return { ...data, createdRecord };
     },
-    onSuccess: (result) => { // result is { lop: LopHoc; date: Date; createdRecord: GiaoVienVangRecord | null }
-      if (result.createdRecord && result.createdRecord.id) { // Check if a new record was actually created by the service
+    onSuccess: (result) => { 
+      if (result.createdRecord && result.createdRecord.id) { 
         toast({
           title: "Đã ghi nhận GV vắng",
           description: `Buổi học ngày ${format(result.date, 'dd/MM/yyyy')} của lớp ${result.lop.tenLop} đã được ghi nhận là GV vắng và một yêu cầu học bù đã được tạo.`,
@@ -142,6 +145,45 @@ export default function DiemDanhPage() {
         duration: 10000, 
       });
       console.error(`[DiemDanhPage] Error in markTeacherAbsentMutation for class ${variables.lop.tenLop}:`, error);
+    },
+  });
+
+  const cancelTeacherAbsentMutation = useMutation({
+    mutationFn: async (data: { lop: LopHoc; date: Date }) => {
+      console.log(`[DiemDanhPage] cancelTeacherAbsentMutation started for class: ${data.lop.tenLop}, date: ${data.date.toISOString()}`);
+      const students = await getStudentsByClassId(data.lop.id);
+      const attendanceData: Record<string, AttendanceStatus> = {};
+      // Revert students to 'Có mặt' or fetch their previous status if needed
+      // For simplicity, reverting to 'Có mặt'
+      students.forEach(student => {
+        attendanceData[student.id] = 'Có mặt';
+      });
+      
+      console.log(`[DiemDanhPage] Reverting attendance for class: ${data.lop.tenLop}`);
+      await saveAttendance(data.lop.id, data.date, attendanceData);
+      
+      console.log(`[DiemDanhPage] Attempting to delete GiaoVienVangRecord for class: ${data.lop.tenLop}`);
+      await deleteGiaoVienVangRecordByClassAndDate(data.lop.id, data.date);
+      console.log(`[DiemDanhPage] cancelTeacherAbsentMutation finished for class: ${data.lop.tenLop}`);
+      return data;
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Đã hủy GV vắng",
+        description: `Buổi học ngày ${format(data.date, 'dd/MM/yyyy')} của lớp ${data.lop.tenLop} không còn được ghi nhận là GV vắng. Yêu cầu học bù đã được xóa.`,
+      });
+      queryClient.invalidateQueries({ queryKey: ['attendance', data.lop.id, format(data.date, 'yyyyMMdd')] });
+      queryClient.invalidateQueries({ queryKey: ['studentsInClass', data.lop.id] });
+      queryClient.invalidateQueries({ queryKey: ['pendingMakeupClasses'] });
+      console.log(`[DiemDanhPage] cancelTeacherAbsentMutation onSuccess for class ${data.lop.tenLop}.`);
+    },
+    onError: (error: Error, variables) => {
+      toast({
+        title: `Lỗi khi hủy GV vắng cho lớp ${variables.lop.tenLop}`,
+        description: error.message,
+        variant: "destructive",
+      });
+      console.error(`[DiemDanhPage] Error in cancelTeacherAbsentMutation for class ${variables.lop.tenLop}:`, error);
     },
   });
 
@@ -198,6 +240,20 @@ export default function DiemDanhPage() {
     setIsTeacherAbsentConfirmOpen(false);
     setClassToMarkTeacherAbsent(null);
   };
+
+  const handleOpenCancelTeacherAbsentConfirm = (lop: LopHoc) => {
+    setClassToCancelTeacherAbsent(lop);
+    setIsCancelTeacherAbsentConfirmOpen(true);
+  };
+
+  const confirmCancelTeacherAbsent = () => {
+    if (classToCancelTeacherAbsent) {
+      cancelTeacherAbsentMutation.mutate({ lop: classToCancelTeacherAbsent, date: selectedDate });
+    }
+    setIsCancelTeacherAbsentConfirmOpen(false);
+    setClassToCancelTeacherAbsent(null);
+  };
+
 
   const handleScheduleMakeup = (record: GiaoVienVangRecord) => {
     toast({
@@ -289,13 +345,16 @@ export default function DiemDanhPage() {
                     selectedDate={selectedDate}
                     onDiemDanhClick={handleDiemDanhClick}
                     onMarkTeacherAbsent={handleOpenTeacherAbsentConfirm}
+                    onCancelTeacherAbsentClick={handleOpenCancelTeacherAbsentConfirm}
                     isLoadingStudentsForModal={isLoadingStudentsForAttendance && selectedClassForAttendance?.id === lop.id}
                     isSavingAttendance={saveAttendanceMutation.isPending && saveAttendanceMutation.variables?.classId === lop.id}
                     isMarkingTeacherAbsent={markTeacherAbsentMutation.isPending && markTeacherAbsentMutation.variables?.lop.id === lop.id}
+                    isCancellingTeacherAbsent={cancelTeacherAbsentMutation.isPending && cancelTeacherAbsentMutation.variables?.lop.id === lop.id}
                     selectedClassForActionId={
                       (isLoadingStudentsForAttendance && selectedClassForAttendance?.id === lop.id) ||
                       (saveAttendanceMutation.isPending && saveAttendanceMutation.variables?.classId === lop.id) ||
-                      (markTeacherAbsentMutation.isPending && markTeacherAbsentMutation.variables?.lop.id === lop.id)
+                      (markTeacherAbsentMutation.isPending && markTeacherAbsentMutation.variables?.lop.id === lop.id) ||
+                      (cancelTeacherAbsentMutation.isPending && cancelTeacherAbsentMutation.variables?.lop.id === lop.id)
                       ? lop.id
                       : null
                     }
@@ -408,6 +467,34 @@ export default function DiemDanhPage() {
               >
                 {(markTeacherAbsentMutation.isPending && markTeacherAbsentMutation.variables?.lop.id === classToMarkTeacherAbsent.id) ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : null}
                 Xác nhận GV Vắng
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
+
+      {classToCancelTeacherAbsent && (
+         <AlertDialog open={isCancelTeacherAbsentConfirmOpen} onOpenChange={setIsCancelTeacherAbsentConfirmOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Xác nhận Hủy GV vắng</AlertDialogTitle>
+              <AlertDialogDescription>
+                Bạn có chắc chắn muốn hủy trạng thái "GV vắng" cho buổi học ngày {format(selectedDate, "dd/MM/yyyy", { locale: vi })} của lớp "{classToCancelTeacherAbsent.tenLop}" không?
+                Trạng thái điểm danh của học sinh sẽ được đặt lại (mặc định là "Có mặt") và yêu cầu học bù (nếu có) sẽ bị xóa.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => {
+                setIsCancelTeacherAbsentConfirmOpen(false);
+                setClassToCancelTeacherAbsent(null);
+              }}>Hủy</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={confirmCancelTeacherAbsent}
+                className="bg-blue-600 text-blue-foreground hover:bg-blue-700" 
+                disabled={cancelTeacherAbsentMutation.isPending && cancelTeacherAbsentMutation.variables?.lop.id === classToCancelTeacherAbsent.id}
+              >
+                {(cancelTeacherAbsentMutation.isPending && cancelTeacherAbsentMutation.variables?.lop.id === classToCancelTeacherAbsent.id) ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : null}
+                Xác nhận Hủy GV Vắng
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
