@@ -100,10 +100,10 @@ export default function ClassAttendanceCard({
     return !isLoadingAttendance && !isSessionMarkedTeacherAbsent && classAttendanceToday && lop.soHocSinhHienTai > 0 && attendedCount === lop.soHocSinhHienTai;
   }, [isLoadingAttendance, classAttendanceToday, lop.soHocSinhHienTai, attendedCount, isSessionMarkedTeacherAbsent]);
 
-  const isAnyActionInProgress = (isLoadingStudentsForModal && selectedClassForActionId === lop.id) ||
-                                (isSavingAttendance && selectedClassForActionId === lop.id) ||
-                                (isMarkingTeacherAbsent && selectedClassForActionId === lop.id);
+  const isButtonLoading = (isLoadingStudentsForModal && selectedClassForActionId === lop.id);
+  const isSavingOrMarkingInProgress = (isSavingAttendance && selectedClassForActionId === lop.id) || (isMarkingTeacherAbsent && selectedClassForActionId === lop.id);
 
+  const isAnyActionInProgress = isButtonLoading || isSavingOrMarkingInProgress;
 
   return (
     <Card className="flex flex-col shadow-md hover:shadow-lg transition-shadow">
@@ -141,19 +141,19 @@ export default function ClassAttendanceCard({
           ) : isSessionMarkedTeacherAbsent ? (
              <span className="font-medium text-yellow-600">Tất cả HS được ghi nhận GV vắng</span>
           ) : (
-            <span className="font-medium">Đã điểm danh "Có mặt": {attendedCount} / {lop.soHocSinhHienTai}</span>
+            <span className="font-medium">Đã điểm danh: {attendedCount} / {lop.soHocSinhHienTai}</span>
           )}
         </div>
       </CardContent>
       <CardFooter className="grid grid-cols-2 gap-2 pt-4 border-t">
         <Button
           onClick={() => onDiemDanhClick(lop)}
-          className={cn(!allMarkedPresent && !isSessionMarkedTeacherAbsent && "flashing-button")}
-          variant={allMarkedPresent || isSessionMarkedTeacherAbsent ? "default" : "default"}
+          className={cn(!allMarkedPresent && !isSessionMarkedTeacherAbsent && !isAnyActionInProgress && "flashing-button")}
+          variant={allMarkedPresent ? "default" : "default"}
           size="lg"
           disabled={isAnyActionInProgress || allMarkedPresent || isSessionMarkedTeacherAbsent}
         >
-          {isSavingAttendance && selectedClassForActionId === lop.id ? (
+          {isButtonLoading || (isSavingAttendance && selectedClassForActionId === lop.id) ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           ) : allMarkedPresent ? (
             <CheckCheck className="mr-2 h-5 w-5" />
@@ -183,3 +183,4 @@ export default function ClassAttendanceCard({
   );
 }
 
+    
