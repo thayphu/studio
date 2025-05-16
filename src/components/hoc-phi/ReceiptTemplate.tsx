@@ -118,12 +118,12 @@ export default function ReceiptTemplate({ student, receiptNumber, paidAmount }: 
       const datePart = nextPaymentCycleTextRaw.substring("dự kiến từ ".length);
       return (
         <>
-          <strong className="text-foreground">{baseText}dự kiến từ </strong>
+          <strong className="font-semibold text-foreground">{baseText}dự kiến từ </strong>
           <strong className="text-red-600 font-semibold">{datePart}</strong>.
         </>
       );
     }
-    return <strong className="text-foreground">{baseText}{nextPaymentCycleTextRaw}.</strong>;
+    return <strong className="font-semibold text-foreground">{baseText}{nextPaymentCycleTextRaw}.</strong>;
   };
 
   const handleExportImage = async () => {
@@ -134,6 +134,7 @@ export default function ReceiptTemplate({ student, receiptNumber, paidAmount }: 
     });
     // if (receiptRef.current) {
     //   try {
+    //     // const html2canvas = (await import('html2canvas')).default; // Dynamic import
     //     const canvas = await html2canvas(receiptRef.current, {
     //       scale: 2, 
     //       useCORS: true, 
@@ -154,7 +155,7 @@ export default function ReceiptTemplate({ student, receiptNumber, paidAmount }: 
     //     console.error("Error exporting receipt to image:", error);
     //     toast({
     //       title: "Lỗi khi xuất biên nhận",
-    //       description: "Không thể xuất biên nhận sang file ảnh. Vui lòng thử lại.",
+    //       description: "Không thể xuất biên nhận sang file ảnh. Vui lòng thử lại hoặc cài đặt html2canvas và khởi động lại server.",
     //       variant: "destructive",
     //     });
     //   }
@@ -194,8 +195,8 @@ export default function ReceiptTemplate({ student, receiptNumber, paidAmount }: 
 
         <Separator className="my-6" />
 
-        <div className="mb-6 text-base">
-          <h2 className="text-lg font-semibold mb-2 text-foreground">Thông tin học sinh</h2>
+        <div className="mb-6 text-lg"> {/* Increased font size for this section */}
+          <h2 className="text-xl font-semibold mb-2 text-foreground">Thông tin học sinh</h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-4 gap-y-1">
             <div><span className="font-medium text-foreground">Họ và tên:</span> <span className="text-indigo-700 font-semibold">{student.hoTen}</span></div>
             <div><span className="font-medium text-foreground">Lớp:</span> {student.tenLop || 'N/A'}</div>
@@ -203,7 +204,7 @@ export default function ReceiptTemplate({ student, receiptNumber, paidAmount }: 
           </div>
           <p className="mt-2">
             <span className="font-medium text-foreground">Chu kỳ thanh toán:</span>
-            <span className="inline-block pl-4">{student.chuKyThanhToan}.</span>
+            <span className="inline-block pl-4">{student.chuKyThanhToan}.</span> {/* Added space like a tab */}
             <br /> 
             {renderNextPaymentCycleText()}
           </p>
@@ -299,7 +300,7 @@ export default function ReceiptTemplate({ student, receiptNumber, paidAmount }: 
 
         <Separator className="my-6" />
 
-        <div className="text-lg text-muted-foreground space-y-2">
+        <div className="text-lg text-muted-foreground space-y-2"> {/* Increased font size */}
           <p>Anh / Chị vui lòng kiểm tra kỹ thông tin hiện trong Biên nhận này, nếu có sai sót hãy liên hệ để giải quyết.</p>
           <p className="text-center mt-4">
             Trân trọng,<br />
