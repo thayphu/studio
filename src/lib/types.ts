@@ -54,12 +54,14 @@ export interface HocPhiGhiNhan {
 
 
 export type AttendanceStatus = 'Có mặt' | 'Vắng mặt' | 'GV nghỉ' | 'Học bù';
+export const ALL_ATTENDANCE_STATUSES: AttendanceStatus[] = ['Có mặt', 'Vắng mặt', 'GV nghỉ', 'Học bù'];
 
 export interface DiemDanhGhiNhan {
-  id: string;
+  id: string; // Auto-generated when recording
   hocSinhId: string;
   lopId: string;
   ngayDiemDanh: string; // ISO Date string
   trangThai: AttendanceStatus;
+  ghiChu?: string;
 }
 

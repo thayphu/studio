@@ -30,6 +30,22 @@ export const getStudents = async (): Promise<HocSinh[]> => {
   return students;
 };
 
+export const getStudentsByClassId = async (classId: string): Promise<HocSinh[]> => {
+  if (!classId) return [];
+  const studentsQuery = query(hocSinhCollectionRef, where("lopId", "==", classId), orderBy("hoTen", "asc"));
+  const querySnapshot = await getDocs(studentsQuery);
+  const students = querySnapshot.docs.map(docSnapshot => {
+    const studentData = docSnapshot.data() as Omit<HocSinh, 'id' | 'tenLop'>;
+    // Since we are fetching by classId, we don't need to re-fetch class name here
+    return {
+      id: docSnapshot.id,
+      ...studentData,
+      // tenLop could be passed or fetched if needed, but usually not for attendance form context
+    } as HocSinh;
+  });
+  return students;
+};
+
 export const addStudent = async (newStudentData: Omit<HocSinh, 'id' | 'tenLop' | 'tinhTrangThanhToan'>, studentId: string): Promise<HocSinh> => {
   const studentDocRef = doc(db, "hocSinh", studentId);
   
