@@ -31,7 +31,7 @@ import ClassAttendanceCard, { ClassAttendanceCardSkeleton } from '@/components/d
 import { format, parse } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle as ShadCardTitle } from '@/components/ui/card'; // Renamed CardTitle to avoid conflict if any
 import { Badge } from '@/components/ui/badge';
 
 
@@ -102,16 +102,20 @@ export default function DiemDanhPage() {
 
   const markTeacherAbsentMutation = useMutation({
     mutationFn: async (data: { lop: LopHoc; date: Date }) => {
+      console.log(`[DiemDanhPage] markTeacherAbsentMutation started for class: ${data.lop.tenLop}, date: ${data.date.toISOString()}`);
       const students = await getStudentsByClassId(data.lop.id);
       const attendanceData: Record<string, AttendanceStatus> = {};
       students.forEach(student => {
         attendanceData[student.id] = 'GV nghỉ';
       });
       
+      console.log(`[DiemDanhPage] Saving attendance for GV nghỉ for class: ${data.lop.tenLop}`);
       await saveAttendance(data.lop.id, data.date, attendanceData);
-      // After saving attendance, create the GiaoVienVangRecord
+      
+      console.log(`[DiemDanhPage] Creating GiaoVienVangRecord for class: ${data.lop.tenLop}`);
       await createGiaoVienVangRecord(data.lop.id, data.lop.tenLop, data.date);
-      return data; // Return original data for onSuccess
+      console.log(`[DiemDanhPage] markTeacherAbsentMutation finished for class: ${data.lop.tenLop}`);
+      return data; 
     },
     onSuccess: (data) => {
       toast({
@@ -120,7 +124,7 @@ export default function DiemDanhPage() {
       });
       queryClient.invalidateQueries({ queryKey: ['attendance', data.lop.id, format(data.date, 'yyyyMMdd')] });
       queryClient.invalidateQueries({ queryKey: ['studentsInClass', data.lop.id] });
-      queryClient.invalidateQueries({ queryKey: ['pendingMakeupClasses'] }); // To refresh the makeup class list
+      queryClient.invalidateQueries({ queryKey: ['pendingMakeupClasses'] }); 
     },
     onError: (error: Error, variables) => {
       toast({
@@ -128,6 +132,7 @@ export default function DiemDanhPage() {
         description: error.message,
         variant: "destructive",
       });
+      console.error(`[DiemDanhPage] Error in markTeacherAbsentMutation for class ${variables.lop.tenLop}:`, error);
     },
   });
 
@@ -324,10 +329,10 @@ export default function DiemDanhPage() {
                         {pendingMakeupClasses.map(record => (
                             <Card key={record.id} className="shadow-md hover:shadow-lg transition-shadow">
                                 <CardHeader>
-                                    <CardTitle className="text-lg text-primary flex items-center">
+                                    <ShadCardTitle className="text-lg text-primary flex items-center">
                                       <ListChecks className="mr-2 h-5 w-5"/>
                                       {record.className}
-                                    </CardTitle>
+                                    </ShadCardTitle>
                                     <CardDescription>
                                         GV vắng ngày: {format(parse(record.originalDate, 'yyyyMMdd', new Date()), 'dd/MM/yyyy', { locale: vi })}
                                     </CardDescription>
@@ -399,5 +404,3 @@ export default function DiemDanhPage() {
     </DashboardLayout>
   );
 }
-
-    

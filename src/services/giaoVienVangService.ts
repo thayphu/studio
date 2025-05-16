@@ -12,8 +12,9 @@ export const createGiaoVienVangRecord = async (
   className: string,
   originalDate: Date
 ): Promise<GiaoVienVangRecord> => {
+  console.log(`[giaoVienVangService] Attempting to create GiaoVienVangRecord for classId: ${classId}, className: ${className}, originalDate: ${originalDate.toISOString()}`);
   const formattedOriginalDate = format(originalDate, 'yyyyMMdd');
-  const newRecord: Omit<GiaoVienVangRecord, 'id'> = {
+  const newRecordData: Omit<GiaoVienVangRecord, 'id'> = {
     classId,
     className,
     originalDate: formattedOriginalDate,
@@ -21,26 +22,44 @@ export const createGiaoVienVangRecord = async (
     createdAt: new Date().toISOString(),
   };
 
-  const docRef = await addDoc(collection(db, GIAO_VIEN_VANG_COLLECTION), {
-    ...newRecord,
-    createdAtTimestamp: Timestamp.fromDate(new Date(newRecord.createdAt)) // For ordering if needed
-  });
-  return { ...newRecord, id: docRef.id };
+  try {
+    const docRef = await addDoc(collection(db, GIAO_VIEN_VANG_COLLECTION), {
+      ...newRecordData,
+      createdAtTimestamp: Timestamp.fromDate(new Date(newRecordData.createdAt))
+    });
+    console.log(`[giaoVienVangService] Successfully created GiaoVienVangRecord with ID: ${docRef.id}`);
+    return { ...newRecordData, id: docRef.id };
+  } catch (error) {
+    console.error("[giaoVienVangService] Error creating GiaoVienVangRecord:", error);
+    // Re-throw the error so the mutation can catch it if needed, or handle it as per your app's error strategy
+    throw error; 
+  }
 };
 
 export const getPendingMakeupClasses = async (): Promise<GiaoVienVangRecord[]> => {
+  console.log("[giaoVienVangService] Attempting to fetch pending makeup classes.");
   const q = query(
     collection(db, GIAO_VIEN_VANG_COLLECTION),
     where("status", "==", "chờ xếp lịch"),
-    orderBy("createdAtTimestamp", "desc") // Show newest pending records first
+    orderBy("createdAtTimestamp", "desc")
   );
 
-  const querySnapshot = await getDocs(q);
-  const records: GiaoVienVangRecord[] = [];
-  querySnapshot.forEach((doc) => {
-    records.push({ id: doc.id, ...doc.data() } as GiaoVienVangRecord);
-  });
-  return records;
+  try {
+    const querySnapshot = await getDocs(q);
+    const records: GiaoVienVangRecord[] = [];
+    querySnapshot.forEach((doc) => {
+      records.push({ id: doc.id, ...doc.data() } as GiaoVienVangRecord);
+    });
+    console.log(`[giaoVienVangService] Fetched ${records.length} pending makeup classes.`);
+    return records;
+  } catch (error) {
+    console.error("[giaoVienVangService] Error fetching pending makeup classes:", error);
+    // Suggest checking Firestore indexes if a specific error type is caught
+    if ((error as any)?.code === 'failed-precondition') {
+        console.error("[giaoVienVangService] Firestore Precondition Failed: This often means a required index is missing. Please check your Firestore indexes for the 'giaoVienVangRecords' collection, ensuring an index exists for 'status' (ASC) and 'createdAtTimestamp' (DESC).");
+    }
+    throw error;
+  }
 };
 
 // Future functions:
