@@ -65,6 +65,7 @@ export default function DiemDanhPage() {
   }, [classes, todayVietnamese]);
 
   const handleDiemDanhClick = (lop: LopHoc) => {
+    console.log(`[DiemDanhPage] handleDiemDanhClick called for class: ${lop.tenLop} (ID: ${lop.id})`);
     toast({
       title: "Chức năng Điểm danh",
       description: `Sẵn sàng điểm danh cho lớp ${lop.tenLop}. Tính năng chi tiết sẽ được triển khai.`,
@@ -140,7 +141,7 @@ export default function DiemDanhPage() {
                     <span>Sĩ số: {lop.soHocSinhHienTai} học sinh</span>
                   </div>
                    <div className="flex items-center pt-1">
-                    <Users className="mr-2 h-4 w-4 text-green-500" />
+                    <Users className="mr-2 h-4 w-4 text-green-500" /> {/* Icon này có thể thay đổi */}
                     <span className="font-medium">Đã điểm danh: 0 / {lop.soHocSinhHienTai}</span>
                   </div>
                 </CardContent>
