@@ -104,29 +104,27 @@ export default function HocSinhPage() {
     onSuccess: async (_data, updatedStudentDataFromForm) => { 
       queryClient.invalidateQueries({ queryKey: ['students'] });
 
-      const oldLopId = editingStudent?.lopId;
-      const newLopId = updatedStudentDataFromForm.lopId;
+      const studentBeforeEdit = editingStudent; 
+      const studentAfterEdit = updatedStudentDataFromForm;
 
-      if (oldLopId !== newLopId) {
-        // Student was moved to a different class, or removed from a class, or added to a class from no class
-        if (oldLopId) {
-          await recalculateAndUpdateClassStudentCount(oldLopId); // Recalculate for the old class
-        }
-        if (newLopId) {
-          await recalculateAndUpdateClassStudentCount(newLopId); // Recalculate for the new class
-        }
+      // Recalculate for the class the student is NOW associated with (if any)
+      if (studentAfterEdit.lopId) {
+        await recalculateAndUpdateClassStudentCount(studentAfterEdit.lopId);
       }
-      // If oldLopId === newLopId, the student count for THIS specific class hasn't changed 
-      // due to THIS specific student's update (e.g., if only their phone number changed).
-      // The count is primarily affected by adding, deleting, or moving students between classes.
+
+      // If the student WAS in a class, and that class is DIFFERENT from the new class,
+      // then recalculate for the OLD class as well.
+      if (studentBeforeEdit?.lopId && studentBeforeEdit.lopId !== studentAfterEdit.lopId) {
+        await recalculateAndUpdateClassStudentCount(studentBeforeEdit.lopId);
+      }
       
-      queryClient.invalidateQueries({ queryKey: ['classes'] }); // Always invalidate classes to get latest state
+      queryClient.invalidateQueries({ queryKey: ['classes'] }); // Ensure class list is refreshed
 
       setIsEditStudentModalOpen(false);
       setEditingStudent(null);
       toast({
         title: "Cập nhật thành công!",
-        description: `Thông tin học sinh "${updatedStudentDataFromForm.hoTen}" đã được cập nhật.`,
+        description: `Thông tin học sinh "${studentAfterEdit.hoTen}" đã được cập nhật.`,
       });
     },
     onError: (error: Error) => {
@@ -245,7 +243,6 @@ export default function HocSinhPage() {
       <div className="container mx-auto py-8 px-4 md:px-6">
         <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
           <h1 className="text-3xl font-bold text-foreground">Quản lý Học sinh</h1>
-          {/* Button to trigger Add Student Modal - No DialogTrigger needed here as Dialog is controlled by state */}
            <Button 
             onClick={handleOpenAddStudentModal} 
             disabled={isLoadingClasses || addStudentMutation.isPending || updateStudentMutation.isPending}
@@ -258,11 +255,8 @@ export default function HocSinhPage() {
         {/* Combined Dialog for Add/Edit Student */}
         <Dialog open={isAddStudentModalOpen || isEditStudentModalOpen} onOpenChange={(open) => {
           if (!open) closeDialogs();
-          // Explicitly set both states based on the dialog's combined open state
-          // This is a bit tricky because one dialog serves two purposes.
-          // The closeDialogs() function should handle resetting correctly.
-          else if (!editingStudent) setIsAddStudentModalOpen(true) // If opening and not editing, it's add mode
-          else setIsEditStudentModalOpen(true) // If opening and editing, it's edit mode
+          else if (!editingStudent) setIsAddStudentModalOpen(true)
+          else setIsEditStudentModalOpen(true) 
         }}>
           <DialogContent className="sm:max-w-[600px]">
             <DialogHeader>
@@ -323,7 +317,7 @@ export default function HocSinhPage() {
                 </>
               ) : filteredStudents.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">
+                  <TableCell colSpan={9} className="h-24 text-center text-muted-foreground">
                     {(studentsData || []).length > 0 ? "Không tìm thấy học sinh nào khớp với tìm kiếm." : "Chưa có học sinh nào. Hãy thêm học sinh mới!"}
                   </TableCell>
                 </TableRow>
