@@ -17,7 +17,7 @@ import {
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
-  AlertDialogHeader,
+  AlertDialogHeader as ShadAlertDialogHeader, // Renamed to avoid conflict with DialogHeader
   AlertDialogTitle as AlertDialogTitleComponent, 
 } from "@/components/ui/alert-dialog";
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
@@ -87,12 +87,12 @@ export default function HocPhiPage() {
   const [currentReceiptNumber, setCurrentReceiptNumber] = useState('');
 
 
-  const { data: studentsData = [], isLoading: isLoadingStudents, isError: isErrorStudents, error: errorStudents } = useQuery<HocSinh[], Error>({
+  const { data: studentsData, isLoading: isLoadingStudents, isError: isErrorStudents, error: errorStudents } = useQuery<HocSinh[], Error>({
     queryKey: ['studentsForTuition'],
     queryFn: getStudents,
   });
 
-  const { data: classesData = [], isLoading: isLoadingClasses, isError: isErrorClasses, error: errorClasses } = useQuery<LopHoc[], Error>({
+  const { data: classesData, isLoading: isLoadingClasses, isError: isErrorClasses, error: errorClasses } = useQuery<LopHoc[], Error>({
     queryKey: ['classesForTuition'],
     queryFn: getClasses,
   });
@@ -412,12 +412,12 @@ export default function HocPhiPage() {
         {receiptToDelete && (
           <AlertDialog open={isDeleteReceiptDialogOpen} onOpenChange={setIsDeleteReceiptDialogOpen}>
             <AlertDialogContent>
-              <AlertDialogHeader>
+              <ShadAlertDialogHeader>
                 <AlertDialogTitleComponent>Xác nhận xóa biên nhận</AlertDialogTitleComponent>
                 <AlertDialogDescription>
                   Bạn có chắc chắn muốn xóa biên nhận học phí cho học sinh "{receiptToDelete.hoTen}" không? Hành động này (hiện tại) không thể hoàn tác.
                 </AlertDialogDescription>
-              </AlertDialogHeader>
+              </ShadAlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel onClick={() => {
                   setIsDeleteReceiptDialogOpen(false);
@@ -439,8 +439,10 @@ export default function HocPhiPage() {
             setIsReceiptModalOpen(isOpen);
             if(!isOpen) setStudentForReceipt(null);
           }}>
-            <DialogContent className="sm:max-w-3xl p-0"> {/* Adjusted max-width for receipt */}
-              {/* No DialogHeader here, ReceiptTemplate has its own title */}
+            <DialogContent className="sm:max-w-3xl p-0">
+              <DialogHeader className="sr-only">
+                <ShadDialogTitle>Biên nhận học phí cho {studentForReceipt.hoTen}</ShadDialogTitle>
+              </DialogHeader>
               <ReceiptTemplate 
                 student={studentForReceipt} 
                 receiptNumber={currentReceiptNumber}
