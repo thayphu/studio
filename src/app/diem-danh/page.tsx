@@ -265,9 +265,10 @@ export default function DiemDanhPage() {
             {!showLoadingState && !isErrorClasses && classesTodayOrSelectedDate.length === 0 && (
               <div className="text-center py-10 bg-card rounded-lg shadow p-6">
                 <p className="text-xl text-muted-foreground">
-                  {(classes && classes.length > 0) || (classes && classes.length === 0 && classesTodayOrSelectedDate.length === 0)
-                    ? `Không có lớp nào có lịch học vào ${currentDisplayDayOfWeek} ngày ${format(selectedDate, "dd/MM/yyyy")}.`
-                    : "Chưa có dữ liệu lớp học hoặc không có lớp nào hoạt động."}
+                  {classes && classes.length > 0
+                    ? `Không có lớp nào có lịch học vào ${currentDisplayDayOfWeek} ngày ${format(selectedDate, "dd/MM/yyyy")}. Hãy thử chọn ngày khác hoặc kiểm tra lại lịch học của lớp.`
+                    : "Chưa có dữ liệu lớp học nào trong hệ thống. Vui lòng thêm lớp ở trang 'Quản lý Lớp học'."
+                  }
                 </p>
               </div>
             )}
