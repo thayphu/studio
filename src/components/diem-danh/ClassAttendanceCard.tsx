@@ -92,8 +92,6 @@ export default function ClassAttendanceCard({
     if (lop.soHocSinhHienTai === 0 && Object.keys(classAttendanceToday).length === 0) return false; // No students, no attendance yet
     if (lop.soHocSinhHienTai > 0 && Object.keys(classAttendanceToday).length === 0) return false; // Students exist, but no attendance record for this date
 
-    // Check if ALL students present in the class are marked as 'GV nghỉ'
-    // OR if there are no students but there's a single entry for the class indicating 'GV nghỉ' (less likely with current save logic)
     return studentsInClass.length > 0 && studentsInClass.every(student => classAttendanceToday[student.id] === 'GV nghỉ');
   }, [classAttendanceToday, studentsInClass, lop.soHocSinhHienTai, isLoadingClassStudents, isLoadingAttendance]);
 
@@ -151,7 +149,7 @@ export default function ClassAttendanceCard({
         <Button
           onClick={() => onDiemDanhClick(lop)}
           className={cn(!allMarkedPresent && !isSessionMarkedTeacherAbsent && "flashing-button")}
-          variant={allMarkedPresent || isSessionMarkedTeacherAbsent ? "secondary" : "default"}
+          variant={allMarkedPresent || isSessionMarkedTeacherAbsent ? "default" : "default"}
           size="lg"
           disabled={isAnyActionInProgress || allMarkedPresent || isSessionMarkedTeacherAbsent}
         >
