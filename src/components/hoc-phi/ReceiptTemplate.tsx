@@ -109,21 +109,22 @@ export default function ReceiptTemplate({ student, receiptNumber, paidAmount }: 
      nextPaymentCycleTextRaw = `dự kiến từ ${format(lastPaymentDate, "dd/MM/yyyy")}`;
   }
 
-  const renderNextPaymentCycleText = () => {
-    const prefix = "Chu kỳ thanh toán tiếp theo ";
+ const renderNextPaymentCycleText = () => {
+    const baseText = "Chu kỳ thanh toán tiếp theo ";
     if (nextPaymentCycleTextRaw.startsWith("dự kiến từ ")) {
       const datePart = nextPaymentCycleTextRaw.substring("dự kiến từ ".length);
       return (
         <>
-          <strong className="text-foreground">{prefix}dự kiến từ </strong>
-          <strong className="text-red-600">{datePart}</strong>.
+          <strong className="text-foreground">{baseText}dự kiến từ </strong>
+          <strong className="text-red-600 font-semibold">{datePart}</strong>.
         </>
       );
     }
-    return <strong className="text-foreground">{prefix}{nextPaymentCycleTextRaw}.</strong>;
+    return <strong className="text-foreground">{baseText}{nextPaymentCycleTextRaw}.</strong>;
   };
 
   const handleExportImage = () => {
+    console.log("Export to image button clicked. Attempting to show toast."); // Added for debugging
     toast({
       title: "Chức năng đang phát triển",
       description: "Tính năng xuất biên nhận sang file ảnh sẽ sớm được cập nhật.",
@@ -156,14 +157,14 @@ export default function ReceiptTemplate({ student, receiptNumber, paidAmount }: 
 
       <Separator className="my-6" />
 
-      <div className="mb-6">
+      <div className="mb-6 text-base">
         <h2 className="text-lg font-semibold mb-2 text-foreground">Thông tin học sinh</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-4 gap-y-1 text-muted-foreground">
-          <div><span className="font-medium text-foreground">Họ và tên:</span> {student.hoTen}</div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-4 gap-y-1">
+          <div><span className="font-medium text-foreground">Họ và tên:</span> <span className="text-indigo-700 font-semibold">{student.hoTen}</span></div>
           <div><span className="font-medium text-foreground">Lớp:</span> {student.tenLop || 'N/A'}</div>
           <div><span className="font-medium text-foreground">Ngày đăng ký:</span> {format(new Date(student.ngayDangKy), "dd/MM/yyyy")}</div>
         </div>
-        <p className="mt-2 text-muted-foreground">
+        <p className="mt-2">
           <span className="font-medium text-foreground">Chu kỳ thanh toán:</span>
           <span className="inline-block pl-4">{student.chuKyThanhToan}.</span>
           <br /> 
@@ -298,6 +299,4 @@ const format = (date: Date, formatString: string): string => {
    if (formatString === "yyyy") return String(date.getFullYear());
   return date.toLocaleDateString('vi-VN'); 
 };
-
-
     
