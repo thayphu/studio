@@ -17,7 +17,7 @@ import { getTeacherAbsentDaysSummary } from '@/services/giaoVienVangService';
 import type { HocSinh, LopHoc, AttendanceStatus, DiemDanhGhiNhan, GiaoVienVangRecord } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Users, UserCheck, UserX, CalendarOff, LineChart, PieChart, Archive, AlertCircle, BookCopy, DollarSign, CalendarDays, BadgeDollarSign } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, parse } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { formatCurrencyVND } from '@/lib/utils';
 
@@ -223,9 +223,9 @@ export default function BaoCaoPage() {
               {modalData.teacherAbsentRecords?.map((record, index) => (
                 <TableRow key={record.id}>
                   <TableCell>{index + 1}</TableCell>
-                  <TableCell>{format(new Date(record.originalDate.substring(0,4) + '-' + record.originalDate.substring(4,6) + '-' + record.originalDate.substring(6,8)), 'dd/MM/yyyy')}</TableCell>
+                  <TableCell>{record.originalDate ? format(parse(record.originalDate, 'yyyyMMdd', new Date()), 'dd/MM/yyyy', { locale: vi }) : 'N/A'}</TableCell>
                   <TableCell>{record.className}</TableCell>
-                  <TableCell>{record.makeupDate ? format(new Date(record.makeupDate.substring(0,4) + '-' + record.makeupDate.substring(4,6) + '-' + record.makeupDate.substring(6,8)), 'dd/MM/yyyy') + (record.makeupTime ? ` (${record.makeupTime})` : '') : record.status}</TableCell>
+                  <TableCell>{record.makeupDate ? format(parse(record.makeupDate, 'yyyyMMdd', new Date()), 'dd/MM/yyyy', { locale: vi }) + (record.makeupTime ? ` (${record.makeupTime})` : '') : record.status}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -356,15 +356,7 @@ export default function BaoCaoPage() {
                 error={isErrorTeacherAbsentSummary}
               />
             </div>
-            <Card className="mt-6 shadow-md">
-                <CardHeader>
-                    <CardTitle className="flex items-center"><PieChart className="mr-2 h-5 w-5 text-primary"/>Phân tích nhanh (Placeholder)</CardTitle>
-                    <CardDescription>Biểu đồ và phân tích chi tiết hơn sẽ được bổ sung.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <p className="text-muted-foreground">Khu vực này sẽ hiển thị các biểu đồ trực quan về tỷ lệ điểm danh, tăng trưởng học sinh, v.v...</p>
-                </CardContent>
-            </Card>
+            {/* Removed Phân tích nhanh placeholder card */}
           </TabsContent>
 
           <TabsContent value="tai-chinh">
