@@ -79,14 +79,12 @@ export default function ReceiptTemplate({ student, receiptNumber, paidAmount }: 
 
   const today = new Date();
   
-  // Placeholder for attendance stats - Data not available yet
   const attendanceStats = {
     present: "--",
     absent: "--",
     teacherAbsent: "--",
   };
 
-  // Placeholder for attendance history - Data not available yet
   const attendanceHistory: { date: string; status: string; color: string }[] = [];
   
   const paymentHistory = student.ngayThanhToanGanNhat ? [
@@ -154,7 +152,7 @@ export default function ReceiptTemplate({ student, receiptNumber, paidAmount }: 
             <span>Chi phí khác:</span>
             <span className="font-medium text-foreground">{formatCurrencyVND(0)}</span>
           </div>
-          <div className="ml-4 text-xs"><em>Diễn giải: </em></div>
+           <div className="ml-4 text-xs"><em>Diễn giải: </em></div>
 
           <div className="flex justify-between">
             <span>Học phí linh hoạt:</span>
@@ -231,7 +229,7 @@ export default function ReceiptTemplate({ student, receiptNumber, paidAmount }: 
 
       <Separator className="my-6" />
 
-      <div className="text-xs text-muted-foreground space-y-2">
+      <div className="text-lg text-muted-foreground space-y-2">
         <p>Anh / Chị vui lòng kiểm tra kỹ thông tin hiện trong Biên nhận này, nếu có sai sót hãy liên hệ để giải quyết.</p>
         <p className="text-center mt-4">
           Trân trọng,<br />
