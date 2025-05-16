@@ -6,7 +6,17 @@ import { Button } from '@/components/ui/button';
 import { PlusCircle, Edit2, Trash2, Search, RefreshCw } from 'lucide-react';
 import { TEXTS_VI } from '@/lib/constants';
 import { useToast } from '@/hooks/use-toast';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle as AlertDialogTitleComponent, // Renamed to avoid conflict
+} from "@/components/ui/alert-dialog";
 import AddStudentForm from '@/components/hoc-sinh/AddStudentForm';
 import type { HocSinh, LopHoc } from '@/lib/types';
 import { Input } from '@/components/ui/input';
@@ -43,6 +53,8 @@ export default function HocSinhPage() {
   const queryClient = useQueryClient();
   const [isAddStudentModalOpen, setIsAddStudentModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [studentToDelete, setStudentToDelete] = useState<HocSinh | null>(null);
 
   const { data: existingClasses = [], isLoading: isLoadingClasses, isError: isErrorClasses, error: errorClasses } = useQuery<LopHoc[], Error>({
     queryKey: ['classes'],
@@ -96,6 +108,8 @@ export default function HocSinhPage() {
         title: "Đã xóa học sinh",
         description: `Học sinh với mã ${params.studentId} đã được xóa khỏi hệ thống.`,
       });
+      setIsDeleteDialogOpen(false);
+      setStudentToDelete(null);
     },
     onError: (error: Error) => {
       toast({
@@ -103,6 +117,8 @@ export default function HocSinhPage() {
         description: error.message,
         variant: "destructive",
       });
+      setIsDeleteDialogOpen(false);
+      setStudentToDelete(null);
     },
   });
 
@@ -115,11 +131,25 @@ export default function HocSinhPage() {
   const handleOpenAddStudentModal = () => {
     setIsAddStudentModalOpen(true);
   };
+  
+  const handleOpenDeleteStudentDialog = (student: HocSinh) => {
+    setStudentToDelete(student);
+    setIsDeleteDialogOpen(true);
+  };
 
-  const handleDeleteStudent = (studentId: string, lopId?: string) => {
-    deleteStudentMutation.mutate({ studentId, lopId });
+  const confirmDeleteStudent = () => {
+    if (studentToDelete) {
+      deleteStudentMutation.mutate({ studentId: studentToDelete.id, lopId: studentToDelete.lopId });
+    }
   };
   
+  const handleEditStudent = (student: HocSinh) => {
+    toast({
+      title: "Tính năng đang phát triển",
+      description: `Chỉnh sửa thông tin học sinh "${student.hoTen}" sẽ được triển khai sau.`,
+    });
+  };
+
   if (isErrorClasses || isErrorStudents) {
     const combinedError = errorClasses?.message || errorStudents?.message;
     return (
@@ -155,7 +185,6 @@ export default function HocSinhPage() {
             <DialogContent className="sm:max-w-[600px]">
               <DialogHeader>
                 <DialogTitle>Thêm học sinh mới</DialogTitle>
-                 {/* Description removed as per previous request */}
               </DialogHeader>
               {isLoadingClasses ? (
                 <div className="p-6 text-center">Đang tải danh sách lớp...</div>
@@ -201,7 +230,7 @@ export default function HocSinhPage() {
             <TableBody>
               {isLoadingStudents ? (
                 <>
-                  {[...Array(3)].map((_, i) => (
+                  {[...Array(5)].map((_, i) => ( // Increased skeleton rows for table view
                     <StudentRowSkeleton key={i} />
                   ))}
                 </>
@@ -231,8 +260,8 @@ export default function HocSinhPage() {
                         <Button 
                           variant="outline" 
                           size="icon" 
-                          onClick={() => toast({title: "Tính năng đang phát triển", description: "Chỉnh sửa học sinh sẽ được thêm sau."})}
-                          disabled={deleteStudentMutation.isPending}
+                          onClick={() => handleEditStudent(student)}
+                          disabled={deleteStudentMutation.isPending || addStudentMutation.isPending}
                           aria-label="Sửa học sinh"
                         >
                           <Edit2 className="h-4 w-4" />
@@ -240,7 +269,7 @@ export default function HocSinhPage() {
                         <Button 
                           variant="destructive" 
                           size="icon" 
-                          onClick={() => handleDeleteStudent(student.id, student.lopId)}
+                          onClick={() => handleOpenDeleteStudentDialog(student)}
                           disabled={deleteStudentMutation.isPending && deleteStudentMutation.variables?.studentId === student.id}
                           aria-label="Xóa học sinh"
                         >
@@ -255,6 +284,32 @@ export default function HocSinhPage() {
           </Table>
         </div>
       </div>
+
+      {studentToDelete && (
+        <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitleComponent>Xác nhận xóa học sinh</AlertDialogTitleComponent>
+              <AlertDialogDescription>
+                Bạn có chắc chắn muốn xóa học sinh "{studentToDelete?.hoTen}" (Mã HS: {studentToDelete?.id}) không? Hành động này không thể hoàn tác.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setStudentToDelete(null)}>Hủy</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={confirmDeleteStudent}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                disabled={deleteStudentMutation.isPending}
+              >
+                {deleteStudentMutation.isPending ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : null}
+                Xác nhận Xóa
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
+
     </DashboardLayout>
   );
 }
+
