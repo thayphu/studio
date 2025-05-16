@@ -63,18 +63,19 @@ export default function HocSinhPage() {
     queryFn: getClasses,
   });
 
-  const { data: students = [], isLoading: isLoadingStudents, isError: isErrorStudents, error: errorStudents } = useQuery<HocSinh[], Error>({
+  const { data: studentsData = [], isLoading: isLoadingStudents, isError: isErrorStudents, error: errorStudents } = useQuery<HocSinh[], Error>({
     queryKey: ['students'],
     queryFn: getStudents,
   });
   
   const filteredStudents = useMemo(() => {
-    return (students || []).filter(student =>
+    const currentStudents = studentsData || [];
+    return currentStudents.filter(student =>
       student.hoTen.toLowerCase().includes(searchTerm.toLowerCase()) ||
       student.id.toLowerCase().includes(searchTerm.toLowerCase()) || 
       (student.tenLop && student.tenLop.toLowerCase().includes(searchTerm.toLowerCase()))
     );
-  }, [students, searchTerm]);
+  }, [studentsData, searchTerm]);
 
   const addStudentMutation = useMutation({
     mutationFn: (params: { studentData: Omit<HocSinh, 'id' | 'tenLop' | 'tinhTrangThanhToan'>, studentId: string }) => 
@@ -99,15 +100,15 @@ export default function HocSinhPage() {
 
   const updateStudentMutation = useMutation({
     mutationFn: (studentData: HocSinh) => updateStudentService(studentData.id, studentData),
-    onSuccess: async (updatedStudent) => {
+    onSuccess: async (_data, updatedStudentDataFromForm) => { // _data is void, use updatedStudentDataFromForm
       queryClient.invalidateQueries({ queryKey: ['students'] });
       // If class was changed, update counts for old and new class
-      if (editingStudent?.lopId !== updatedStudent.lopId) {
+      if (editingStudent?.lopId !== updatedStudentDataFromForm.lopId) {
         if (editingStudent?.lopId) {
           await recalculateAndUpdateClassStudentCount(editingStudent.lopId);
         }
-        if (updatedStudent.lopId) {
-          await recalculateAndUpdateClassStudentCount(updatedStudent.lopId);
+        if (updatedStudentDataFromForm.lopId) {
+          await recalculateAndUpdateClassStudentCount(updatedStudentDataFromForm.lopId);
         }
         queryClient.invalidateQueries({ queryKey: ['classes'] });
       }
@@ -115,7 +116,7 @@ export default function HocSinhPage() {
       setEditingStudent(null);
       toast({
         title: "Cập nhật thành công!",
-        description: `Thông tin học sinh "${updatedStudent.hoTen}" đã được cập nhật.`,
+        description: `Thông tin học sinh "${updatedStudentDataFromForm.hoTen}" đã được cập nhật.`,
       });
     },
     onError: (error: Error) => {
@@ -308,7 +309,7 @@ export default function HocSinhPage() {
               ) : filteredStudents.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={9} className="h-24 text-center text-muted-foreground">
-                    {(students || []).length > 0 ? "Không tìm thấy học sinh nào khớp với tìm kiếm." : "Chưa có học sinh nào. Hãy thêm học sinh mới!"}
+                    {(studentsData || []).length > 0 ? "Không tìm thấy học sinh nào khớp với tìm kiếm." : "Chưa có học sinh nào. Hãy thêm học sinh mới!"}
                   </TableCell>
                 </TableRow>
               ) : (
