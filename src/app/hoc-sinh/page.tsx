@@ -37,6 +37,7 @@ const StudentRowSkeleton = () => (
     <TableCell><Skeleton className="h-4 w-24" /></TableCell>
     <TableCell><Skeleton className="h-4 w-20" /></TableCell>
     <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+    {/* <TableCell><Skeleton className="h-4 w-20" /></TableCell> */}
     <TableCell><Skeleton className="h-4 w-20" /></TableCell>
     <TableCell>
       <div className="flex gap-2 justify-end">
@@ -100,18 +101,27 @@ export default function HocSinhPage() {
 
   const updateStudentMutation = useMutation({
     mutationFn: (studentData: HocSinh) => updateStudentService(studentData.id, studentData),
-    onSuccess: async (_data, updatedStudentDataFromForm) => { // _data is void, use updatedStudentDataFromForm
+    onSuccess: async (_data, updatedStudentDataFromForm) => { 
       queryClient.invalidateQueries({ queryKey: ['students'] });
-      // If class was changed, update counts for old and new class
-      if (editingStudent?.lopId !== updatedStudentDataFromForm.lopId) {
-        if (editingStudent?.lopId) {
-          await recalculateAndUpdateClassStudentCount(editingStudent.lopId);
+
+      const oldLopId = editingStudent?.lopId;
+      const newLopId = updatedStudentDataFromForm.lopId;
+
+      if (oldLopId !== newLopId) {
+        // Student was moved to a different class, or removed from a class, or added to a class from no class
+        if (oldLopId) {
+          await recalculateAndUpdateClassStudentCount(oldLopId); // Recalculate for the old class
         }
-        if (updatedStudentDataFromForm.lopId) {
-          await recalculateAndUpdateClassStudentCount(updatedStudentDataFromForm.lopId);
+        if (newLopId) {
+          await recalculateAndUpdateClassStudentCount(newLopId); // Recalculate for the new class
         }
-        queryClient.invalidateQueries({ queryKey: ['classes'] });
       }
+      // If oldLopId === newLopId, the student count for THIS specific class hasn't changed 
+      // due to THIS specific student's update (e.g., if only their phone number changed).
+      // The count is primarily affected by adding, deleting, or moving students between classes.
+      
+      queryClient.invalidateQueries({ queryKey: ['classes'] }); // Always invalidate classes to get latest state
+
       setIsEditStudentModalOpen(false);
       setEditingStudent(null);
       toast({
@@ -161,7 +171,6 @@ export default function HocSinhPage() {
 
   const handleAddStudentSubmit = (newStudentDataFromForm: HocSinh) => {
     const { id: studentId, ...restOfData } = newStudentDataFromForm;
-     // Explicitly type restOfData
     const studentDataForAdd: Omit<HocSinh, 'id' | 'tenLop' | 'tinhTrangThanhToan' | 'ngayThanhToanGanNhat' | 'soBuoiDaHocTrongChuKy'> = {
       hoTen: restOfData.hoTen,
       ngaySinh: restOfData.ngaySinh,
@@ -182,7 +191,7 @@ export default function HocSinhPage() {
   const handleOpenAddStudentModal = () => {
     console.log("[HocSinhPage] handleOpenAddStudentModal called");
     setEditingStudent(null);
-    setIsEditStudentModalOpen(false);
+    setIsEditStudentModalOpen(false); // Ensure edit modal is closed
     setIsAddStudentModalOpen(true);
     console.log("[HocSinhPage] States after handleOpenAddStudentModal: isEditStudentModalOpen=false, isAddStudentModalOpen=true");
   };
@@ -236,6 +245,7 @@ export default function HocSinhPage() {
       <div className="container mx-auto py-8 px-4 md:px-6">
         <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
           <h1 className="text-3xl font-bold text-foreground">Quản lý Học sinh</h1>
+          {/* Button to trigger Add Student Modal - No DialogTrigger needed here as Dialog is controlled by state */}
            <Button 
             onClick={handleOpenAddStudentModal} 
             disabled={isLoadingClasses || addStudentMutation.isPending || updateStudentMutation.isPending}
@@ -248,6 +258,11 @@ export default function HocSinhPage() {
         {/* Combined Dialog for Add/Edit Student */}
         <Dialog open={isAddStudentModalOpen || isEditStudentModalOpen} onOpenChange={(open) => {
           if (!open) closeDialogs();
+          // Explicitly set both states based on the dialog's combined open state
+          // This is a bit tricky because one dialog serves two purposes.
+          // The closeDialogs() function should handle resetting correctly.
+          else if (!editingStudent) setIsAddStudentModalOpen(true) // If opening and not editing, it's add mode
+          else setIsEditStudentModalOpen(true) // If opening and editing, it's edit mode
         }}>
           <DialogContent className="sm:max-w-[600px]">
             <DialogHeader>
@@ -308,7 +323,7 @@ export default function HocSinhPage() {
                 </>
               ) : filteredStudents.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="h-24 text-center text-muted-foreground">
+                  <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">
                     {(studentsData || []).length > 0 ? "Không tìm thấy học sinh nào khớp với tìm kiếm." : "Chưa có học sinh nào. Hãy thêm học sinh mới!"}
                   </TableCell>
                 </TableRow>
