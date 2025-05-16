@@ -10,6 +10,8 @@ import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import React, { useRef } from 'react';
+// import html2canvas from 'html2canvas'; // Temporarily commented out
 
 interface ReceiptTemplateProps {
   student: HocSinh | null;
@@ -76,6 +78,7 @@ const numberToVietnameseWords = (num: number | null | undefined): string => {
 
 export default function ReceiptTemplate({ student, receiptNumber, paidAmount }: ReceiptTemplateProps) {
   const { toast } = useToast();
+  const receiptRef = useRef<HTMLDivElement>(null);
 
   if (!student) {
     return <div className="p-6 text-center text-muted-foreground">Không có thông tin học sinh để hiển thị biên nhận.</div>;
@@ -109,7 +112,7 @@ export default function ReceiptTemplate({ student, receiptNumber, paidAmount }: 
      nextPaymentCycleTextRaw = `dự kiến từ ${format(lastPaymentDate, "dd/MM/yyyy")}`;
   }
 
- const renderNextPaymentCycleText = () => {
+  const renderNextPaymentCycleText = () => {
     const baseText = "Chu kỳ thanh toán tiếp theo ";
     if (nextPaymentCycleTextRaw.startsWith("dự kiến từ ")) {
       const datePart = nextPaymentCycleTextRaw.substring("dự kiến từ ".length);
@@ -123,153 +126,188 @@ export default function ReceiptTemplate({ student, receiptNumber, paidAmount }: 
     return <strong className="text-foreground">{baseText}{nextPaymentCycleTextRaw}.</strong>;
   };
 
-  const handleExportImage = () => {
-    console.log("Export to image button clicked. Attempting to show toast."); // Added for debugging
+  const handleExportImage = async () => {
+    console.log("Export to image button clicked. html2canvas integration is temporarily disabled.");
     toast({
       title: "Chức năng đang phát triển",
-      description: "Tính năng xuất biên nhận sang file ảnh sẽ sớm được cập nhật.",
+      description: "Tính năng xuất biên nhận sang file ảnh sẽ sớm được cập nhật. Vui lòng cài đặt 'html2canvas' và khởi động lại server.",
     });
+    // if (receiptRef.current) {
+    //   try {
+    //     const canvas = await html2canvas(receiptRef.current, {
+    //       scale: 2, 
+    //       useCORS: true, 
+    //       backgroundColor: '#ffffff', 
+    //     });
+    //     const image = canvas.toDataURL('image/png', 1.0);
+    //     const link = document.createElement('a');
+    //     link.href = image;
+    //     link.download = `BienNhan_${receiptNumber}_${student.hoTen.replace(/\s+/g, '_')}.png`;
+    //     document.body.appendChild(link);
+    //     link.click();
+    //     document.body.removeChild(link);
+    //     toast({
+    //       title: "Xuất biên nhận thành công!",
+    //       description: "Biên nhận đã được tải xuống dưới dạng file ảnh.",
+    //     });
+    //   } catch (error) {
+    //     console.error("Error exporting receipt to image:", error);
+    //     toast({
+    //       title: "Lỗi khi xuất biên nhận",
+    //       description: "Không thể xuất biên nhận sang file ảnh. Vui lòng thử lại.",
+    //       variant: "destructive",
+    //     });
+    //   }
+    // } else {
+    //   console.error("Receipt element ref is not available.");
+    //   toast({
+    //       title: "Lỗi",
+    //       description: "Không tìm thấy nội dung biên nhận để xuất.",
+    //       variant: "destructive",
+    //     });
+    // }
   };
 
   return (
-    <div className="bg-card p-6 sm:p-8 rounded-lg shadow-lg max-w-2xl mx-auto font-sans text-sm">
-      <div className="flex justify-between items-center mb-6">
-        <div className="text-center flex-grow">
+    <>
+      <div className="flex justify-end mb-2 print:hidden p-4 pb-0 bg-card"> 
+        <Button variant="outline" size="icon" onClick={handleExportImage} aria-label="Xuất sang file ảnh">
+          <Download className="h-5 w-5" />
+        </Button>
+      </div>
+      <div ref={receiptRef} className="bg-card p-6 sm:p-8 rounded-lg shadow-lg max-w-2xl mx-auto font-sans text-sm">
+        <div className="text-center flex-grow mb-6">
           <div className="inline-block bg-accent text-accent-foreground px-6 py-2 rounded-md">
             <h1 className="text-2xl font-bold uppercase">Biên nhận</h1>
           </div>
           <p className="text-lg font-bold text-red-600 mt-2">No. {receiptNumber}</p>
         </div>
-        <Button variant="outline" size="icon" onClick={handleExportImage} aria-label="Xuất sang file ảnh">
-          <Download className="h-5 w-5" />
-        </Button>
-      </div>
-      
-
-      <div className="mb-6 text-center">
-        <p className="text-sm">Ngày {format(today, "dd")} tháng {format(today, "MM")} năm {format(today, "yyyy")}</p>
-      </div>
-      
-      <div className="mb-6 text-center">
-        <p className="text-3xl font-bold">{formatCurrencyVND(paidAmount ?? 0)}</p>
-        <p className="italic text-muted-foreground">({numberToVietnameseWords(paidAmount)})</p>
-      </div>
-
-      <Separator className="my-6" />
-
-      <div className="mb-6 text-base">
-        <h2 className="text-lg font-semibold mb-2 text-foreground">Thông tin học sinh</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-4 gap-y-1">
-          <div><span className="font-medium text-foreground">Họ và tên:</span> <span className="text-indigo-700 font-semibold">{student.hoTen}</span></div>
-          <div><span className="font-medium text-foreground">Lớp:</span> {student.tenLop || 'N/A'}</div>
-          <div><span className="font-medium text-foreground">Ngày đăng ký:</span> {format(new Date(student.ngayDangKy), "dd/MM/yyyy")}</div>
+        
+        <div className="mb-6 text-center">
+          <p className="text-sm">Ngày {format(today, "dd")} tháng {format(today, "MM")} năm {format(today, "yyyy")}</p>
         </div>
-        <p className="mt-2">
-          <span className="font-medium text-foreground">Chu kỳ thanh toán:</span>
-          <span className="inline-block pl-4">{student.chuKyThanhToan}.</span>
-          <br /> 
-          {renderNextPaymentCycleText()}
-        </p>
-      </div>
-
-      <Separator className="my-6" />
-
-      <div className="mb-6">
-        <h2 className="text-lg font-semibold mb-2 text-foreground">Thông tin học phí</h2>
-        <div className="space-y-1 text-muted-foreground">
-          <div className="flex justify-between">
-            <span>Tổng học phí cơ bản:</span>
-            <span className="font-medium text-foreground">{formatCurrencyVND(paidAmount ?? 0)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span>Chi phí khác:</span>
-            <span className="font-medium text-foreground">{formatCurrencyVND(0)}</span>
-          </div>
-           <div className="ml-4 text-xs"><em>Diễn giải: </em></div>
-
-          <div className="flex justify-between">
-            <span>Học phí linh hoạt:</span>
-            <span className="font-medium text-foreground">{formatCurrencyVND(0)}</span>
-          </div>
-           <div className="ml-4 text-xs"><em>Số buổi tương ứng: </em></div>
-
-          <div className="flex justify-between">
-            <span>Khấu trừ:</span>
-            <span className="font-medium text-foreground">{formatCurrencyVND(0)}</span>
-          </div>
-           <div className="ml-4 text-xs"><em>Lý do: </em></div>
+        
+        <div className="mb-6 text-center">
+          <p className="text-3xl font-bold">{formatCurrencyVND(paidAmount ?? 0)}</p>
+          <p className="italic text-muted-foreground">({numberToVietnameseWords(paidAmount)})</p>
         </div>
-      </div>
-      
-      <Separator className="my-6" />
 
-      <div className="mb-6">
-        <h2 className="text-lg font-semibold mb-2 text-foreground">Thống kê điểm danh (Chu kỳ này)</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <StatCard icon={<CheckCircle className="h-6 w-6 text-green-500" />} label="Có mặt" value={attendanceStats.present} color="bg-green-50 border-green-200" />
-          <StatCard icon={<XCircle className="h-6 w-6 text-red-500" />} label="Vắng mặt" value={attendanceStats.absent} color="bg-red-50 border-red-200" />
-          <StatCard icon={<AlertTriangle className="h-6 w-6 text-yellow-500" />} label="GV vắng" value={attendanceStats.teacherAbsent} color="bg-yellow-50 border-yellow-200" />
-        </div>
-      </div>
+        <Separator className="my-6" />
 
-      <div className="mb-6">
-        <h2 className="text-lg font-semibold mb-2 text-foreground">Lịch sử điểm danh (Chu kỳ này)</h2>
-        {attendanceHistory.length > 0 ? (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-            {attendanceHistory.map((item, index) => (
-              <div key={index} className={`p-2 rounded-md text-center text-xs ${item.color}`}>
-                <p className="font-semibold">{item.date}</p>
-                <p>{item.status}</p>
-              </div>
-            ))}
+        <div className="mb-6 text-base">
+          <h2 className="text-lg font-semibold mb-2 text-foreground">Thông tin học sinh</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-4 gap-y-1">
+            <div><span className="font-medium text-foreground">Họ và tên:</span> <span className="text-indigo-700 font-semibold">{student.hoTen}</span></div>
+            <div><span className="font-medium text-foreground">Lớp:</span> {student.tenLop || 'N/A'}</div>
+            <div><span className="font-medium text-foreground">Ngày đăng ký:</span> {format(new Date(student.ngayDangKy), "dd/MM/yyyy")}</div>
           </div>
-        ) : (
-          <p className="text-muted-foreground italic">Chưa có lịch sử điểm danh cho chu kỳ này.</p>
-        )}
-      </div>
-      
-      <Separator className="my-6" />
+          <p className="mt-2">
+            <span className="font-medium text-foreground">Chu kỳ thanh toán:</span>
+            <span className="inline-block pl-4">{student.chuKyThanhToan}.</span>
+            <br /> 
+            {renderNextPaymentCycleText()}
+          </p>
+        </div>
 
-      <div className="mb-6">
-        <h2 className="text-lg font-semibold mb-2 text-foreground">Lịch sử thanh toán</h2>
-        {paymentHistory.length > 0 ? (
-          <div className="overflow-x-auto">
-            <Table className="min-w-full">
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[50px]">STT</TableHead>
-                  <TableHead>Ngày thanh toán</TableHead>
-                  <TableHead>Số biên nhận</TableHead>
-                  <TableHead className="text-right">Số tiền</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {paymentHistory.map((item, index) => (
-                  <TableRow key={index}>
-                    <TableCell>{item.stt}</TableCell>
-                    <TableCell>{item.date}</TableCell>
-                    <TableCell>{item.receiptNo}</TableCell>
-                    <TableCell className="text-right">{item.amount}</TableCell>
+        <Separator className="my-6" />
+
+        <div className="mb-6">
+          <h2 className="text-lg font-semibold mb-2 text-foreground">Thông tin học phí</h2>
+          <div className="space-y-1 text-muted-foreground">
+            <div className="flex justify-between">
+              <span>Tổng học phí cơ bản:</span>
+              <span className="font-medium text-foreground">{formatCurrencyVND(paidAmount ?? 0)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Chi phí khác:</span>
+              <span className="font-medium text-foreground">{formatCurrencyVND(0)}</span>
+            </div>
+            <div className="ml-4 text-xs"><em>Diễn giải: </em></div>
+
+            <div className="flex justify-between">
+              <span>Học phí linh hoạt:</span>
+              <span className="font-medium text-foreground">{formatCurrencyVND(0)}</span>
+            </div>
+            <div className="ml-4 text-xs"><em>Số buổi tương ứng: </em></div>
+
+            <div className="flex justify-between">
+              <span>Khấu trừ:</span>
+              <span className="font-medium text-foreground">{formatCurrencyVND(0)}</span>
+            </div>
+            <div className="ml-4 text-xs"><em>Lý do: </em></div>
+          </div>
+        </div>
+        
+        <Separator className="my-6" />
+
+        <div className="mb-6">
+          <h2 className="text-lg font-semibold mb-2 text-foreground">Thống kê điểm danh (Chu kỳ này)</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <StatCard icon={<CheckCircle className="h-6 w-6 text-green-500" />} label="Có mặt" value={attendanceStats.present} color="bg-green-50 border-green-200" />
+            <StatCard icon={<XCircle className="h-6 w-6 text-red-500" />} label="Vắng mặt" value={attendanceStats.absent} color="bg-red-50 border-red-200" />
+            <StatCard icon={<AlertTriangle className="h-6 w-6 text-yellow-500" />} label="GV vắng" value={attendanceStats.teacherAbsent} color="bg-yellow-50 border-yellow-200" />
+          </div>
+        </div>
+
+        <div className="mb-6">
+          <h2 className="text-lg font-semibold mb-2 text-foreground">Lịch sử điểm danh (Chu kỳ này)</h2>
+          {attendanceHistory.length > 0 ? (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              {attendanceHistory.map((item, index) => (
+                <div key={index} className={`p-2 rounded-md text-center text-xs ${item.color}`}>
+                  <p className="font-semibold">{item.date}</p>
+                  <p>{item.status}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-muted-foreground italic">Chưa có lịch sử điểm danh cho chu kỳ này.</p>
+          )}
+        </div>
+        
+        <Separator className="my-6" />
+
+        <div className="mb-6">
+          <h2 className="text-lg font-semibold mb-2 text-foreground">Lịch sử thanh toán</h2>
+          {paymentHistory.length > 0 ? (
+            <div className="overflow-x-auto">
+              <Table className="min-w-full">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[50px]">STT</TableHead>
+                    <TableHead>Ngày thanh toán</TableHead>
+                    <TableHead>Số biên nhận</TableHead>
+                    <TableHead className="text-right">Số tiền</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        ) : (
-          <p className="text-muted-foreground italic">Chưa có lịch sử thanh toán.</p>
-        )}
-      </div>
+                </TableHeader>
+                <TableBody>
+                  {paymentHistory.map((item, index) => (
+                    <TableRow key={index}>
+                      <TableCell>{item.stt}</TableCell>
+                      <TableCell>{item.date}</TableCell>
+                      <TableCell>{item.receiptNo}</TableCell>
+                      <TableCell className="text-right">{item.amount}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <p className="text-muted-foreground italic">Chưa có lịch sử thanh toán.</p>
+          )}
+        </div>
 
-      <Separator className="my-6" />
+        <Separator className="my-6" />
 
-      <div className="text-lg text-muted-foreground space-y-2">
-        <p>Anh / Chị vui lòng kiểm tra kỹ thông tin hiện trong Biên nhận này, nếu có sai sót hãy liên hệ để giải quyết.</p>
-        <p className="text-center mt-4">
-          Trân trọng,<br />
-          Trần Đông Phú
-        </p>
+        <div className="text-lg text-muted-foreground space-y-2">
+          <p>Anh / Chị vui lòng kiểm tra kỹ thông tin hiện trong Biên nhận này, nếu có sai sót hãy liên hệ để giải quyết.</p>
+          <p className="text-center mt-4">
+            Trân trọng,<br />
+            Trần Đông Phú
+          </p>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 
