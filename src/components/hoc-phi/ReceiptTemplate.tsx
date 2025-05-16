@@ -201,18 +201,16 @@ export default function ReceiptTemplate({ student, receiptNumber, paidAmount }: 
 
         <div className="mb-6 text-lg">
           <h2 className="text-xl font-semibold mb-2 text-foreground">Thông tin học sinh</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-4 gap-y-1">
             <div><span className="font-medium text-foreground">Họ và tên:</span> <span className="text-indigo-700 font-semibold">{student.hoTen}</span></div>
-            <div>
-                <span className="font-medium text-foreground">Lớp:</span> {student.tenLop || 'N/A'}
-                <span className="font-medium text-foreground ml-4">Mã HS:</span> {student.id}
-            </div>
+            <div><span className="font-medium text-foreground">Lớp:</span> {student.tenLop || 'N/A'}</div>
+            <div><span className="font-medium text-foreground">Mã HS:</span> {student.id}</div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 mt-1">
             <div><span className="font-medium text-foreground">Ngày đăng ký:</span> {format(new Date(student.ngayDangKy), "dd/MM/yyyy")}</div>
             <div>
                 <span className="font-medium text-foreground">Chu kỳ thanh toán:</span>
-                <span className="ml-1">{student.chuKyThanhToan}.</span>
+                <span className="ml-2">{student.chuKyThanhToan}.</span>
             </div>
           </div>
           <p className="mt-2">
@@ -280,7 +278,7 @@ export default function ReceiptTemplate({ student, receiptNumber, paidAmount }: 
 
         <div className="mb-6">
           <h2 className="text-lg font-semibold mb-2 text-foreground">Lịch sử thanh toán</h2>
-          {paymentHistory.length > 0 ? (
+           {paymentHistory.length > 0 ? (
             <div className="overflow-x-auto">
               <Table className="min-w-full">
                 <TableHeader>
@@ -304,13 +302,13 @@ export default function ReceiptTemplate({ student, receiptNumber, paidAmount }: 
               </Table>
             </div>
           ) : (
-            <p className="text-muted-foreground italic">Chưa có lịch sử thanh toán.</p>
+             <p className="text-muted-foreground italic">Chưa có lịch sử thanh toán.</p>
           )}
         </div>
 
         <Separator className="my-6" />
 
-        <div className="text-lg text-muted-foreground space-y-2"> {/* Increased font size */}
+        <div className="text-lg text-muted-foreground space-y-2">
           <p>Anh / Chị vui lòng kiểm tra kỹ thông tin hiện trong Biên nhận này, nếu có sai sót hãy liên hệ để giải quyết.</p>
           <p className="text-center mt-4">
             Trân trọng,<br />
@@ -349,4 +347,3 @@ const format = (date: Date, formatString: string): string => {
   return date.toLocaleDateString('vi-VN'); 
 };
     
-
