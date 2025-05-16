@@ -31,7 +31,7 @@ export const generateReceiptNumber = (): string => {
   // This should ideally come from a persistent counter from the database
   // For now, using a random number as a placeholder
   const orderNumber = Math.floor(Math.random() * 9999) + 1; 
-  return `${year}-${String(orderNumber).padStart(4, '0')}`;
+  return `${year}${String(orderNumber).padStart(4, '0')}`; // Removed hyphen
 }
 
 // Helper to convert Vietnamese day name to a number (0 for Sunday, 1 for Monday, etc.)
@@ -48,4 +48,3 @@ export const dayOfWeekToNumber = (dayName: string): number | undefined => {
   };
   return map[dayName];
 };
-
