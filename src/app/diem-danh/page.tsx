@@ -66,11 +66,11 @@ export default function DiemDanhPage() {
   });
   
   const formattedSelectedDateKey = format(selectedDate, 'yyyyMMdd');
-  const { data: scheduledMakeupSessionsForSelectedDate = [], isLoading: isLoadingScheduledMakeupForDate, isError: isErrorScheduledMakeupForDate, error: errorScheduledMakeupForDate } = useQuery<GiaoVienVangRecord[], Error>(
-    ['scheduledMakeupForDate', formattedSelectedDateKey],
-    () => getScheduledMakeupSessionsForDate(selectedDate),
-    { enabled: !!selectedDate && isClient }
-  );
+  const { data: scheduledMakeupSessionsForSelectedDate = [], isLoading: isLoadingScheduledMakeupForDate, isError: isErrorScheduledMakeupForDate, error: errorScheduledMakeupForDate } = useQuery<GiaoVienVangRecord[], Error>({
+    queryKey: ['scheduledMakeupForDate', formattedSelectedDateKey],
+    queryFn: () => getScheduledMakeupSessionsForDate(selectedDate),
+    enabled: !!selectedDate && isClient,
+  });
 
 
   const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
@@ -167,7 +167,7 @@ export default function DiemDanhPage() {
 
       console.log(`[DiemDanhPage] Attempting to create GiaoVienVangRecord for class: ${data.lop.tenLop}`);
       const createdRecord = await createGiaoVienVangRecord(data.lop.id, data.lop.tenLop, data.date);
-      console.log(`[DiemDanhPage] markTeacherAbsentMutation finished. Result from createGiaoVienVangRecord:`, createdRecord);
+      console.log(`[DiemDanhPage] markTeacherAbsentMutation finished creating GiaoVienVangRecord for class: ${data.lop.tenLop}. Result:`, createdRecord);
       return { ...data, createdRecord };
     },
     onSuccess: (result) => {
@@ -179,14 +179,14 @@ export default function DiemDanhPage() {
       } else {
          toast({ 
           title: "GV Vắng",
-          description: `Buổi học ngày ${format(result.date, 'dd/MM/yyyy')} của lớp ${result.lop.tenLop} đã được cập nhật là GV vắng. Yêu cầu học bù có thể đã tồn tại hoặc không thể tạo mới.`,
-          variant: result.createdRecord ? "default" : "warning", 
+          description: `Buổi học ngày ${format(result.date, 'dd/MM/yyyy')} của lớp ${result.lop.tenLop} đã được cập nhật là GV vắng. Yêu cầu học bù cho ngày này đã tồn tại.`,
+          variant: "warning", 
         });
       }
       queryClient.invalidateQueries({ queryKey: ['attendance', result.lop.id, format(result.date, 'yyyyMMdd')] });
       queryClient.invalidateQueries({ queryKey: ['studentsInClass', result.lop.id] });
-      queryClient.invalidateQueries({ queryKey: ['allMakeupRecords'] });
-      queryClient.invalidateQueries({ queryKey: ['scheduledMakeupForDate', format(result.date, 'yyyyMMdd')] });
+      queryClient.invalidateQueries({ queryKey: ['allMakeupRecords'] }); // Refresh the list in "Lịch Học Bù" tab
+      queryClient.invalidateQueries({ queryKey: ['scheduledMakeupForDate', format(result.date, 'yyyyMMdd')] }); // Refresh for current day if makeup was scheduled for it
       console.log(`[DiemDanhPage] markTeacherAbsentMutation onSuccess for class ${result.lop.tenLop}. Invalidated queries.`);
     },
     onError: (error: Error, variables) => {
@@ -425,7 +425,7 @@ export default function DiemDanhPage() {
                 <p className="text-xs text-muted-foreground text-center mb-3">
                     Vui lòng kiểm tra console của server Next.js để biết chi tiết lỗi từ Firebase (thường liên quan đến thiếu Index).
                 </p>
-                <Button onClick={() => queryClient.invalidateQueries(['scheduledMakeupForDate', formattedSelectedDateKey])} variant="destructive">
+                <Button onClick={() => queryClient.invalidateQueries({queryKey:['scheduledMakeupForDate', formattedSelectedDateKey]})} variant="destructive">
                   <RefreshCw className="mr-2 h-4 w-4" /> Thử lại
                 </Button>
               </div>
@@ -505,7 +505,9 @@ export default function DiemDanhPage() {
                 )}
                 {!isLoadingAllMakeupRecords && !isErrorAllMakeupRecords && allMakeupRecords && allMakeupRecords.length > 0 && (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {allMakeupRecords.map(record => (
+                        {allMakeupRecords.map(record => {
+                            if (!record) return null; // Add this check
+                            return (
                             <Card key={record.id} className="shadow-md hover:shadow-lg transition-shadow">
                                 <CardHeader>
                                     <ShadCardTitle className="text-lg text-primary flex items-center">
@@ -547,7 +549,7 @@ export default function DiemDanhPage() {
                                     )}
                                 </CardFooter>
                             </Card>
-                        ))}
+                        )})}
                     </div>
                 )}
             </div>
