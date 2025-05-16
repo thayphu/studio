@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { PlusCircle, Edit2, Trash2, Search, RefreshCw } from 'lucide-react';
 import { TEXTS_VI } from '@/lib/constants';
 import { useToast } from '@/hooks/use-toast';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -158,19 +158,32 @@ export default function HocSinhPage() {
   });
 
 
-  const handleAddStudentSubmit = (newStudentDataFromForm: Omit<HocSinh, 'tinhTrangThanhToan' | 'tenLop'>) => {
+  const handleAddStudentSubmit = (newStudentDataFromForm: HocSinh) => {
     const { id: studentId, ...restOfData } = newStudentDataFromForm;
-    addStudentMutation.mutate({ studentData: restOfData, studentId });
+     // Explicitly type restOfData
+    const studentDataForAdd: Omit<HocSinh, 'id' | 'tenLop' | 'tinhTrangThanhToan' | 'ngayThanhToanGanNhat' | 'soBuoiDaHocTrongChuKy'> = {
+      hoTen: restOfData.hoTen,
+      ngaySinh: restOfData.ngaySinh,
+      diaChi: restOfData.diaChi,
+      soDienThoai: restOfData.soDienThoai,
+      lopId: restOfData.lopId,
+      ngayDangKy: restOfData.ngayDangKy,
+      chuKyThanhToan: restOfData.chuKyThanhToan,
+    };
+    addStudentMutation.mutate({ studentData: studentDataForAdd, studentId });
   };
 
   const handleUpdateStudentSubmit = (updatedStudentDataFromForm: HocSinh) => {
+    console.log("[HocSinhPage] handleUpdateStudentSubmit called with:", updatedStudentDataFromForm);
     updateStudentMutation.mutate(updatedStudentDataFromForm);
   };
 
   const handleOpenAddStudentModal = () => {
+    console.log("[HocSinhPage] handleOpenAddStudentModal called");
     setEditingStudent(null);
     setIsEditStudentModalOpen(false);
     setIsAddStudentModalOpen(true);
+    console.log("[HocSinhPage] States after handleOpenAddStudentModal: isEditStudentModalOpen=false, isAddStudentModalOpen=true");
   };
   
   const handleOpenDeleteStudentDialog = (student: HocSinh) => {
@@ -185,12 +198,15 @@ export default function HocSinhPage() {
   };
   
   const handleEditStudent = (student: HocSinh) => {
+    console.log("[HocSinhPage] handleEditStudent called with student:", student.id);
     setEditingStudent(student);
-    setIsAddStudentModalOpen(false);
+    setIsAddStudentModalOpen(false); 
     setIsEditStudentModalOpen(true);
+    console.log("[HocSinhPage] States after handleEditStudent: isEditStudentModalOpen=true, isAddStudentModalOpen=false");
   };
 
   const closeDialogs = () => {
+    console.log("[HocSinhPage] closeDialogs called");
     setIsAddStudentModalOpen(false);
     setIsEditStudentModalOpen(false);
     setEditingStudent(null);
@@ -212,28 +228,25 @@ export default function HocSinhPage() {
       </DashboardLayout>
     );
   }
+  console.log("[HocSinhPage] Rendering. isAddStudentModalOpen:", isAddStudentModalOpen, "isEditStudentModalOpen:", isEditStudentModalOpen, "editingStudent:", editingStudent?.id);
 
   return (
     <DashboardLayout>
       <div className="container mx-auto py-8 px-4 md:px-6">
         <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
           <h1 className="text-3xl font-bold text-foreground">Quản lý Học sinh</h1>
-          {/* Dialog for Adding Student - Triggered by button */}
-          <DialogTrigger asChild>
-             <Button 
-              onClick={handleOpenAddStudentModal} 
-              disabled={isLoadingClasses || addStudentMutation.isPending || updateStudentMutation.isPending}
-            >
-              <PlusCircle className="mr-2 h-4 w-4" /> 
-              {isLoadingClasses ? "Đang tải lớp..." : "Thêm Học sinh"}
-            </Button>
-          </DialogTrigger>
+           <Button 
+            onClick={handleOpenAddStudentModal} 
+            disabled={isLoadingClasses || addStudentMutation.isPending || updateStudentMutation.isPending}
+          >
+            <PlusCircle className="mr-2 h-4 w-4" /> 
+            {isLoadingClasses ? "Đang tải lớp..." : "Thêm Học sinh"}
+          </Button>
         </div>
 
         {/* Combined Dialog for Add/Edit Student */}
         <Dialog open={isAddStudentModalOpen || isEditStudentModalOpen} onOpenChange={(open) => {
           if (!open) closeDialogs();
-          // Individual states are set by their respective open handlers
         }}>
           <DialogContent className="sm:max-w-[600px]">
             <DialogHeader>
@@ -370,3 +383,4 @@ export default function HocSinhPage() {
     </DashboardLayout>
   );
 }
+
