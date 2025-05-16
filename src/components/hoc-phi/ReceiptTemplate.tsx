@@ -1,7 +1,7 @@
 
 "use client";
 
-import type { HocSinh } from '@/lib/types';
+import type { HocSinh, DayOfWeek } from '@/lib/types';
 import { formatCurrencyVND } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -17,6 +17,7 @@ interface ReceiptTemplateProps {
   student: HocSinh | null;
   receiptNumber: string;
   paidAmount: number | null; // This is the calculated tuition fee
+  classSchedule?: DayOfWeek[];
 }
 
 const numberToVietnameseWords = (num: number | null | undefined): string => {
@@ -76,7 +77,7 @@ const numberToVietnameseWords = (num: number | null | undefined): string => {
 };
 
 
-export default function ReceiptTemplate({ student, receiptNumber, paidAmount }: ReceiptTemplateProps) {
+export default function ReceiptTemplate({ student, receiptNumber, paidAmount, classSchedule }: ReceiptTemplateProps) {
   const { toast } = useToast();
   const receiptRef = useRef<HTMLDivElement>(null);
 
@@ -201,16 +202,22 @@ export default function ReceiptTemplate({ student, receiptNumber, paidAmount }: 
 
         <div className="mb-6 text-lg">
           <h2 className="text-xl font-semibold mb-2 text-foreground">Thông tin học sinh</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-4 gap-y-1">
+          <div className="space-y-1">
             <div><span className="font-medium text-foreground">Họ và tên:</span> <span className="text-indigo-700 font-semibold">{student.hoTen}</span></div>
             <div><span className="font-medium text-foreground">Lớp:</span> {student.tenLop || 'N/A'}</div>
-            <div><span className="font-medium text-foreground">Mã HS:</span> {student.id}</div>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 mt-1">
-            <div><span className="font-medium text-foreground">Ngày đăng ký:</span> {format(new Date(student.ngayDangKy), "dd/MM/yyyy")}</div>
-            <div>
-                <span className="font-medium text-foreground">Chu kỳ thanh toán:</span>
-                <span className="ml-2">{student.chuKyThanhToan}.</span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
+              <div><span className="font-medium text-foreground">Mã HS:</span> {student.id}</div>
+              <div>
+                <span className="font-medium text-foreground">Lịch học:</span> 
+                {classSchedule && classSchedule.length > 0 ? classSchedule.join(', ') : 'N/A'}
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 mt-1">
+              <div><span className="font-medium text-foreground">Ngày đăng ký:</span> {format(new Date(student.ngayDangKy), "dd/MM/yyyy")}</div>
+              <div>
+                  <span className="font-medium text-foreground">Chu kỳ thanh toán:</span>
+                  <span className="ml-2">{student.chuKyThanhToan}.</span>
+              </div>
             </div>
           </div>
           <p className="mt-2">
@@ -347,3 +354,4 @@ const format = (date: Date, formatString: string): string => {
   return date.toLocaleDateString('vi-VN'); 
 };
     
+

@@ -23,7 +23,7 @@ import {
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { getStudents, updateStudent } from '@/services/hocSinhService';
 import { getClasses } from '@/services/lopHocService';
-import type { HocSinh, LopHoc, HocPhiGhiNhan } from '@/lib/types';
+import type { HocSinh, LopHoc, HocPhiGhiNhan, DayOfWeek } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
@@ -85,6 +85,7 @@ export default function HocPhiPage() {
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
   const [studentForReceipt, setStudentForReceipt] = useState<HocSinh | null>(null);
   const [currentReceiptNumber, setCurrentReceiptNumber] = useState('');
+  const [classScheduleForReceipt, setClassScheduleForReceipt] = useState<DayOfWeek[] | undefined>(undefined);
 
 
   const { data: studentsData, isLoading: isLoadingStudents, isError: isErrorStudents, error: errorStudents } = useQuery<HocSinh[], Error>({
@@ -179,6 +180,8 @@ export default function HocPhiPage() {
 
  const handleViewReceipt = (student: HocSinh) => {
     setStudentForReceipt(student);
+    const studentClass = classesMap.get(student.lopId);
+    setClassScheduleForReceipt(studentClass?.lichHoc);
     setCurrentReceiptNumber(generateReceiptNumber()); // Generate a new receipt number each time
     setIsReceiptModalOpen(true);
   };
@@ -437,7 +440,10 @@ export default function HocPhiPage() {
         {studentForReceipt && (
           <Dialog open={isReceiptModalOpen} onOpenChange={(isOpen) => {
             setIsReceiptModalOpen(isOpen);
-            if(!isOpen) setStudentForReceipt(null);
+            if(!isOpen) {
+                setStudentForReceipt(null);
+                setClassScheduleForReceipt(undefined);
+            }
           }}>
             <DialogContent className="sm:max-w-3xl p-0 max-h-[85vh] overflow-y-auto">
               <DialogHeader className="sr-only">
@@ -447,6 +453,7 @@ export default function HocPhiPage() {
                 student={studentForReceipt} 
                 receiptNumber={currentReceiptNumber}
                 paidAmount={currentPaidAmountForReceipt} 
+                classSchedule={classScheduleForReceipt}
               />
             </DialogContent>
           </Dialog>
@@ -456,4 +463,5 @@ export default function HocPhiPage() {
     </DashboardLayout>
   );
 }
+
 
