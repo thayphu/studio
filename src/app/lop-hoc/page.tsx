@@ -4,6 +4,7 @@
 import { useState } from 'react';
 import { PlusCircle, Filter, RefreshCw } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation'; // Added for navigation
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import AddClassForm from '@/components/lop-hoc/AddClassForm';
@@ -19,6 +20,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 export default function LopHocPage() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const router = useRouter(); // Initialize router
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClass, setEditingClass] = useState<LopHoc | null>(null);
@@ -58,11 +60,12 @@ export default function LopHocPage() {
     },
     onSuccess: (data) => {
       console.log('addClassMutation onSuccess called. Data:', data);
+      // Modal is closed here to ensure it only closes on success
+      setIsModalOpen(false);
       toast({
         title: "Thêm lớp thành công!",
         description: `Lớp "${data.tenLop}" đã được thêm vào hệ thống.`,
       });
-      setIsModalOpen(false);
       console.log('addClassMutation onSuccess: Modal should be closed and toast shown.');
     },
     onSettled: () => {
@@ -143,6 +146,7 @@ export default function LopHocPage() {
       updateClassMutation.mutate(data);
     } else {
       const classId = generateId('lop_');
+      // Destructure to exclude client-side only or default fields before sending to mutation
       const { id, soHocSinhHienTai, trangThai, ...newClassData } = data;
       console.log('Calling addClassMutation.mutate with:', { newClassData, classId });
       addClassMutation.mutate({ newClassData, classId });
@@ -164,13 +168,9 @@ export default function LopHocPage() {
   };
 
   const handleAddStudentToClass = (classId: string) => {
-    // alert(`DEBUG from LopHocPage (function call): Adding student to class ${classId}`); // DEBUGGING ALERT
-    toast({
-      title: "Chức năng đang phát triển",
-      description: `Sẵn sàng thêm học sinh vào lớp ${classId}. Vui lòng vào trang Học Sinh để thêm.`,
-      variant: "default",
-    });
-    console.log("Attempting to add student to class from LopHocPage:", classId);
+    alert(`LopHocPage: Yêu cầu thêm học sinh vào lớp ${classId}. Chuyển đến trang quản lý học sinh.`);
+    console.log("Attempting to navigate to student page for class:", classId);
+    router.push('/hoc-sinh'); // Navigate to the student management page
   };
 
   if (isError) {
@@ -240,7 +240,7 @@ export default function LopHocPage() {
                 lopHoc={lopHoc} 
                 onEdit={() => handleOpenEditModal(lopHoc)}
                 onDelete={() => handleDeleteClass(lopHoc.id)}
-                onAddStudent={handleAddStudentToClass}
+                onAddStudent={handleAddStudentToClass} // Pass the handler directly
                 isDeleting={deleteClassMutation.isPending && deleteClassMutation.variables === lopHoc.id}
                 isUpdating={updateClassMutation.isPending && updateClassMutation.variables?.id === lopHoc.id}
               />
@@ -268,3 +268,4 @@ const CardSkeleton = () => (
     </div>
   </div>
 );
+
