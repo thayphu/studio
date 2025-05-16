@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import React, { useRef } from 'react';
-// import html2canvas from 'html2canvas'; // Temporarily commented out
+import html2canvas from 'html2canvas'; // Import html2canvas
 
 interface ReceiptTemplateProps {
   student: HocSinh | null;
@@ -128,50 +128,45 @@ export default function ReceiptTemplate({ student, receiptNumber, paidAmount, cl
   };
 
   const handleExportImage = async () => {
-    toast({
-        title: "Chức năng đang phát triển",
-        description: "Vui lòng cài đặt 'html2canvas' và khởi động lại server để sử dụng tính năng này.",
-    });
-    console.log("Export to image button clicked. html2canvas is currently disabled.");
-    // if (!receiptRef.current) {
-    //   console.error("Receipt element ref is not available.");
-    //   toast({
-    //     title: "Lỗi",
-    //     description: "Không tìm thấy nội dung biên nhận để xuất.",
-    //     variant: "destructive",
-    //   });
-    //   return;
-    // }
-    // if (!student) {
-    //     toast({ title: "Lỗi", description: "Không có thông tin học sinh.", variant: "destructive" });
-    //     return;
-    // }
+    if (!receiptRef.current) {
+      console.error("Receipt element ref is not available.");
+      toast({
+        title: "Lỗi",
+        description: "Không tìm thấy nội dung biên nhận để xuất.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!student) {
+        toast({ title: "Lỗi", description: "Không có thông tin học sinh.", variant: "destructive" });
+        return;
+    }
 
-    // try {
-    //   const canvas = await html2canvas(receiptRef.current, {
-    //     scale: 2,
-    //     useCORS: true,
-    //     backgroundColor: '#ffffff',
-    //   });
-    //   const image = canvas.toDataURL('image/png', 1.0);
-    //   const link = document.createElement('a');
-    //   link.href = image;
-    //   link.download = `BienNhan_${receiptNumber}_${student.hoTen.replace(/\s+/g, '_')}.png`;
-    //   document.body.appendChild(link);
-    //   link.click();
-    //   document.body.removeChild(link);
-    //   toast({
-    //     title: "Xuất biên nhận thành công!",
-    //     description: "Biên nhận đã được tải xuống dưới dạng file ảnh.",
-    //   });
-    // } catch (error) {
-    //   console.error("Error exporting receipt to image:", error);
-    //   toast({
-    //     title: "Lỗi khi xuất biên nhận",
-    //     description: "Đã có lỗi xảy ra khi xuất biên nhận sang file ảnh. Vui lòng thử lại.",
-    //     variant: "destructive",
-    //   });
-    // }
+    try {
+      const canvas = await html2canvas(receiptRef.current, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff', // Ensure background is white for transparency issues
+      });
+      const image = canvas.toDataURL('image/png', 1.0);
+      const link = document.createElement('a');
+      link.href = image;
+      link.download = `BienNhan_${receiptNumber}_${student.hoTen.replace(/\s+/g, '_')}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast({
+        title: "Xuất biên nhận thành công!",
+        description: "Biên nhận đã được tải xuống dưới dạng file ảnh.",
+      });
+    } catch (error) {
+      console.error("Error exporting receipt to image:", error);
+      toast({
+        title: "Lỗi khi xuất biên nhận",
+        description: "Đã có lỗi xảy ra khi xuất biên nhận sang file ảnh. Vui lòng thử lại hoặc kiểm tra xem thư viện html2canvas đã được cài đặt đúng cách chưa.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -201,27 +196,25 @@ export default function ReceiptTemplate({ student, receiptNumber, paidAmount, cl
         <Separator className="my-6" />
 
         <div className="mb-6 text-lg">
-          <h2 className="text-xl font-semibold mb-2 text-foreground">Thông tin học sinh</h2>
-          <div className="space-y-1">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
+          <h2 className="text-xl font-semibold mb-2 text-foreground sr-only">Thông tin học sinh</h2>
+           <div className="grid grid-cols-2 gap-x-4">
                 <div><span className="font-medium text-foreground">Họ và tên:</span> <span className="text-indigo-700 font-semibold">{student.hoTen}</span></div>
                 <div><span className="font-medium text-foreground">Lớp:</span> {student.tenLop || 'N/A'}</div>
             </div>
-             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 mt-1">
+             <div className="grid grid-cols-2 gap-x-4 mt-1">
               <div><span className="font-medium text-foreground">Mã HS:</span> {student.id}</div>
               <div>
                 <span className="font-medium text-foreground">Lịch học:</span>
                 {classSchedule && classSchedule.length > 0 ? classSchedule.join(', ') : 'N/A'}
               </div>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 mt-1">
+            <div className="grid grid-cols-2 gap-x-4 mt-1">
               <div><span className="font-medium text-foreground">Ngày đăng ký:</span> {format(new Date(student.ngayDangKy), "dd/MM/yyyy")}</div>
               <div>
                   <span className="font-medium text-foreground">Chu kỳ thanh toán:</span>
                   <span className="ml-1">{student.chuKyThanhToan}.</span>
               </div>
             </div>
-          </div>
           <p className="mt-2">
             {renderNextPaymentCycleText()}
           </p>
