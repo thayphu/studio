@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { CheckCircle, XCircle, AlertTriangle, CalendarDays, User, BarChart2 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 interface ReceiptTemplateProps {
   student: HocSinh | null;
@@ -14,8 +15,8 @@ interface ReceiptTemplateProps {
   paidAmount: number | null; // This is the calculated tuition fee
 }
 
-// Placeholder function - in a real app, use a library or proper function
-const numberToVietnameseWords = (num: number): string => {
+const numberToVietnameseWords = (num: number | null | undefined): string => {
+  if (num === null || num === undefined || isNaN(num)) return "Không đồng";
   if (num === 0) return "Không đồng";
   // Basic placeholder, a real implementation is much more complex
   const units = ["", "một", "hai", "ba", "bốn", "năm", "sáu", "bảy", "tám", "chín"];
@@ -36,22 +37,22 @@ const numberToVietnameseWords = (num: number): string => {
       else if (u > 0) result += units[u] + " ";
     } else if (t === 1) {
       result += teens[u] + " ";
-    } else if (u > 0 && (h > 0 || result === "")) { // Handle 00x
-      if (h > 0 && t === 0) result += "linh "; // e.g. một trăm linh một
+    } else if (u > 0 && (h > 0 || result === "")) { 
+      if (h > 0 && t === 0) result += "linh ";
       result += units[u] + " ";
     }
     return result.trim();
   };
   
   if (num < 0) return "Số âm không hỗ trợ";
-  if (num === 0) return "Không đồng";
 
   const chunks = [];
-  while (num > 0) {
-    chunks.push(num % 1000);
-    num = Math.floor(num / 1000);
+  let tempNum = num;
+  while (tempNum > 0) {
+    chunks.push(tempNum % 1000);
+    tempNum = Math.floor(tempNum / 1000);
   }
-  if (chunks.length === 0) return "Không đồng";
+  if (chunks.length === 0 && num !==0) return "Không đồng"; // Should be caught by num === 0 earlier
 
   const chunkNames = ["", "nghìn", "triệu", "tỷ"];
   let words = "";
@@ -60,16 +61,13 @@ const numberToVietnameseWords = (num: number): string => {
     if (chunk > 0) {
       words += formatGroup(chunk) + " " + chunkNames[i] + " ";
     } else if (i < chunks.length -1 && chunks.length > 1 && chunks[i+1] > 0 && i > 0) {
-        // Add 'không nghìn', 'không triệu' if needed for structure, e.g., 1,000,000,001
-        // but only if not the last chunk and not the first chunk if it's the only one
          if (chunkNames[i]) words += "không " + chunkNames[i] + " ";
     }
   }
   
   words = words.trim();
-  if (!words) return "Không đồng"; // case for num still 0 after loop somehow
+  if (!words && num !== 0) return "Không đồng";
   
-  // Capitalize first letter and add "đồng"
   return words.charAt(0).toUpperCase() + words.slice(1) + " đồng";
 };
 
@@ -80,26 +78,19 @@ export default function ReceiptTemplate({ student, receiptNumber, paidAmount }: 
   }
 
   const today = new Date();
-  const nextPaymentDate = new Date(today); // Placeholder for next payment date logic
-
-  // Placeholder for attendance stats - replace with actual data later
+  
+  // Placeholder for attendance stats - Data not available yet
   const attendanceStats = {
-    present: 18,
-    absent: 1,
-    teacherAbsent: 1,
+    present: "--",
+    absent: "--",
+    teacherAbsent: "--",
   };
 
-  // Placeholder for attendance history
-  const attendanceHistory = [
-    { date: "01/10/2024", status: "Có mặt", color: "text-green-600 bg-green-100" },
-    { date: "03/10/2024", status: "Vắng mặt", color: "text-red-600 bg-red-100" },
-    { date: "05/10/2024", status: "GV nghỉ", color: "text-yellow-600 bg-yellow-100" },
-    { date: "08/10/2024", status: "Có mặt", color: "text-green-600 bg-green-100" },
-  ];
+  // Placeholder for attendance history - Data not available yet
+  const attendanceHistory: { date: string; status: string; color: string }[] = [];
   
-  // Placeholder for payment history
   const paymentHistory = student.ngayThanhToanGanNhat ? [
-    { date: new Date(student.ngayThanhToanGanNhat).toLocaleDateString('vi-VN'), amount: formatCurrencyVND(paidAmount ?? 0), receiptNo: receiptNumber }
+    { stt: 1, date: new Date(student.ngayThanhToanGanNhat).toLocaleDateString('vi-VN'), amount: formatCurrencyVND(paidAmount ?? 0), receiptNo: receiptNumber }
   ] : [];
 
 
@@ -109,12 +100,10 @@ export default function ReceiptTemplate({ student, receiptNumber, paidAmount }: 
     lastPaymentDate.setMonth(lastPaymentDate.getMonth() + 1);
     nextPaymentCycleText = `dự kiến từ ${format(lastPaymentDate, "dd/MM/yyyy")}`;
   } else if ((student.chuKyThanhToan === "8 buổi" || student.chuKyThanhToan === "10 buổi")  && student.ngayThanhToanGanNhat) {
-     // Assuming payment covers current cycle, next cycle starts after current one ends
-     // This needs more complex logic based on actual session tracking. For now, a placeholder.
     nextPaymentCycleText = `sau khi hoàn thành ${student.chuKyThanhToan} hiện tại`;
   } else if (student.chuKyThanhToan === "Theo ngày" && student.ngayThanhToanGanNhat) {
      const lastPaymentDate = new Date(student.ngayThanhToanGanNhat);
-     lastPaymentDate.setDate(lastPaymentDate.getDate() + 1); // Assuming daily payment means next day
+     lastPaymentDate.setDate(lastPaymentDate.getDate() + 1);
      nextPaymentCycleText = `dự kiến từ ${format(lastPaymentDate, "dd/MM/yyyy")}`;
   }
 
@@ -134,7 +123,7 @@ export default function ReceiptTemplate({ student, receiptNumber, paidAmount }: 
       
       <div className="mb-6 text-center">
         <p className="text-3xl font-bold">{formatCurrencyVND(paidAmount ?? 0)}</p>
-        <p className="italic text-muted-foreground">({numberToVietnameseWords(paidAmount ?? 0)})</p>
+        <p className="italic text-muted-foreground">({numberToVietnameseWords(paidAmount)})</p>
       </div>
 
       <Separator className="my-6" />
@@ -184,7 +173,7 @@ export default function ReceiptTemplate({ student, receiptNumber, paidAmount }: 
       <Separator className="my-6" />
 
       <div className="mb-6">
-        <h2 className="text-lg font-semibold mb-2 text-foreground">Thống kê điểm danh (Chu kỳ này - Placeholder)</h2>
+        <h2 className="text-lg font-semibold mb-2 text-foreground">Thống kê điểm danh (Chu kỳ này)</h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <StatCard icon={<CheckCircle className="h-6 w-6 text-green-500" />} label="Có mặt" value={attendanceStats.present} color="bg-green-50 border-green-200" />
           <StatCard icon={<XCircle className="h-6 w-6 text-red-500" />} label="Vắng mặt" value={attendanceStats.absent} color="bg-red-50 border-red-200" />
@@ -193,7 +182,7 @@ export default function ReceiptTemplate({ student, receiptNumber, paidAmount }: 
       </div>
 
       <div className="mb-6">
-        <h2 className="text-lg font-semibold mb-2 text-foreground">Lịch sử điểm danh (Chu kỳ này - Placeholder)</h2>
+        <h2 className="text-lg font-semibold mb-2 text-foreground">Lịch sử điểm danh (Chu kỳ này)</h2>
         {attendanceHistory.length > 0 ? (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
             {attendanceHistory.map((item, index) => (
@@ -213,11 +202,28 @@ export default function ReceiptTemplate({ student, receiptNumber, paidAmount }: 
       <div className="mb-6">
         <h2 className="text-lg font-semibold mb-2 text-foreground">Lịch sử thanh toán</h2>
         {paymentHistory.length > 0 ? (
-          <ul className="space-y-1 list-disc list-inside text-muted-foreground">
-            {paymentHistory.map((item, index) => (
-              <li key={index}>Ngày {item.date}: {item.amount} (HĐ: {item.receiptNo})</li>
-            ))}
-          </ul>
+          <div className="overflow-x-auto">
+            <Table className="min-w-full">
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[50px]">STT</TableHead>
+                  <TableHead>Ngày thanh toán</TableHead>
+                  <TableHead>Số biên nhận</TableHead>
+                  <TableHead className="text-right">Số tiền</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {paymentHistory.map((item, index) => (
+                  <TableRow key={index}>
+                    <TableCell>{item.stt}</TableCell>
+                    <TableCell>{item.date}</TableCell>
+                    <TableCell>{item.receiptNo}</TableCell>
+                    <TableCell className="text-right">{item.amount}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         ) : (
           <p className="text-muted-foreground italic">Chưa có lịch sử thanh toán.</p>
         )}
@@ -250,9 +256,7 @@ const StatCard = ({ icon, label, value, color }: StatCardProps) => (
   </div>
 );
 
-// Helper function to format date (if not using date-fns directly in all places)
 const format = (date: Date, formatString: string): string => {
-  // Basic formatting, for dd/MM/yyyy
   if (formatString === "dd/MM/yyyy") {
     const day = String(date.getDate()).padStart(2, '0');
     const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -262,6 +266,6 @@ const format = (date: Date, formatString: string): string => {
    if (formatString === "dd") return String(date.getDate()).padStart(2, '0');
    if (formatString === "MM") return String(date.getMonth() + 1).padStart(2, '0');
    if (formatString === "yyyy") return String(date.getFullYear());
-  return date.toLocaleDateString('vi-VN'); // fallback
+  return date.toLocaleDateString('vi-VN'); 
 };
 
