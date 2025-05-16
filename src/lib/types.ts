@@ -41,7 +41,7 @@ export interface HocPhiGhiNhan {
   id: string; // Tự động tạo khi ghi nhận
   hocSinhId: string;
   hocSinhTen?: string; // Denormalized
-  lopId?: string; 
+  lopId?: string;
   lopTen?: string; // Denormalized
   ngayThanhToan: string; // ISO Date string, from form
   soTienDaDong: number; // from form
@@ -65,3 +65,13 @@ export interface DiemDanhGhiNhan {
   ghiChu?: string;
 }
 
+// Placeholder for future Makeup Class records
+export interface GiaoVienVangRecord {
+  id: string;
+  classId: string;
+  originalDate: string; // YYYYMMDD
+  status: 'pending_makeup' | 'makeup_scheduled' | 'makeup_completed' | 'makeup_cancelled';
+  makeupDate?: string; // YYYYMMDD
+  makeupTime?: string; // HH:mm - HH:mm
+  notes?: string;
+}

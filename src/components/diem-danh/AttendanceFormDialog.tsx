@@ -8,6 +8,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { HocSinh, LopHoc, AttendanceStatus } from '@/lib/types';
+import { ALL_ATTENDANCE_STATUSES } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -39,14 +40,11 @@ export default function AttendanceFormDialog({
     if (open && students.length > 0) {
       const initialAttendance: Record<string, AttendanceStatus> = {};
       students.forEach(student => {
-        // If existing attendance for this student on this date, use it.
-        // Otherwise, default to 'Có mặt' for the form's initial state.
         initialAttendance[student.id] = existingAttendance[student.id] || 'Có mặt';
       });
       setAttendance(initialAttendance);
-      console.log("[AttendanceFormDialog] Initialized attendance state:", initialAttendance, "based on existing:", existingAttendance);
     } else if (open && students.length === 0 && !isLoadingStudents) {
-        setAttendance({}); // Reset if no students
+        setAttendance({});
     }
   }, [open, students, existingAttendance, isLoadingStudents]);
 
@@ -63,23 +61,25 @@ export default function AttendanceFormDialog({
   const formattedDialogDate = format(date, "dd/MM/yyyy");
 
   const getBorderColorClass = (studentId: string) => {
-    const currentStatusInForm = attendance[studentId]; // Status currently selected in the form
-    const originalStatus = existingAttendance[studentId]; // Status fetched from DB
+    const currentStatusInForm = attendance[studentId];
+    const originalStatus = existingAttendance[studentId];
 
     if (!originalStatus && currentStatusInForm === 'Có mặt') {
-        // Student was not in existing data and is currently 'Có mặt' (default or user selected)
-        // This indicates "chưa điểm danh" or "mới điểm danh là có mặt"
-        return "border-muted-foreground/30"; // Neutral, less prominent border
+        return "border-muted-foreground/30";
     }
-
+    if (currentStatusInForm === 'GV nghỉ') {
+      return "border-yellow-500 ring-2 ring-yellow-500/30";
+    }
+    if (currentStatusInForm === 'Học bù') {
+      return "border-blue-500 ring-2 ring-blue-500/30";
+    }
     switch (currentStatusInForm) {
       case 'Có mặt':
         return "border-green-500 ring-2 ring-green-500/30";
       case 'Vắng mặt':
         return "border-destructive ring-2 ring-destructive/30";
-      // Add cases for 'GV nghỉ', 'Học bù' if they get specific colors
       default:
-        return "border-muted-foreground/30"; // Fallback for other statuses or if undefined
+        return "border-muted-foreground/30";
     }
   };
 
@@ -125,19 +125,16 @@ export default function AttendanceFormDialog({
                 </Label>
                 <RadioGroup
                   id={`status-${student.id}`}
-                  value={attendance[student.id] || 'Có mặt'} // Default to 'Có mặt' if undefined in state
+                  value={attendance[student.id] || 'Có mặt'}
                   onValueChange={(value) => handleStatusChange(student.id, value as AttendanceStatus)}
-                  className="flex gap-4"
+                  className="flex flex-wrap gap-3 sm:gap-4"
                 >
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="Có mặt" id={`present-${student.id}`} />
-                    <Label htmlFor={`present-${student.id}`} className="text-sm">Có mặt</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="Vắng mặt" id={`absent-${student.id}`} />
-                    <Label htmlFor={`absent-${student.id}`} className="text-sm">Vắng mặt</Label>
-                  </div>
-                  {/* Add other statuses like GV nghỉ, Học bù if needed */}
+                  {ALL_ATTENDANCE_STATUSES.filter(s => s !== 'Học bù').map(statusValue => ( // Exclude 'Học bù' from direct selection here
+                     <div className="flex items-center space-x-2" key={statusValue}>
+                        <RadioGroupItem value={statusValue} id={`${statusValue.replace(/\s+/g, '-').toLowerCase()}-${student.id}`} />
+                        <Label htmlFor={`${statusValue.replace(/\s+/g, '-').toLowerCase()}-${student.id}`} className="text-sm">{statusValue}</Label>
+                    </div>
+                  ))}
                 </RadioGroup>
               </div>
             ))}
