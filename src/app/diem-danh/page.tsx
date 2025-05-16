@@ -112,8 +112,7 @@ export default function DiemDanhPage() {
       console.log(`[DiemDanhPage] Saving attendance for GV nghỉ for class: ${data.lop.tenLop}`);
       await saveAttendance(data.lop.id, data.date, attendanceData);
       
-      console.log(`[DiemDanhPage] Creating GiaoVienVangRecord for class: ${data.lop.tenLop}`);
-      // This is the critical call
+      console.log(`[DiemDanhPage] Attempting to create GiaoVienVangRecord for class: ${data.lop.tenLop}`);
       await createGiaoVienVangRecord(data.lop.id, data.lop.tenLop, data.date); 
       console.log(`[DiemDanhPage] markTeacherAbsentMutation finished creating GiaoVienVangRecord for class: ${data.lop.tenLop}`);
       return data; 
@@ -126,13 +125,14 @@ export default function DiemDanhPage() {
       queryClient.invalidateQueries({ queryKey: ['attendance', data.lop.id, format(data.date, 'yyyyMMdd')] });
       queryClient.invalidateQueries({ queryKey: ['studentsInClass', data.lop.id] });
       queryClient.invalidateQueries({ queryKey: ['pendingMakeupClasses'] }); 
+      console.log(`[DiemDanhPage] markTeacherAbsentMutation onSuccess for class ${data.lop.tenLop}. Invalidated pendingMakeupClasses query.`);
     },
     onError: (error: Error, variables) => {
       toast({
         title: `Lỗi khi ghi nhận GV vắng cho lớp ${variables.lop.tenLop}`,
-        description: `${error.message}. Vui lòng kiểm tra console của server Next.js để biết thêm chi tiết, đặc biệt là lỗi liên quan đến việc tạo bản ghi học bù trong Firestore.`,
+        description: `${error.message}. Hãy kiểm tra console của server Next.js để biết chi tiết, đặc biệt là lỗi liên quan đến việc tạo bản ghi học bù trong Firestore (ví dụ: PERMISSION_DENIED hoặc lỗi service).`,
         variant: "destructive",
-        duration: 7000,
+        duration: 10000, // Longer duration for more complex error message
       });
       console.error(`[DiemDanhPage] Error in markTeacherAbsentMutation for class ${variables.lop.tenLop}:`, error);
     },
@@ -281,12 +281,14 @@ export default function DiemDanhPage() {
                     selectedDate={selectedDate}
                     onDiemDanhClick={handleDiemDanhClick}
                     onMarkTeacherAbsent={handleOpenTeacherAbsentConfirm}
-                    isLoadingStudentsForModal={isLoadingStudentsForAttendance}
-                    isSavingAttendance={saveAttendanceMutation.isPending}
-                    isMarkingTeacherAbsent={markTeacherAbsentMutation.isPending}
+                    isLoadingStudentsForModal={isLoadingStudentsForAttendance && selectedClassForAttendance?.id === lop.id}
+                    isSavingAttendance={saveAttendanceMutation.isPending && saveAttendanceMutation.variables?.classId === lop.id}
+                    isMarkingTeacherAbsent={markTeacherAbsentMutation.isPending && markTeacherAbsentMutation.variables?.lop.id === lop.id}
                     selectedClassForActionId={
-                      saveAttendanceMutation.isPending || markTeacherAbsentMutation.isPending || isLoadingStudentsForAttendance
-                      ? selectedClassForAttendance?.id || classToMarkTeacherAbsent?.id || null
+                      (isLoadingStudentsForAttendance && selectedClassForAttendance?.id === lop.id) ||
+                      (saveAttendanceMutation.isPending && saveAttendanceMutation.variables?.classId === lop.id) ||
+                      (markTeacherAbsentMutation.isPending && markTeacherAbsentMutation.variables?.lop.id === lop.id)
+                      ? lop.id
                       : null
                     }
                   />
@@ -316,7 +318,7 @@ export default function DiemDanhPage() {
                       {(errorPendingMakeup as Error)?.message || "Đã có lỗi xảy ra."}
                     </p>
                      <p className="text-xs text-muted-foreground text-center mb-3">
-                      Vui lòng kiểm tra console của server Next.js để biết chi tiết lỗi từ Firebase (thường liên quan đến thiếu Index).
+                      Vui lòng kiểm tra console của server Next.js để biết chi tiết lỗi từ Firebase (thường liên quan đến thiếu Index hoặc Firestore Security Rules).
                     </p>
                     <Button onClick={() => refetchPendingMakeup()} variant="destructive" size="sm">
                       <RefreshCw className="mr-2 h-4 w-4" /> Thử lại
@@ -383,7 +385,7 @@ export default function DiemDanhPage() {
               <AlertDialogTitle>Xác nhận GV vắng</AlertDialogTitle>
               <AlertDialogDescription>
                 Bạn có chắc chắn muốn ghi nhận buổi học ngày {format(selectedDate, "dd/MM/yyyy", { locale: vi })} của lớp "{classToMarkTeacherAbsent.tenLop}" là GV vắng không?
-                Tất cả học sinh trong lớp sẽ được cập nhật trạng thái "GV nghỉ" cho buổi học này, và một yêu cầu học bù sẽ được tạo.
+                Tất cả học sinh trong lớp sẽ được cập nhật trạng thái "GV nghỉ" cho buổi học này, và một yêu cầu học bù sẽ được tạo trong Firestore.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -394,9 +396,9 @@ export default function DiemDanhPage() {
               <AlertDialogAction
                 onClick={confirmMarkTeacherAbsent}
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                disabled={markTeacherAbsentMutation.isPending}
+                disabled={markTeacherAbsentMutation.isPending && markTeacherAbsentMutation.variables?.lop.id === classToMarkTeacherAbsent.id}
               >
-                {markTeacherAbsentMutation.isPending && markTeacherAbsentMutation.variables?.lop.id === classToMarkTeacherAbsent.id ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : null}
+                {(markTeacherAbsentMutation.isPending && markTeacherAbsentMutation.variables?.lop.id === classToMarkTeacherAbsent.id) ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : null}
                 Xác nhận GV Vắng
               </AlertDialogAction>
             </AlertDialogFooter>
@@ -406,3 +408,4 @@ export default function DiemDanhPage() {
     </DashboardLayout>
   );
 }
+
