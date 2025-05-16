@@ -19,10 +19,6 @@ export const createGiaoVienVangRecord = async (
     collection(db, GIAO_VIEN_VANG_COLLECTION),
     where("classId", "==", classId),
     where("originalDate", "==", formattedOriginalDate),
-    // where("status", "==", "chờ xếp lịch") // Check for any existing record for this class/date to avoid duplicates, regardless of status initially.
-                                         // If a record (e.g. 'đã hoàn thành') exists, we might not want to create a new 'chờ xếp lịch' one.
-                                         // For now, allowing re-creation if status is different is fine, but strict prevention might be better.
-                                         // Re-evaluating: It's better to prevent if 'chờ xếp lịch' already exists.
     where("status", "==", "chờ xếp lịch")
   );
 
@@ -40,7 +36,7 @@ export const createGiaoVienVangRecord = async (
         status: existingData.status as MakeupClassStatus,
         createdAt: existingData.createdAtTimestamp instanceof Timestamp 
                       ? existingData.createdAtTimestamp.toDate().toISOString() 
-                      : (existingData.createdAt || new Date().toISOString()),
+                      : (existingData.createdAt || new Date().toISOString()), // Fallback if createdAtTimestamp is missing
         makeupDate: existingData.makeupDate,
         makeupTime: existingData.makeupTime,
         notes: existingData.notes,
@@ -52,23 +48,28 @@ export const createGiaoVienVangRecord = async (
       className,
       originalDate: formattedOriginalDate,
       status: 'chờ xếp lịch' as MakeupClassStatus,
-      createdAtTimestamp: firestoreServerTimestamp() // Use server timestamp
+      createdAtTimestamp: firestoreServerTimestamp() 
     };
 
-    // Explicitly type `recordToStore` if needed for addDoc, or ensure addDoc infers correctly
     const docRef = await addDoc(collection(db, GIAO_VIEN_VANG_COLLECTION), recordToStore);
     console.log(`[giaoVienVangService] Successfully created GiaoVienVangRecord with ID: ${docRef.id} for class ${className} on ${formattedOriginalDate}`);
     
+    // For immediate return, we create a client-side timestamp. Firestore will have the server one.
     const createdRecord: GiaoVienVangRecord = {
       id: docRef.id,
-      ...recordToStore,
-      createdAt: new Date().toISOString(), // This will be slightly off from serverTimestamp, but good for immediate return
-                                        // The actual createdAt from serverTimestamp will be in DB.
+      classId: recordToStore.classId,
+      className: recordToStore.className,
+      originalDate: recordToStore.originalDate,
+      status: recordToStore.status,
+      createdAt: new Date().toISOString(), 
     };
     return createdRecord;
 
   } catch (error) {
     console.error("[giaoVienVangService] Error creating GiaoVienVangRecord in Firestore:", error);
+    if ((error as any)?.code === 'failed-precondition') {
+        console.error(`[giaoVienVangService] Firestore Precondition Failed for createGiaoVienVangRecord (query part): Missing index. Query: classId == ${classId}, originalDate == ${formattedOriginalDate}, status == "chờ xếp lịch". Check server logs for index creation link.`);
+    }
     throw error; 
   }
 };
@@ -86,7 +87,7 @@ export const getPendingMakeupClasses = async (): Promise<GiaoVienVangRecord[]> =
     const records: GiaoVienVangRecord[] = [];
     querySnapshot.forEach((doc) => {
       const data = doc.data();
-      console.log(`[giaoVienVangService] Fetched document: ${doc.id}, data:`, data);
+      // console.log(`[giaoVienVangService] Fetched document: ${doc.id}, data:`, data); // Can be verbose
       const record: GiaoVienVangRecord = {
         id: doc.id,
         classId: data.classId,
@@ -95,7 +96,7 @@ export const getPendingMakeupClasses = async (): Promise<GiaoVienVangRecord[]> =
         status: data.status as MakeupClassStatus,
         createdAt: data.createdAtTimestamp instanceof Timestamp 
                       ? data.createdAtTimestamp.toDate().toISOString() 
-                      : (data.createdAt || new Date().toISOString()), // Fallback if createdAtTimestamp is missing for old docs
+                      : (data.createdAt || new Date().toISOString()),
         makeupDate: data.makeupDate,
         makeupTime: data.makeupTime,
         notes: data.notes,
@@ -111,7 +112,7 @@ export const getPendingMakeupClasses = async (): Promise<GiaoVienVangRecord[]> =
   } catch (error) {
     console.error("[giaoVienVangService] Error fetching pending makeup classes from Firestore:", error);
     if ((error as any)?.code === 'failed-precondition') {
-        console.error("[giaoVienVangService] Firestore Precondition Failed: This often means a required Firestore index is missing. Please check your Firestore indexes for the 'giaoVienVangRecords' collection. The query requires an index on 'status' (ASC) and 'createdAtTimestamp' (DESC). Check server logs for a direct link to create the index.");
+        console.error("[giaoVienVangService] Firestore Precondition Failed for getPendingMakeupClasses: This often means a required Firestore index is missing. The query requires an index on 'status' (ASC) and 'createdAtTimestamp' (DESC). Check server logs for a direct link to create the index.");
     }
     throw error;
   }
@@ -125,8 +126,6 @@ export const deleteGiaoVienVangRecordByClassAndDate = async (classId: string, or
     collection(db, GIAO_VIEN_VANG_COLLECTION),
     where("classId", "==", classId),
     where("originalDate", "==", formattedOriginalDate)
-    // Optionally, you might want to only delete records with status 'chờ xếp lịch'
-    // where("status", "==", "chờ xếp lịch") 
   );
 
   try {
@@ -145,7 +144,61 @@ export const deleteGiaoVienVangRecordByClassAndDate = async (classId: string, or
 
   } catch (error) {
     console.error(`[giaoVienVangService] Error deleting GiaoVienVangRecord for class ${classId} on ${formattedOriginalDate}:`, error);
+    if ((error as any)?.code === 'failed-precondition') {
+        console.error(`[giaoVienVangService] Firestore Precondition Failed for deleteGiaoVienVangRecordByClassAndDate (query part): Missing index. Query: classId == ${classId}, originalDate == ${formattedOriginalDate}. Check server logs for index creation link.`);
+    }
     throw error;
   }
 };
 
+/**
+ * Fetches a summary of teacher absent days.
+ * @returns A promise that resolves to an object with the total count of unique absent days and the records.
+ */
+export const getTeacherAbsentDaysSummary = async (): Promise<{ totalAbsentDays: number; records: GiaoVienVangRecord[] }> => {
+  console.log("[giaoVienVangService] Attempting to fetch teacher absent days summary from Firestore.");
+  // Fetch all records; could be optimized if collection grows very large by specific queries
+  // For now, fetching all and processing client-side is acceptable for moderate data.
+  const q = query(
+    collection(db, GIAO_VIEN_VANG_COLLECTION),
+    orderBy("originalDate", "desc") // Order to potentially make unique day counting easier or for display
+  );
+
+  try {
+    const querySnapshot = await getDocs(q);
+    const records: GiaoVienVangRecord[] = [];
+    const uniqueAbsentDays = new Set<string>();
+
+    querySnapshot.forEach((doc) => {
+      const data = doc.data();
+      const record: GiaoVienVangRecord = {
+        id: doc.id,
+        classId: data.classId,
+        className: data.className,
+        originalDate: data.originalDate, // YYYYMMDD string
+        status: data.status as MakeupClassStatus,
+        createdAt: data.createdAtTimestamp instanceof Timestamp 
+                      ? data.createdAtTimestamp.toDate().toISOString() 
+                      : (data.createdAt || new Date().toISOString()),
+        makeupDate: data.makeupDate,
+        makeupTime: data.makeupTime,
+        notes: data.notes,
+      };
+      records.push(record);
+      uniqueAbsentDays.add(record.originalDate); // Add YYYYMMDD string to Set
+    });
+    
+    const totalAbsentDays = uniqueAbsentDays.size;
+    console.log(`[giaoVienVangService] Successfully fetched teacher absent summary. Total unique absent days: ${totalAbsentDays}, Total records: ${records.length}`);
+    return { totalAbsentDays, records };
+  } catch (error) {
+    console.error("[giaoVienVangService] Error fetching teacher absent days summary from Firestore:", error);
+     if ((error as any)?.code === 'failed-precondition') {
+        console.error("[giaoVienVangService] Firestore Precondition Failed for getTeacherAbsentDaysSummary: Missing index for originalDate descending. Check server logs for index creation link.");
+    }
+    throw error;
+  }
+};
+
+
+    

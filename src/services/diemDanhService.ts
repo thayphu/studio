@@ -1,9 +1,9 @@
 
 'use server';
-import type { AttendanceStatus } from '@/lib/types';
+import type { AttendanceStatus, DiemDanhGhiNhan } from '@/lib/types';
 import { format } from 'date-fns';
 import { db } from '@/lib/firebase';
-import { collection, query, where, getDocs, writeBatch, doc, serverTimestamp, DocumentData } from "firebase/firestore";
+import { collection, query, where, getDocs, writeBatch, doc, serverTimestamp, DocumentData, orderBy } from "firebase/firestore";
 
 const DIEM_DANH_COLLECTION = "diemDanhRecords";
 
@@ -26,18 +26,25 @@ export const getAttendanceForClassOnDate = async (
     where("ngayDiemDanh", "==", formattedDate)
   );
 
-  const querySnapshot = await getDocs(attendanceQuery);
-  const attendanceRecords: Record<string, AttendanceStatus> = {};
+  try {
+    const querySnapshot = await getDocs(attendanceQuery);
+    const attendanceRecords: Record<string, AttendanceStatus> = {};
 
-  querySnapshot.forEach((doc) => {
-    const data = doc.data();
-    if (data.hocSinhId && data.trangThai) {
-      attendanceRecords[data.hocSinhId] = data.trangThai as AttendanceStatus;
+    querySnapshot.forEach((doc) => {
+      const data = doc.data();
+      if (data.hocSinhId && data.trangThai) {
+        attendanceRecords[data.hocSinhId] = data.trangThai as AttendanceStatus;
+      }
+    });
+    console.log(`[diemDanhService] Fetched records for ${classId} on ${formattedDate}:`, attendanceRecords);
+    return attendanceRecords;
+  } catch (error) {
+    console.error(`[diemDanhService] Error fetching attendance for ${classId} on ${formattedDate}:`, error);
+    if ((error as any)?.code === 'failed-precondition') {
+        console.error(`[diemDanhService] Firestore Precondition Failed for getAttendanceForClassOnDate: Missing index. Query: lopId == ${classId}, ngayDiemDanh == ${formattedDate}. Check server logs for index creation link.`);
     }
-  });
-
-  console.log(`[diemDanhService] Fetched records for ${classId} on ${formattedDate}:`, attendanceRecords);
-  return attendanceRecords;
+    throw error;
+  }
 };
 
 /**
@@ -56,48 +63,141 @@ export const saveAttendance = async (
 
   const batch = writeBatch(db);
 
-  // To efficiently find existing documents to update, we first query them.
   const existingRecordsQuery = query(
     collection(db, DIEM_DANH_COLLECTION),
     where("lopId", "==", classId),
     where("ngayDiemDanh", "==", formattedDate)
+    // Potentially add where("hocSinhId", "in", Object.keys(attendanceData)) if performance is an issue for very large classes,
+    // but this requires more complex querying or fetching all and filtering client-side for map.
   );
-  const existingDocsSnapshot = await getDocs(existingRecordsQuery);
-  const studentIdToDocIdMap: Map<string, string> = new Map();
-  existingDocsSnapshot.forEach(docSnapshot => {
-    const data = docSnapshot.data();
-    if (data.hocSinhId) {
-      studentIdToDocIdMap.set(data.hocSinhId, docSnapshot.id);
-    }
-  });
-
-  for (const studentId in attendanceData) {
-    const status = attendanceData[studentId];
-    const recordData = {
-      lopId: classId,
-      hocSinhId: studentId,
-      ngayDiemDanh: formattedDate,
-      trangThai: status,
-      lastUpdated: serverTimestamp() // Optional: to track when it was last updated
-    };
-
-    const existingDocId = studentIdToDocIdMap.get(studentId);
-    if (existingDocId) {
-      // Update existing record
-      const docRef = doc(db, DIEM_DANH_COLLECTION, existingDocId);
-      batch.update(docRef, { trangThai: status, lastUpdated: serverTimestamp() });
-    } else {
-      // Add new record
-      const newDocRef = doc(collection(db, DIEM_DANH_COLLECTION)); // Auto-generate ID
-      batch.set(newDocRef, recordData);
-    }
-  }
 
   try {
+    const existingDocsSnapshot = await getDocs(existingRecordsQuery);
+    const studentIdToDocIdMap: Map<string, string> = new Map();
+    existingDocsSnapshot.forEach(docSnapshot => {
+      const data = docSnapshot.data();
+      if (data.hocSinhId) {
+        studentIdToDocIdMap.set(data.hocSinhId, docSnapshot.id);
+      }
+    });
+
+    for (const studentId in attendanceData) {
+      const status = attendanceData[studentId];
+      const recordData = {
+        lopId: classId,
+        hocSinhId: studentId,
+        ngayDiemDanh: formattedDate,
+        trangThai: status,
+        lastUpdated: serverTimestamp()
+      };
+
+      const existingDocId = studentIdToDocIdMap.get(studentId);
+      if (existingDocId) {
+        const docRef = doc(db, DIEM_DANH_COLLECTION, existingDocId);
+        batch.update(docRef, { trangThai: status, lastUpdated: serverTimestamp() });
+      } else {
+        const newDocRef = doc(collection(db, DIEM_DANH_COLLECTION));
+        batch.set(newDocRef, recordData);
+      }
+    }
+
     await batch.commit();
     console.log(`[diemDanhService] Firestore Batch committed successfully for ${classId} on ${formattedDate}`);
   } catch (error) {
-    console.error("[diemDanhService] Error committing batch: ", error);
+    console.error("[diemDanhService] Error committing batch for saveAttendance: ", error);
+     if ((error as any)?.code === 'failed-precondition') {
+        console.error(`[diemDanhService] Firestore Precondition Failed for saveAttendance (query part): Missing index for lopId == ${classId}, ngayDiemDanh == ${formattedDate}. Check server logs for index creation link.`);
+    }
     throw new Error("Failed to save attendance data.");
   }
 };
+
+
+/**
+ * Fetches a summary of attendance for a specific date across all classes.
+ * @param date The date for which to fetch the summary.
+ * @returns A promise that resolves to an object with counts of present, absent, and teacherAbsent students.
+ */
+export const getDailyAttendanceSummary = async (
+  date: Date
+): Promise<{ present: number; absent: number; teacherAbsentSessionStudentCount: number }> => {
+  const formattedDate = format(date, 'yyyyMMdd');
+  console.log(`[diemDanhService] Firestore Fetching daily attendance summary for date ${formattedDate}`);
+
+  const attendanceQuery = query(
+    collection(db, DIEM_DANH_COLLECTION),
+    where("ngayDiemDanh", "==", formattedDate)
+  );
+
+  let present = 0;
+  let absent = 0;
+  let teacherAbsentSessionStudentCount = 0;
+
+  try {
+    const querySnapshot = await getDocs(attendanceQuery);
+    querySnapshot.forEach((doc) => {
+      const data = doc.data() as DiemDanhGhiNhan;
+      if (data.trangThai === 'Có mặt') {
+        present++;
+      } else if (data.trangThai === 'Vắng mặt') {
+        absent++;
+      } else if (data.trangThai === 'GV nghỉ') {
+        teacherAbsentSessionStudentCount++;
+      }
+    });
+    console.log(`[diemDanhService] Daily summary for ${formattedDate}: Present: ${present}, Absent: ${absent}, Teacher Absent Students: ${teacherAbsentSessionStudentCount}`);
+    return { present, absent, teacherAbsentSessionStudentCount };
+  } catch (error) {
+    console.error(`[diemDanhService] Error fetching daily attendance summary for ${formattedDate}:`, error);
+     if ((error as any)?.code === 'failed-precondition') {
+        console.error(`[diemDanhService] Firestore Precondition Failed for getDailyAttendanceSummary: Missing index for ngayDiemDanh == ${formattedDate}. Check server logs for index creation link.`);
+    }
+    throw error; // Re-throw to be caught by useQuery
+  }
+};
+
+/**
+ * Fetches detailed attendance records for a specific date across all classes.
+ * Used for populating modal views in reports.
+ * @param date The date for which to fetch detailed attendance.
+ * @returns A promise that resolves to an array of DiemDanhGhiNhan objects.
+ */
+export const getDetailedAttendanceForDate = async (
+  date: Date
+): Promise<DiemDanhGhiNhan[]> => {
+  const formattedDate = format(date, 'yyyyMMdd');
+  console.log(`[diemDanhService] Firestore Fetching detailed attendance for date ${formattedDate}`);
+
+  const attendanceQuery = query(
+    collection(db, DIEM_DANH_COLLECTION),
+    where("ngayDiemDanh", "==", formattedDate),
+    orderBy("lopId"), // Optional: order by class, then by student if needed
+    orderBy("hocSinhId")
+  );
+
+  const records: DiemDanhGhiNhan[] = [];
+  try {
+    const querySnapshot = await getDocs(attendanceQuery);
+    querySnapshot.forEach((doc) => {
+      const data = doc.data();
+      records.push({
+        id: doc.id,
+        hocSinhId: data.hocSinhId,
+        lopId: data.lopId,
+        ngayDiemDanh: data.ngayDiemDanh,
+        trangThai: data.trangThai as AttendanceStatus,
+        ghiChu: data.ghiChu,
+      });
+    });
+    console.log(`[diemDanhService] Fetched ${records.length} detailed attendance records for ${formattedDate}.`);
+    return records;
+  } catch (error) {
+    console.error(`[diemDanhService] Error fetching detailed attendance for ${formattedDate}:`, error);
+    if ((error as any)?.code === 'failed-precondition') {
+        console.error(`[diemDanhService] Firestore Precondition Failed for getDetailedAttendanceForDate: Missing index for ngayDiemDanh == ${formattedDate} (and possibly lopId, hocSinhId for ordering). Check server logs for index creation link.`);
+    }
+    throw error;
+  }
+};
+
+    
