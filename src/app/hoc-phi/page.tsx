@@ -391,7 +391,7 @@ export default function HocPhiPage() {
             setIsPaymentModalOpen(isOpen);
             if (!isOpen) setStudentForPayment(null);
           }}>
-            <DialogContent className="sm:max-w-[600px]">
+            <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-y-auto">
               <DialogHeader>
                 <ShadDialogTitle>Thanh toán học phí cho {studentForPayment.hoTen}</ShadDialogTitle>
               </DialogHeader>
