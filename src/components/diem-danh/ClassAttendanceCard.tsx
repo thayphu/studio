@@ -89,7 +89,7 @@ export default function ClassAttendanceCard({
     if (isLoadingClassStudents || isLoadingAttendance || !studentsInClass || !classAttendanceToday) {
       return false;
     }
-    if (lop.soHocSinhHienTai === 0 && Object.keys(classAttendanceToday).length === 0) return false; 
+    if (lop.soHocSinhHienTai === 0 && Object.keys(classAttendanceToday).length === 0) return false;
     if (lop.soHocSinhHienTai > 0 && Object.keys(classAttendanceToday).length === 0 && studentsInClass && studentsInClass.length > 0) return false;
 
 
@@ -105,6 +105,9 @@ export default function ClassAttendanceCard({
   const isSavingOrMarkingInProgress = (isSavingAttendance && selectedClassForActionId === lop.id) || (isMarkingTeacherAbsent && selectedClassForActionId === lop.id);
 
   const isAnyActionInProgress = isButtonLoading || isSavingOrMarkingInProgress;
+
+  const attendanceButtonLabel = allMarkedPresent ? "Đã điểm danh đủ" : "Điểm danh";
+  const teacherAbsentButtonLabel = isSessionMarkedTeacherAbsent ? "Đã ghi GV vắng" : "GV vắng";
 
   return (
     <Card className="flex flex-col shadow-md hover:shadow-lg transition-shadow">
@@ -155,35 +158,36 @@ export default function ClassAttendanceCard({
           onClick={() => onDiemDanhClick(lop)}
           className={cn(!allMarkedPresent && !isSessionMarkedTeacherAbsent && !isAnyActionInProgress && "flashing-button")}
           variant={allMarkedPresent ? "default" : "default"}
-          size="lg"
+          size="icon"
+          aria-label={attendanceButtonLabel}
           disabled={isAnyActionInProgress || allMarkedPresent || isSessionMarkedTeacherAbsent}
         >
           {isButtonLoading || (isSavingAttendance && selectedClassForActionId === lop.id) ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            <Loader2 className="animate-spin" />
           ) : allMarkedPresent ? (
-            <CheckCheck className="mr-2 h-5 w-5" />
+            <CheckCheck />
           ) : (
-            <CheckCircle className="mr-2 h-5 w-5" />
+            <CheckCircle />
           )}
-          {allMarkedPresent ? "Đã điểm danh đủ" : "Điểm danh"}
         </Button>
         <Button
           onClick={() => onMarkTeacherAbsent(lop)}
           variant={isSessionMarkedTeacherAbsent ? "secondary" : "outline"}
           className={isSessionMarkedTeacherAbsent ? "border-yellow-500 text-yellow-600" : "border-amber-500 text-amber-600 hover:bg-amber-50"}
-          size="lg"
+          size="icon"
+          aria-label={teacherAbsentButtonLabel}
           disabled={isAnyActionInProgress || isSessionMarkedTeacherAbsent}
         >
           {isMarkingTeacherAbsent && selectedClassForActionId === lop.id ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            <Loader2 className="animate-spin" />
           ) : isSessionMarkedTeacherAbsent ? (
-             <Ban className="mr-2 h-5 w-5" />
+             <Ban />
           ) : (
-            <UserX className="mr-2 h-5 w-5" />
+            <UserX />
           )}
-          {isSessionMarkedTeacherAbsent ? "Đã ghi GV vắng" : "GV vắng"}
         </Button>
       </CardFooter>
     </Card>
   );
 }
+
