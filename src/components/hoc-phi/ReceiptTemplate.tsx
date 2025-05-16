@@ -203,9 +203,11 @@ export default function ReceiptTemplate({ student, receiptNumber, paidAmount, cl
         <div className="mb-6 text-lg">
           <h2 className="text-xl font-semibold mb-2 text-foreground">Thông tin học sinh</h2>
           <div className="space-y-1">
-            <div><span className="font-medium text-foreground">Họ và tên:</span> <span className="text-indigo-700 font-semibold">{student.hoTen}</span></div>
-            <div><span className="font-medium text-foreground">Lớp:</span> {student.tenLop || 'N/A'}</div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
+              <div><span className="font-medium text-foreground">Họ và tên:</span> <span className="text-indigo-700 font-semibold">{student.hoTen}</span></div>
+              <div><span className="font-medium text-foreground">Lớp:</span> {student.tenLop || 'N/A'}</div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 mt-1">
               <div><span className="font-medium text-foreground">Mã HS:</span> {student.id}</div>
               <div>
                 <span className="font-medium text-foreground">Lịch học:</span> 
@@ -216,7 +218,7 @@ export default function ReceiptTemplate({ student, receiptNumber, paidAmount, cl
               <div><span className="font-medium text-foreground">Ngày đăng ký:</span> {format(new Date(student.ngayDangKy), "dd/MM/yyyy")}</div>
               <div>
                   <span className="font-medium text-foreground">Chu kỳ thanh toán:</span>
-                  <span className="ml-2">{student.chuKyThanhToan}.</span>
+                  <span className="ml-1">{student.chuKyThanhToan}.</span>
               </div>
             </div>
           </div>
@@ -355,3 +357,4 @@ const format = (date: Date, formatString: string): string => {
 };
     
 
+    
