@@ -32,6 +32,7 @@ import { format, parse } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 
 
 const getCurrentVietnameseDayOfWeek = (date: Date): DayOfWeek => {
@@ -52,7 +53,7 @@ export default function DiemDanhPage() {
     queryFn: getClasses,
   });
 
-  const { data: pendingMakeupClasses, isLoading: isLoadingPendingMakeup, refetch: refetchPendingMakeup } = useQuery<GiaoVienVangRecord[], Error>({
+  const { data: pendingMakeupClasses, isLoading: isLoadingPendingMakeup, isError: isErrorPendingMakeup, error: errorPendingMakeup, refetch: refetchPendingMakeup } = useQuery<GiaoVienVangRecord[], Error>({
     queryKey: ['pendingMakeupClasses'],
     queryFn: getPendingMakeupClasses,
   });
@@ -115,7 +116,7 @@ export default function DiemDanhPage() {
     onSuccess: (data) => {
       toast({
         title: "Đã ghi nhận GV vắng",
-        description: `Buổi học ngày ${format(data.date, 'dd/MM/yyyy')} của lớp ${data.lop.tenLop} đã được ghi nhận là GV vắng.`,
+        description: `Buổi học ngày ${format(data.date, 'dd/MM/yyyy')} của lớp ${data.lop.tenLop} đã được ghi nhận là GV vắng và một yêu cầu học bù đã được tạo.`,
       });
       queryClient.invalidateQueries({ queryKey: ['attendance', data.lop.id, format(data.date, 'yyyyMMdd')] });
       queryClient.invalidateQueries({ queryKey: ['studentsInClass', data.lop.id] });
@@ -292,7 +293,7 @@ export default function DiemDanhPage() {
                 {isLoadingPendingMakeup && (
                     <div className="space-y-4">
                         {[...Array(3)].map((_, i) => (
-                            <Card key={`makeup-skel-${i}`}>
+                            <Card key={`makeup-skel-${i}`} className="shadow-sm">
                                 <CardHeader><Skeleton className="h-5 w-3/4" /></CardHeader>
                                 <CardContent><Skeleton className="h-4 w-1/2" /></CardContent>
                                 <CardFooter><Skeleton className="h-10 w-24" /></CardFooter>
@@ -300,13 +301,28 @@ export default function DiemDanhPage() {
                         ))}
                     </div>
                 )}
-                {!isLoadingPendingMakeup && pendingMakeupClasses && pendingMakeupClasses.length === 0 && (
+                {isErrorPendingMakeup && !isLoadingPendingMakeup && (
+                  <div className="flex flex-col items-center justify-center text-destructive p-6 border border-destructive/50 bg-destructive/10 rounded-lg shadow">
+                    <AlertCircle className="w-10 h-10 mb-2" />
+                    <p className="text-lg font-semibold mb-1">Lỗi tải danh sách lớp cần học bù</p>
+                    <p className="text-sm text-center mb-2">
+                      {(errorPendingMakeup as Error)?.message || "Đã có lỗi xảy ra."}
+                    </p>
+                     <p className="text-xs text-muted-foreground text-center mb-3">
+                      Vui lòng kiểm tra console của server Next.js để biết chi tiết lỗi từ Firebase (thường liên quan đến thiếu Index).
+                    </p>
+                    <Button onClick={() => refetchPendingMakeup()} variant="destructive" size="sm">
+                      <RefreshCw className="mr-2 h-4 w-4" /> Thử lại
+                    </Button>
+                  </div>
+                )}
+                {!isLoadingPendingMakeup && !isErrorPendingMakeup && pendingMakeupClasses && pendingMakeupClasses.length === 0 && (
                     <p className="text-muted-foreground">Không có lớp nào đang chờ xếp lịch học bù.</p>
                 )}
-                {!isLoadingPendingMakeup && pendingMakeupClasses && pendingMakeupClasses.length > 0 && (
+                {!isLoadingPendingMakeup && !isErrorPendingMakeup && pendingMakeupClasses && pendingMakeupClasses.length > 0 && (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {pendingMakeupClasses.map(record => (
-                            <Card key={record.id} className="shadow-md">
+                            <Card key={record.id} className="shadow-md hover:shadow-lg transition-shadow">
                                 <CardHeader>
                                     <CardTitle className="text-lg text-primary flex items-center">
                                       <ListChecks className="mr-2 h-5 w-5"/>
@@ -327,9 +343,6 @@ export default function DiemDanhPage() {
                             </Card>
                         ))}
                     </div>
-                )}
-                {!isLoadingPendingMakeup && !pendingMakeupClasses && (
-                     <p className="text-destructive">Lỗi tải danh sách lớp cần học bù.</p>
                 )}
             </div>
           </TabsContent>
@@ -386,3 +399,5 @@ export default function DiemDanhPage() {
     </DashboardLayout>
   );
 }
+
+    
