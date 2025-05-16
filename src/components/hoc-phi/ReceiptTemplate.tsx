@@ -163,21 +163,21 @@ export default function ReceiptTemplate({ student, receiptNumber, paidAmount }: 
           </div>
           <div className="flex justify-between">
             <span>Chi phí khác:</span>
-            <span className="font-medium text-foreground">{formatCurrencyVND(0)} <em className="text-xs">(Placeholder)</em></span>
+            <span className="font-medium text-foreground">{formatCurrencyVND(0)}</span>
           </div>
-          <div className="ml-4 text-xs"><em>Diễn giải: (Placeholder)</em></div>
+          <div className="ml-4 text-xs"><em>Diễn giải: </em></div>
 
           <div className="flex justify-between">
             <span>Học phí linh hoạt:</span>
-            <span className="font-medium text-foreground">{formatCurrencyVND(0)} <em className="text-xs">(Placeholder)</em></span>
+            <span className="font-medium text-foreground">{formatCurrencyVND(0)}</span>
           </div>
-           <div className="ml-4 text-xs"><em>Số buổi tương ứng: (Placeholder)</em></div>
+           <div className="ml-4 text-xs"><em>Số buổi tương ứng: </em></div>
 
           <div className="flex justify-between">
             <span>Khấu trừ:</span>
-            <span className="font-medium text-foreground">{formatCurrencyVND(0)} <em className="text-xs">(Placeholder)</em></span>
+            <span className="font-medium text-foreground">{formatCurrencyVND(0)}</span>
           </div>
-           <div className="ml-4 text-xs"><em>Lý do: (Placeholder)</em></div>
+           <div className="ml-4 text-xs"><em>Lý do: </em></div>
         </div>
       </div>
       
@@ -264,3 +264,4 @@ const format = (date: Date, formatString: string): string => {
    if (formatString === "yyyy") return String(date.getFullYear());
   return date.toLocaleDateString('vi-VN'); // fallback
 };
+
