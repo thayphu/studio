@@ -2,11 +2,12 @@
 "use client";
 
 import type { LopHoc, HocSinh, AttendanceStatus } from '@/lib/types';
+import type { DisplayableClassForAttendance } from '@/app/diem-danh/page'; // Import the new type
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { CalendarDays, Clock, Users, CheckCircle, CheckCheck, Ban, UserX, Loader2, RotateCcw } from 'lucide-react';
+import { CalendarDays, Clock, Users, CheckCircle, CheckCheck, UserX, Loader2, RotateCcw } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { getAttendanceForClassOnDate } from '@/services/diemDanhService';
 import { getStudentsByClassId } from '@/services/hocSinhService';
@@ -15,15 +16,15 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
 interface ClassAttendanceCardProps {
-  lop: LopHoc;
+  lop: DisplayableClassForAttendance; // Use the new extended type
   selectedDate: Date;
-  onDiemDanhClick: (lop: LopHoc) => void;
+  onDiemDanhClick: (lop: DisplayableClassForAttendance) => void;
   onMarkTeacherAbsent: (lop: LopHoc) => void;
-  onCancelTeacherAbsentClick: (lop: LopHoc) => void; // New prop
+  onCancelTeacherAbsentClick: (lop: LopHoc) => void;
   isLoadingStudentsForModal: boolean;
   isSavingAttendance: boolean;
   isMarkingTeacherAbsent: boolean;
-  isCancellingTeacherAbsent: boolean; // New prop
+  isCancellingTeacherAbsent: boolean;
   selectedClassForActionId: string | null;
 }
 
@@ -93,11 +94,14 @@ export default function ClassAttendanceCard({
     if (isLoadingClassStudents || isLoadingAttendance || !studentsInClass || !classAttendanceToday) {
       return false;
     }
-    if (lop.soHocSinhHienTai === 0 && Object.keys(classAttendanceToday).length === 0) return false;
-    if (lop.soHocSinhHienTai > 0 && Object.keys(classAttendanceToday).length === 0 && studentsInClass && studentsInClass.length > 0) return false;
+    // If no students, it can't be "teacher absent" in terms of student records
+    if (studentsInClass.length === 0) return false; 
+    
+    // If there are students, but no attendance records for them, it's not "teacher absent" yet
+    if (Object.keys(classAttendanceToday).length === 0 && studentsInClass.length > 0) return false;
 
-    return studentsInClass && studentsInClass.length > 0 && studentsInClass.every(student => classAttendanceToday[student.id] === 'GV nghỉ');
-  }, [classAttendanceToday, studentsInClass, lop.soHocSinhHienTai, isLoadingClassStudents, isLoadingAttendance]);
+    return studentsInClass.every(student => classAttendanceToday[student.id] === 'GV nghỉ');
+  }, [classAttendanceToday, studentsInClass, isLoadingClassStudents, isLoadingAttendance]);
 
 
   const allMarkedPresent = useMemo(() => {
@@ -110,8 +114,6 @@ export default function ClassAttendanceCard({
   const isAnyActionInProgress = isButtonLoading || isSavingOrMarkingInProgress;
 
   const attendanceButtonLabel = allMarkedPresent ? "Đã điểm danh" : "Điểm danh";
-  const teacherAbsentButtonLabel = isSessionMarkedTeacherAbsent ? "Đã ghi GV vắng" : "GV vắng";
-  const cancelTeacherAbsentButtonLabel = "Hủy GV vắng";
 
   return (
     <Card className="flex flex-col shadow-md hover:shadow-lg transition-shadow">
@@ -119,6 +121,7 @@ export default function ClassAttendanceCard({
         <CardTitle className="text-xl text-primary flex items-center">
           <CalendarDays className="mr-2 h-6 w-6 text-primary" />
           {lop.tenLop}
+          {lop.isMakeupSession && <span className="text-sm font-normal text-blue-600 ml-2">(Học bù)</span>}
         </CardTitle>
         <CardDescription className="flex flex-wrap gap-2 items-center">
           <Badge variant={lop.trangThai === "Đang hoạt động" ? "secondary" : "outline"}>{lop.trangThai}</Badge>
@@ -132,7 +135,7 @@ export default function ClassAttendanceCard({
         </div>
         <div className="flex items-center">
           <Clock className="mr-2 h-4 w-4 text-muted-foreground" />
-          <span>Giờ: {lop.gioHoc}</span>
+          <span>Giờ: {lop.sessionTime || lop.gioHoc}</span>
         </div>
         <div className="flex items-center">
           <Users className="mr-2 h-4 w-4 text-muted-foreground" />
@@ -181,7 +184,7 @@ export default function ClassAttendanceCard({
             variant="outline"
             className="border-blue-500 text-blue-600 hover:bg-blue-50"
             size="icon"
-            aria-label={cancelTeacherAbsentButtonLabel}
+            aria-label="Hủy GV vắng"
             disabled={isAnyActionInProgress}
           >
             {isCancellingTeacherAbsent && selectedClassForActionId === lop.id ? (
@@ -193,11 +196,11 @@ export default function ClassAttendanceCard({
         ) : (
           <Button
             onClick={() => onMarkTeacherAbsent(lop)}
-            variant={isSessionMarkedTeacherAbsent ? "secondary" : "outline"}
-            className={isSessionMarkedTeacherAbsent ? "border-yellow-500 text-yellow-600" : "border-amber-500 text-amber-600 hover:bg-amber-50"}
+            variant="outline"
+            className="border-amber-500 text-amber-600 hover:bg-amber-50"
             size="icon"
-            aria-label={teacherAbsentButtonLabel}
-            disabled={isAnyActionInProgress || isSessionMarkedTeacherAbsent}
+            aria-label="GV vắng"
+            disabled={isAnyActionInProgress}
           >
             {isMarkingTeacherAbsent && selectedClassForActionId === lop.id ? (
               <Loader2 className="animate-spin" />
@@ -210,3 +213,5 @@ export default function ClassAttendanceCard({
     </Card>
   );
 }
+
+    

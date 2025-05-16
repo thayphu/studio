@@ -7,7 +7,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getClasses } from '@/services/lopHocService';
 import { getStudentsByClassId } from '@/services/hocSinhService';
 import { getAttendanceForClassOnDate, saveAttendance } from '@/services/diemDanhService';
-import { createGiaoVienVangRecord, getPendingMakeupClasses, deleteGiaoVienVangRecordByClassAndDate, scheduleMakeupClass } from '@/services/giaoVienVangService';
+import { createGiaoVienVangRecord, getPendingMakeupClasses, deleteGiaoVienVangRecordByClassAndDate, scheduleMakeupClass, getScheduledMakeupSessionsForDate } from '@/services/giaoVienVangService';
 import type { LopHoc, DayOfWeek, HocSinh, AttendanceStatus, GiaoVienVangRecord } from '@/lib/types';
 import { ALL_DAYS_OF_WEEK } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -42,6 +42,12 @@ const getCurrentVietnameseDayOfWeek = (date: Date): DayOfWeek => {
   return ALL_DAYS_OF_WEEK[todayIndex - 1]; // Thứ 2 đến Thứ 7
 };
 
+export interface DisplayableClassForAttendance extends LopHoc {
+  isMakeupSession?: boolean;
+  sessionTime?: string;
+  originalDateForMakeup?: string; // YYYYMMDD format of the original missed date for context
+}
+
 export default function DiemDanhPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -54,22 +60,21 @@ export default function DiemDanhPage() {
     queryFn: getClasses,
   });
 
-  const { data: allMakeupRecords = [], isLoading: isLoadingMakeupRecords, isError: isErrorMakeupRecords, error: errorMakeupRecords, refetch: refetchMakeupRecords } = useQuery<GiaoVienVangRecord[], Error>({
+  const { data: allMakeupRecords = [], isLoading: isLoadingAllMakeupRecords, isError: isErrorAllMakeupRecords, error: errorAllMakeupRecords, refetch: refetchAllMakeupRecords } = useQuery<GiaoVienVangRecord[], Error>({
     queryKey: ['allMakeupRecords'],
-    queryFn: getPendingMakeupClasses, // This fetches all records now, filtered in useMemo
+    queryFn: getPendingMakeupClasses,
   });
-
-  const pendingMakeupClasses = useMemo(() => {
-    return allMakeupRecords.filter(r => r.status === 'chờ xếp lịch');
-  }, [allMakeupRecords]);
-
-  const scheduledMakeupClasses = useMemo(() => {
-    return allMakeupRecords.filter(r => r.status === 'đã xếp lịch');
-  }, [allMakeupRecords]);
+  
+  const formattedSelectedDateKey = format(selectedDate, 'yyyyMMdd');
+  const { data: scheduledMakeupSessionsForSelectedDate = [], isLoading: isLoadingScheduledMakeupForDate, isError: isErrorScheduledMakeupForDate, error: errorScheduledMakeupForDate } = useQuery<GiaoVienVangRecord[], Error>(
+    ['scheduledMakeupForDate', formattedSelectedDateKey],
+    () => getScheduledMakeupSessionsForDate(selectedDate),
+    { enabled: !!selectedDate && isClient }
+  );
 
 
   const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
-  const [selectedClassForAttendance, setSelectedClassForAttendance] = useState<LopHoc | null>(null);
+  const [selectedClassForAttendance, setSelectedClassForAttendance] = useState<DisplayableClassForAttendance | null>(null);
   const [studentsForAttendanceList, setStudentsForAttendanceList] = useState<HocSinh[]>([]);
   const [existingAttendanceData, setExistingAttendanceData] = useState<Record<string, AttendanceStatus>>({});
   const [isLoadingStudentsForAttendance, setIsLoadingStudentsForAttendance] = useState(false);
@@ -89,12 +94,44 @@ export default function DiemDanhPage() {
     setCurrentDisplayDayOfWeek(getCurrentVietnameseDayOfWeek(selectedDate));
   }, [selectedDate]);
 
-  const classesTodayOrSelectedDate = useMemo(() => {
-    if (!classes || !currentDisplayDayOfWeek) return [];
-    return classes.filter(cls =>
-      cls.trangThai === 'Đang hoạt động' && cls.lichHoc.includes(currentDisplayDayOfWeek)
-    );
-  }, [classes, currentDisplayDayOfWeek]);
+  const classesToDisplay = useMemo((): DisplayableClassForAttendance[] => {
+    if (!classes || !currentDisplayDayOfWeek || !isClient) return [];
+
+    const finalClasses: DisplayableClassForAttendance[] = [];
+    const processedClassIds = new Set<string>(); // To ensure a class is added only once if it's a makeup
+
+    // Prioritize makeup sessions scheduled for the selectedDate
+    scheduledMakeupSessionsForSelectedDate.forEach(record => {
+        const makeupClass = classes.find(cls => cls.id === record.classId);
+        if (makeupClass && makeupClass.trangThai === 'Đang hoạt động') {
+            finalClasses.push({
+                ...makeupClass,
+                isMakeupSession: true,
+                sessionTime: record.makeupTime,
+                originalDateForMakeup: record.originalDate
+            });
+            processedClassIds.add(makeupClass.id);
+        }
+    });
+
+    // Add regularly scheduled classes if they haven't been added as makeup for this specific date
+    classes.forEach(cls => {
+        if (cls.trangThai === 'Đang hoạt động' &&
+            cls.lichHoc.includes(currentDisplayDayOfWeek) &&
+            !processedClassIds.has(cls.id) // Only add if not already processed as a makeup session for this date
+        ) {
+            finalClasses.push({
+                ...cls,
+                isMakeupSession: false,
+                sessionTime: cls.gioHoc
+            });
+        }
+    });
+    
+    return finalClasses.sort((a, b) => a.tenLop.localeCompare(b.tenLop, 'vi'));
+
+  }, [classes, currentDisplayDayOfWeek, scheduledMakeupSessionsForSelectedDate, isClient]);
+
 
   const saveAttendanceMutation = useMutation({
     mutationFn: (data: { classId: string; date: Date; attendanceData: Record<string, AttendanceStatus>; className: string }) =>
@@ -105,7 +142,7 @@ export default function DiemDanhPage() {
         description: "Dữ liệu đã được cập nhật.",
       });
       queryClient.invalidateQueries({ queryKey: ['attendance', variables.classId, format(variables.date, 'yyyyMMdd')] });
-      queryClient.invalidateQueries({ queryKey: ['studentsInClass', variables.classId] }); // To update student attendance stats if any
+      queryClient.invalidateQueries({ queryKey: ['studentsInClass', variables.classId] }); 
     },
     onError: (error: Error) => {
       toast({
@@ -130,7 +167,7 @@ export default function DiemDanhPage() {
 
       console.log(`[DiemDanhPage] Attempting to create GiaoVienVangRecord for class: ${data.lop.tenLop}`);
       const createdRecord = await createGiaoVienVangRecord(data.lop.id, data.lop.tenLop, data.date);
-      console.log(`[DiemDanhPage] markTeacherAbsentMutation finished. GiaoVienVangRecord:`, createdRecord);
+      console.log(`[DiemDanhPage] markTeacherAbsentMutation finished. Result from createGiaoVienVangRecord:`, createdRecord);
       return { ...data, createdRecord };
     },
     onSuccess: (result) => {
@@ -140,21 +177,22 @@ export default function DiemDanhPage() {
           description: `Buổi học ngày ${format(result.date, 'dd/MM/yyyy')} của lớp ${result.lop.tenLop} đã được ghi nhận là GV vắng và một yêu cầu học bù đã được tạo.`,
         });
       } else {
-         toast({ // This case handles if createGiaoVienVangRecord returns null or an existing record (already handled)
-          title: "GV Vắng (Đã tồn tại / Lỗi)",
-          description: `Buổi học ngày ${format(result.date, 'dd/MM/yyyy')} của lớp ${result.lop.tenLop} đã được cập nhật là GV vắng. Yêu cầu học bù có thể đã tồn tại hoặc có lỗi khi tạo mới.`,
-          variant: result.createdRecord ? "default" : "warning",
+         toast({ 
+          title: "GV Vắng",
+          description: `Buổi học ngày ${format(result.date, 'dd/MM/yyyy')} của lớp ${result.lop.tenLop} đã được cập nhật là GV vắng. Yêu cầu học bù có thể đã tồn tại hoặc không thể tạo mới.`,
+          variant: result.createdRecord ? "default" : "warning", 
         });
       }
       queryClient.invalidateQueries({ queryKey: ['attendance', result.lop.id, format(result.date, 'yyyyMMdd')] });
       queryClient.invalidateQueries({ queryKey: ['studentsInClass', result.lop.id] });
       queryClient.invalidateQueries({ queryKey: ['allMakeupRecords'] });
-      console.log(`[DiemDanhPage] markTeacherAbsentMutation onSuccess for class ${result.lop.tenLop}. Invalidated allMakeupRecords query.`);
+      queryClient.invalidateQueries({ queryKey: ['scheduledMakeupForDate', format(result.date, 'yyyyMMdd')] });
+      console.log(`[DiemDanhPage] markTeacherAbsentMutation onSuccess for class ${result.lop.tenLop}. Invalidated queries.`);
     },
     onError: (error: Error, variables) => {
       toast({
         title: `Lỗi khi ghi nhận GV vắng cho lớp ${variables.lop.tenLop}`,
-        description: `${error.message}. Hãy kiểm tra console của server Next.js để biết chi tiết, đặc biệt là lỗi liên quan đến việc tạo bản ghi học bù trong Firestore (ví dụ: PERMISSION_DENIED hoặc lỗi service).`,
+        description: `${error.message}. Kiểm tra console server Next.js để biết chi tiết (ví dụ: lỗi PERMISSION_DENIED khi tạo bản ghi học bù).`,
         variant: "destructive",
         duration: 10000,
       });
@@ -168,13 +206,13 @@ export default function DiemDanhPage() {
       const students = await getStudentsByClassId(data.lop.id);
       const attendanceData: Record<string, AttendanceStatus> = {};
       students.forEach(student => {
-        attendanceData[student.id] = 'Có mặt';
+        attendanceData[student.id] = 'Có mặt'; // Revert to 'Có mặt'
       });
 
       console.log(`[DiemDanhPage] Reverting attendance for class: ${data.lop.tenLop}`);
       await saveAttendance(data.lop.id, data.date, attendanceData);
 
-      console.log(`[DiemDanhPage] Attempting to delete GiaoVienVangRecord for class: ${data.lop.tenLop}`);
+      console.log(`[DiemDanhPage] Attempting to delete GiaoVienVangRecord for class: ${data.lop.tenLop} on ${format(data.date, 'yyyyMMdd')}`);
       await deleteGiaoVienVangRecordByClassAndDate(data.lop.id, data.date);
       console.log(`[DiemDanhPage] cancelTeacherAbsentMutation finished for class: ${data.lop.tenLop}`);
       return data;
@@ -182,11 +220,12 @@ export default function DiemDanhPage() {
     onSuccess: (data) => {
       toast({
         title: "Đã hủy GV vắng",
-        description: `Buổi học ngày ${format(data.date, 'dd/MM/yyyy')} của lớp ${data.lop.tenLop} không còn được ghi nhận là GV vắng. Yêu cầu học bù đã được xóa.`,
+        description: `Buổi học ngày ${format(data.date, 'dd/MM/yyyy')} của lớp ${data.lop.tenLop} không còn được ghi nhận là GV vắng. Yêu cầu học bù (nếu có) đã được xóa.`,
       });
       queryClient.invalidateQueries({ queryKey: ['attendance', data.lop.id, format(data.date, 'yyyyMMdd')] });
       queryClient.invalidateQueries({ queryKey: ['studentsInClass', data.lop.id] });
       queryClient.invalidateQueries({ queryKey: ['allMakeupRecords'] });
+      queryClient.invalidateQueries({ queryKey: ['scheduledMakeupForDate', format(data.date, 'yyyyMMdd')] });
       console.log(`[DiemDanhPage] cancelTeacherAbsentMutation onSuccess for class ${data.lop.tenLop}.`);
     },
     onError: (error: Error, variables) => {
@@ -208,6 +247,7 @@ export default function DiemDanhPage() {
         description: `Lịch học bù cho lớp ${variables.className} đã được cập nhật.`,
       });
       queryClient.invalidateQueries({ queryKey: ['allMakeupRecords'] });
+      queryClient.invalidateQueries({ queryKey: ['scheduledMakeupForDate'] }); // Invalidate all dates or specific one if possible
       setIsScheduleMakeupModalOpen(false);
       setSelectedRecordForMakeup(null);
     },
@@ -221,7 +261,7 @@ export default function DiemDanhPage() {
   });
 
 
-  const handleDiemDanhClick = async (lop: LopHoc) => {
+  const handleDiemDanhClick = async (lop: DisplayableClassForAttendance) => {
     setSelectedClassForAttendance(lop);
     setIsLoadingStudentsForAttendance(true);
     setIsAttendanceModalOpen(true);
@@ -304,13 +344,10 @@ export default function DiemDanhPage() {
   };
 
   const handleEditMakeup = (record: GiaoVienVangRecord) => {
-    // Same as opening schedule modal, form will be pre-filled
     handleOpenScheduleMakeupModal(record);
   };
 
   const handleCancelMakeup = (record: GiaoVienVangRecord) => {
-    // This would involve a new mutation to set status back to 'chờ xếp lịch'
-    // and clear makeupDate/Time/Notes
     toast({
       title: "Hủy Lịch Bù (Đang phát triển)",
       description: `Chức năng hủy lịch bù cho lớp ${record.className} đang được phát triển.`,
@@ -318,7 +355,7 @@ export default function DiemDanhPage() {
   };
 
 
-  const showLoadingState = isLoadingClasses || !isClient || !currentDisplayDayOfWeek;
+  const showLoadingState = isLoadingClasses || !isClient || !currentDisplayDayOfWeek || isLoadingScheduledMakeupForDate;
 
   return (
     <DashboardLayout>
@@ -380,28 +417,43 @@ export default function DiemDanhPage() {
                 </Button>
               </div>
             )}
+             {isErrorScheduledMakeupForDate && !showLoadingState && (
+              <div className="flex flex-col items-center justify-center text-destructive p-6 border border-destructive/50 bg-destructive/10 rounded-lg shadow mt-4">
+                <AlertCircle className="w-12 h-12 mb-3" />
+                <p className="text-lg font-semibold">Lỗi tải lịch học bù</p>
+                <p className="text-sm mb-4 text-center">{(errorScheduledMakeupForDate as Error)?.message || "Không thể tải dữ liệu học bù cho ngày này."}</p>
+                <p className="text-xs text-muted-foreground text-center mb-3">
+                    Vui lòng kiểm tra console của server Next.js để biết chi tiết lỗi từ Firebase (thường liên quan đến thiếu Index).
+                </p>
+                <Button onClick={() => queryClient.invalidateQueries(['scheduledMakeupForDate', formattedSelectedDateKey])} variant="destructive">
+                  <RefreshCw className="mr-2 h-4 w-4" /> Thử lại
+                </Button>
+              </div>
+            )}
 
-            {!showLoadingState && !isErrorClasses && classesTodayOrSelectedDate.length === 0 && (
+
+            {!showLoadingState && !isErrorClasses && !isErrorScheduledMakeupForDate && classesToDisplay.length === 0 && (
               <div className="text-center py-10 bg-card rounded-lg shadow p-6">
                 <p className="text-xl text-muted-foreground">
-                  {(classes && classes.length > 0) || (allMakeupRecords && allMakeupRecords.length > 0)
+                  { (classes && classes.length > 0) || (allMakeupRecords && allMakeupRecords.length > 0)
                     ? `Không có lớp nào có lịch học (thường hoặc bù) vào ${currentDisplayDayOfWeek} ngày ${format(selectedDate, "dd/MM/yyyy")}.`
                     : "Chưa có dữ liệu lớp học hoặc yêu cầu học bù nào trong hệ thống."
                   }
                 </p>
+                 <p className="text-sm text-muted-foreground mt-2">Vui lòng kiểm tra lại ngày đã chọn hoặc lịch học của các lớp.</p>
               </div>
             )}
 
-            {!showLoadingState && !isErrorClasses && classesTodayOrSelectedDate.length > 0 && (
+            {!showLoadingState && !isErrorClasses && !isErrorScheduledMakeupForDate && classesToDisplay.length > 0 && (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {classesTodayOrSelectedDate.map(lop => (
+                {classesToDisplay.map(lop => (
                   <ClassAttendanceCard
-                    key={lop.id}
+                    key={lop.id + (lop.isMakeupSession ? '-makeup' : '-regular')} // Ensure unique key if a class can be both
                     lop={lop}
                     selectedDate={selectedDate}
-                    onDiemDanhClick={handleDiemDanhClick}
-                    onMarkTeacherAbsent={handleOpenTeacherAbsentConfirm}
-                    onCancelTeacherAbsentClick={handleOpenCancelTeacherAbsentConfirm}
+                    onDiemDanhClick={() => handleDiemDanhClick(lop)}
+                    onMarkTeacherAbsent={() => handleOpenTeacherAbsentConfirm(lop)}
+                    onCancelTeacherAbsentClick={() => handleOpenCancelTeacherAbsentConfirm(lop)}
                     isLoadingStudentsForModal={isLoadingStudentsForAttendance && selectedClassForAttendance?.id === lop.id}
                     isSavingAttendance={saveAttendanceMutation.isPending && saveAttendanceMutation.variables?.classId === lop.id}
                     isMarkingTeacherAbsent={markTeacherAbsentMutation.isPending && markTeacherAbsentMutation.variables?.lop.id === lop.id}
@@ -422,7 +474,7 @@ export default function DiemDanhPage() {
           <TabsContent value="hoc-bu">
              <div className="p-6 bg-card rounded-lg shadow">
                 <h2 className="text-2xl font-bold text-foreground mb-4">Quản lý Lịch Học Bù</h2>
-                {isLoadingMakeupRecords && (
+                {isLoadingAllMakeupRecords && (
                     <div className="space-y-4">
                         {[...Array(3)].map((_, i) => (
                             <Card key={`makeup-skel-${i}`} className="shadow-sm">
@@ -433,25 +485,25 @@ export default function DiemDanhPage() {
                         ))}
                     </div>
                 )}
-                {isErrorMakeupRecords && !isLoadingMakeupRecords && (
+                {isErrorAllMakeupRecords && !isLoadingAllMakeupRecords && (
                   <div className="flex flex-col items-center justify-center text-destructive p-6 border border-destructive/50 bg-destructive/10 rounded-lg shadow">
                     <AlertCircle className="w-10 h-10 mb-2" />
                     <p className="text-lg font-semibold mb-1">Lỗi tải danh sách học bù</p>
                     <p className="text-sm text-center mb-2">
-                      {(errorMakeupRecords as Error)?.message || "Đã có lỗi xảy ra."}
+                      {(errorAllMakeupRecords as Error)?.message || "Đã có lỗi xảy ra."}
                     </p>
                      <p className="text-xs text-muted-foreground text-center mb-3">
                       Vui lòng kiểm tra console của server Next.js để biết chi tiết lỗi từ Firebase (thường liên quan đến thiếu Index hoặc Firestore Security Rules).
                     </p>
-                    <Button onClick={() => refetchMakeupRecords()} variant="destructive" size="sm">
+                    <Button onClick={() => refetchAllMakeupRecords()} variant="destructive" size="sm">
                       <RefreshCw className="mr-2 h-4 w-4" /> Thử lại
                     </Button>
                   </div>
                 )}
-                {!isLoadingMakeupRecords && !isErrorMakeupRecords && allMakeupRecords && allMakeupRecords.length === 0 && (
+                {!isLoadingAllMakeupRecords && !isErrorAllMakeupRecords && allMakeupRecords && allMakeupRecords.length === 0 && (
                     <p className="text-muted-foreground">Không có lớp nào đã được ghi nhận GV vắng.</p>
                 )}
-                {!isLoadingMakeupRecords && !isErrorMakeupRecords && allMakeupRecords && allMakeupRecords.length > 0 && (
+                {!isLoadingAllMakeupRecords && !isErrorAllMakeupRecords && allMakeupRecords && allMakeupRecords.length > 0 && (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {allMakeupRecords.map(record => (
                             <Card key={record.id} className="shadow-md hover:shadow-lg transition-shadow">
@@ -469,8 +521,8 @@ export default function DiemDanhPage() {
                                     {record.status === 'đã xếp lịch' && (
                                         <div>
                                             <Badge variant="default" className="bg-green-600 hover:bg-green-700 mb-2">Đã xếp lịch</Badge>
-                                            <p className="text-sm">Ngày bù: <strong className="text-foreground">{format(parse(record.makeupDate!, 'yyyyMMdd', new Date()), 'dd/MM/yyyy', { locale: vi })}</strong></p>
-                                            <p className="text-sm">Giờ bù: <strong className="text-foreground">{record.makeupTime}</strong></p>
+                                            <p className="text-sm">Ngày bù: <strong className="text-foreground">{record.makeupDate ? format(parse(record.makeupDate, 'yyyyMMdd', new Date()), 'dd/MM/yyyy', { locale: vi }) : 'N/A'}</strong></p>
+                                            <p className="text-sm">Giờ bù: <strong className="text-foreground">{record.makeupTime || 'N/A'}</strong></p>
                                             {record.notes && <p className="text-xs text-muted-foreground mt-1">Ghi chú: {record.notes}</p>}
                                         </div>
                                     )}
@@ -596,3 +648,5 @@ export default function DiemDanhPage() {
     </DashboardLayout>
   );
 }
+
+    
