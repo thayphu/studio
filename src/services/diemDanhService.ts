@@ -2,17 +2,10 @@
 'use server';
 import type { AttendanceStatus } from '@/lib/types';
 import { format } from 'date-fns';
+import { db } from '@/lib/firebase';
+import { collection, query, where, getDocs, writeBatch, doc, serverTimestamp, DocumentData } from "firebase/firestore";
 
-// Placeholder/mock data for attendance
-// Structure: { classId: { dateYYYYMMDD: { studentId: status } } }
-const MOCKED_ATTENDANCE_DB: Record<string, Record<string, Record<string, AttendanceStatus>>> = {
-  // Example:
-  // "lop_A41_test_id": { // Replace with actual class ID
-  //   "20250516": { // Replace with a testable date
-  //     "hs_hoai_thuong_id_test": "Có mặt", // Replace with actual student ID
-  //   }
-  // }
-};
+const DIEM_DANH_COLLECTION = "diemDanhRecords";
 
 /**
  * Fetches attendance records for a given class on a specific date.
@@ -25,19 +18,30 @@ export const getAttendanceForClassOnDate = async (
   date: Date
 ): Promise<Record<string, AttendanceStatus>> => {
   const formattedDate = format(date, 'yyyyMMdd');
-  console.log(`[diemDanhService] MOCK Fetching attendance for class ${classId} on date ${formattedDate}`);
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 300));
+  console.log(`[diemDanhService] Firestore Fetching attendance for class ${classId} on date ${formattedDate}`);
 
-  const classAttendance = MOCKED_ATTENDANCE_DB[classId];
-  if (classAttendance) {
-    return classAttendance[formattedDate] || {};
-  }
-  return {};
+  const attendanceQuery = query(
+    collection(db, DIEM_DANH_COLLECTION),
+    where("lopId", "==", classId),
+    where("ngayDiemDanh", "==", formattedDate)
+  );
+
+  const querySnapshot = await getDocs(attendanceQuery);
+  const attendanceRecords: Record<string, AttendanceStatus> = {};
+
+  querySnapshot.forEach((doc) => {
+    const data = doc.data();
+    if (data.hocSinhId && data.trangThai) {
+      attendanceRecords[data.hocSinhId] = data.trangThai as AttendanceStatus;
+    }
+  });
+
+  console.log(`[diemDanhService] Fetched records for ${classId} on ${formattedDate}:`, attendanceRecords);
+  return attendanceRecords;
 };
 
 /**
- * Saves attendance data for a given class on a specific date.
+ * Saves attendance data for a given class on a specific date to Firestore.
  * @param classId The ID of the class.
  * @param date The date for which to save attendance.
  * @param attendanceData A record mapping student IDs to their new attendance status.
@@ -48,22 +52,52 @@ export const saveAttendance = async (
   attendanceData: Record<string, AttendanceStatus>
 ): Promise<void> => {
   const formattedDate = format(date, 'yyyyMMdd');
-  console.log(`[diemDanhService] MOCK Saving attendance for class ${classId} on date ${formattedDate}:`, attendanceData);
-  
-  if (!MOCKED_ATTENDANCE_DB[classId]) {
-    MOCKED_ATTENDANCE_DB[classId] = {};
-  }
-  if (!MOCKED_ATTENDANCE_DB[classId][formattedDate]) {
-    MOCKED_ATTENDANCE_DB[classId][formattedDate] = {};
-  }
-  
-  // Update mock DB
+  console.log(`[diemDanhService] Firestore Saving attendance for class ${classId} on date ${formattedDate}:`, attendanceData);
+
+  const batch = writeBatch(db);
+
+  // To efficiently find existing documents to update, we first query them.
+  const existingRecordsQuery = query(
+    collection(db, DIEM_DANH_COLLECTION),
+    where("lopId", "==", classId),
+    where("ngayDiemDanh", "==", formattedDate)
+  );
+  const existingDocsSnapshot = await getDocs(existingRecordsQuery);
+  const studentIdToDocIdMap: Map<string, string> = new Map();
+  existingDocsSnapshot.forEach(docSnapshot => {
+    const data = docSnapshot.data();
+    if (data.hocSinhId) {
+      studentIdToDocIdMap.set(data.hocSinhId, docSnapshot.id);
+    }
+  });
+
   for (const studentId in attendanceData) {
-    MOCKED_ATTENDANCE_DB[classId][formattedDate][studentId] = attendanceData[studentId];
+    const status = attendanceData[studentId];
+    const recordData = {
+      lopId: classId,
+      hocSinhId: studentId,
+      ngayDiemDanh: formattedDate,
+      trangThai: status,
+      lastUpdated: serverTimestamp() // Optional: to track when it was last updated
+    };
+
+    const existingDocId = studentIdToDocIdMap.get(studentId);
+    if (existingDocId) {
+      // Update existing record
+      const docRef = doc(db, DIEM_DANH_COLLECTION, existingDocId);
+      batch.update(docRef, { trangThai: status, lastUpdated: serverTimestamp() });
+    } else {
+      // Add new record
+      const newDocRef = doc(collection(db, DIEM_DANH_COLLECTION)); // Auto-generate ID
+      batch.set(newDocRef, recordData);
+    }
   }
-  
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 300));
-  console.log("[diemDanhService] MOCK DB updated:", MOCKED_ATTENDANCE_DB);
-  // In a real implementation, this would write to Firestore.
+
+  try {
+    await batch.commit();
+    console.log(`[diemDanhService] Firestore Batch committed successfully for ${classId} on ${formattedDate}`);
+  } catch (error) {
+    console.error("[diemDanhService] Error committing batch: ", error);
+    throw new Error("Failed to save attendance data.");
+  }
 };
