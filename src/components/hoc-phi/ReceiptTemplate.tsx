@@ -5,9 +5,11 @@ import type { HocSinh } from '@/lib/types';
 import { formatCurrencyVND } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, XCircle, AlertTriangle, CalendarDays, User, BarChart2 } from 'lucide-react';
+import { CheckCircle, XCircle, AlertTriangle, Download } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
 
 interface ReceiptTemplateProps {
   student: HocSinh | null;
@@ -18,7 +20,7 @@ interface ReceiptTemplateProps {
 const numberToVietnameseWords = (num: number | null | undefined): string => {
   if (num === null || num === undefined || isNaN(num)) return "Không đồng";
   if (num === 0) return "Không đồng";
-  // Basic placeholder, a real implementation is much more complex
+  
   const units = ["", "một", "hai", "ba", "bốn", "năm", "sáu", "bảy", "tám", "chín"];
   const teens = ["mười", "mười một", "mười hai", "mười ba", "mười bốn", "mười lăm", "mười sáu", "mười bảy", "mười tám", "mười chín"];
   const tens = ["", "", "hai mươi", "ba mươi", "bốn mươi", "năm mươi", "sáu mươi", "bảy mươi", "tám mươi", "chín mươi"];
@@ -52,7 +54,7 @@ const numberToVietnameseWords = (num: number | null | undefined): string => {
     chunks.push(tempNum % 1000);
     tempNum = Math.floor(tempNum / 1000);
   }
-  if (chunks.length === 0 && num !==0) return "Không đồng"; // Should be caught by num === 0 earlier
+  if (chunks.length === 0 && num !==0) return "Không đồng";
 
   const chunkNames = ["", "nghìn", "triệu", "tỷ"];
   let words = "";
@@ -73,6 +75,8 @@ const numberToVietnameseWords = (num: number | null | undefined): string => {
 
 
 export default function ReceiptTemplate({ student, receiptNumber, paidAmount }: ReceiptTemplateProps) {
+  const { toast } = useToast();
+
   if (!student) {
     return <div className="p-6 text-center text-muted-foreground">Không có thông tin học sinh để hiển thị biên nhận.</div>;
   }
@@ -92,28 +96,54 @@ export default function ReceiptTemplate({ student, receiptNumber, paidAmount }: 
   ] : [];
 
 
-  let nextPaymentCycleText = "N/A";
+  let nextPaymentCycleTextRaw = "N/A";
   if (student.chuKyThanhToan === "1 tháng" && student.ngayThanhToanGanNhat) {
     const lastPaymentDate = new Date(student.ngayThanhToanGanNhat);
     lastPaymentDate.setMonth(lastPaymentDate.getMonth() + 1);
-    nextPaymentCycleText = `dự kiến từ ${format(lastPaymentDate, "dd/MM/yyyy")}`;
+    nextPaymentCycleTextRaw = `dự kiến từ ${format(lastPaymentDate, "dd/MM/yyyy")}`;
   } else if ((student.chuKyThanhToan === "8 buổi" || student.chuKyThanhToan === "10 buổi")  && student.ngayThanhToanGanNhat) {
-    nextPaymentCycleText = `sau khi hoàn thành ${student.chuKyThanhToan} hiện tại`;
+    nextPaymentCycleTextRaw = `sau khi hoàn thành ${student.chuKyThanhToan} hiện tại`;
   } else if (student.chuKyThanhToan === "Theo ngày" && student.ngayThanhToanGanNhat) {
      const lastPaymentDate = new Date(student.ngayThanhToanGanNhat);
      lastPaymentDate.setDate(lastPaymentDate.getDate() + 1);
-     nextPaymentCycleText = `dự kiến từ ${format(lastPaymentDate, "dd/MM/yyyy")}`;
+     nextPaymentCycleTextRaw = `dự kiến từ ${format(lastPaymentDate, "dd/MM/yyyy")}`;
   }
 
+  const renderNextPaymentCycleText = () => {
+    const prefix = "Chu kỳ thanh toán tiếp theo ";
+    if (nextPaymentCycleTextRaw.startsWith("dự kiến từ ")) {
+      const datePart = nextPaymentCycleTextRaw.substring("dự kiến từ ".length);
+      return (
+        <>
+          <strong className="text-foreground">{prefix}dự kiến từ </strong>
+          <strong className="text-red-600">{datePart}</strong>.
+        </>
+      );
+    }
+    return <strong className="text-foreground">{prefix}{nextPaymentCycleTextRaw}.</strong>;
+  };
+
+  const handleExportImage = () => {
+    toast({
+      title: "Chức năng đang phát triển",
+      description: "Tính năng xuất biên nhận sang file ảnh sẽ sớm được cập nhật.",
+    });
+  };
 
   return (
     <div className="bg-card p-6 sm:p-8 rounded-lg shadow-lg max-w-2xl mx-auto font-sans text-sm">
-      <div className="text-center mb-6">
-        <div className="inline-block bg-accent text-accent-foreground px-6 py-2 rounded-md">
-          <h1 className="text-2xl font-bold uppercase">Biên nhận</h1>
+      <div className="flex justify-between items-center mb-6">
+        <div className="text-center flex-grow">
+          <div className="inline-block bg-accent text-accent-foreground px-6 py-2 rounded-md">
+            <h1 className="text-2xl font-bold uppercase">Biên nhận</h1>
+          </div>
+          <p className="text-lg font-bold text-red-600 mt-2">No. {receiptNumber}</p>
         </div>
-        <p className="text-lg font-bold text-red-600 mt-2">No. {receiptNumber}</p>
+        <Button variant="outline" size="icon" onClick={handleExportImage} aria-label="Xuất sang file ảnh">
+          <Download className="h-5 w-5" />
+        </Button>
       </div>
+      
 
       <div className="mb-6 text-center">
         <p className="text-sm">Ngày {format(today, "dd")} tháng {format(today, "MM")} năm {format(today, "yyyy")}</p>
@@ -133,9 +163,11 @@ export default function ReceiptTemplate({ student, receiptNumber, paidAmount }: 
           <div><span className="font-medium text-foreground">Lớp:</span> {student.tenLop || 'N/A'}</div>
           <div><span className="font-medium text-foreground">Ngày đăng ký:</span> {format(new Date(student.ngayDangKy), "dd/MM/yyyy")}</div>
         </div>
-        <p className="mt-1 text-muted-foreground">
-          <span className="font-medium text-foreground">Chu kỳ thanh toán:</span> {student.chuKyThanhToan}.
-          {' '}Chu kỳ thanh toán tiếp theo {nextPaymentCycleText}.
+        <p className="mt-2 text-muted-foreground">
+          <span className="font-medium text-foreground">Chu kỳ thanh toán:</span>
+          <span className="inline-block pl-4">{student.chuKyThanhToan}.</span>
+          <br /> 
+          {renderNextPaymentCycleText()}
         </p>
       </div>
 
@@ -267,3 +299,5 @@ const format = (date: Date, formatString: string): string => {
   return date.toLocaleDateString('vi-VN'); 
 };
 
+
+    
