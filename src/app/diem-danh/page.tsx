@@ -1,11 +1,12 @@
 
 "use client";
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import DashboardLayout from '../dashboard-layout';
 import { Button } from '@/components/ui/button';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getClasses } from '@/services/lopHocService';
-import { getStudentsByClassId } from '@/services/hocSinhService'; // Import new service
+import { getStudentsByClassId } from '@/services/hocSinhService';
+import { getAttendanceForClassOnDate, saveAttendance } from '@/services/diemDanhService'; // Import new service
 import type { LopHoc, DayOfWeek, HocSinh, AttendanceStatus } from '@/lib/types';
 import { ALL_DAYS_OF_WEEK } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -13,13 +14,12 @@ import { RefreshCw, AlertCircle, Users, CalendarDays, Clock, CheckCircle, Loader
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import AttendanceFormDialog from '@/components/diem-danh/AttendanceFormDialog'; // Import the dialog
+import AttendanceFormDialog from '@/components/diem-danh/AttendanceFormDialog';
+import { format } from 'date-fns';
 
 const getCurrentVietnameseDayOfWeek = (): DayOfWeek => {
-  const todayIndex = new Date().getDay(); // 0 for Sunday, 1 for Monday, ..., 6 for Saturday
-  if (todayIndex === 0) { // Sunday
-    return ALL_DAYS_OF_WEEK[6];
-  }
+  const todayIndex = new Date().getDay();
+  if (todayIndex === 0) return ALL_DAYS_OF_WEEK[6];
   return ALL_DAYS_OF_WEEK[todayIndex - 1];
 };
 
@@ -51,6 +51,10 @@ const ClassCardSkeleton = () => (
 
 export default function DiemDanhPage() {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [isClient, setIsClient] = useState(false);
+  const [actualTodayVietnamese, setActualTodayVietnamese] = useState<DayOfWeek | null>(null);
+
   const { data: classes, isLoading: isLoadingClasses, isError: isErrorClasses, error: errorClasses, refetch } = useQuery<LopHoc[], Error>({
     queryKey: ['classes'],
     queryFn: getClasses,
@@ -59,53 +63,88 @@ export default function DiemDanhPage() {
   const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
   const [selectedClassForAttendance, setSelectedClassForAttendance] = useState<LopHoc | null>(null);
   const [studentsForAttendanceList, setStudentsForAttendanceList] = useState<HocSinh[]>([]);
+  const [existingAttendanceData, setExistingAttendanceData] = useState<Record<string, AttendanceStatus>>({});
   const [isLoadingStudentsForAttendance, setIsLoadingStudentsForAttendance] = useState(false);
+  const [currentDateForAttendance, setCurrentDateForAttendance] = useState<Date>(new Date());
 
-  const todayVietnamese = useMemo(() => getCurrentVietnameseDayOfWeek(), []);
+
+  useEffect(() => {
+    setIsClient(true);
+    setActualTodayVietnamese(getCurrentVietnameseDayOfWeek());
+  }, []);
 
   const classesToday = useMemo(() => {
-    if (!classes) return [];
-    return classes.filter(cls => 
-      cls.trangThai === 'Đang hoạt động' && cls.lichHoc.includes(todayVietnamese)
+    if (!classes || !actualTodayVietnamese) return [];
+    return classes.filter(cls =>
+      cls.trangThai === 'Đang hoạt động' && cls.lichHoc.includes(actualTodayVietnamese)
     );
-  }, [classes, todayVietnamese]);
+  }, [classes, actualTodayVietnamese]);
+
+  const saveAttendanceMutation = useMutation({
+    mutationFn: (data: { classId: string; date: Date; attendanceData: Record<string, AttendanceStatus> }) =>
+      saveAttendance(data.classId, data.date, data.attendanceData),
+    onSuccess: (_, variables) => {
+      toast({
+        title: `Điểm danh đã được lưu (mock) cho lớp ${selectedClassForAttendance?.tenLop} vào ngày ${format(variables.date, 'dd/MM/yyyy')}.`,
+        description: "Dữ liệu đã được cập nhật trong mock DB.",
+      });
+      // TODO: Update "Đã điểm danh" count on the card, possibly by refetching class data or specific attendance summary
+      queryClient.invalidateQueries({ queryKey: ['attendance', variables.classId, format(variables.date, 'yyyyMMdd')] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Lỗi khi lưu điểm danh",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
 
   const handleDiemDanhClick = async (lop: LopHoc) => {
     console.log(`[DiemDanhPage] handleDiemDanhClick called for class: ${lop.tenLop} (ID: ${lop.id})`);
+    const today = new Date(); // Use a consistent date for this session
+    setCurrentDateForAttendance(today);
     setSelectedClassForAttendance(lop);
     setIsLoadingStudentsForAttendance(true);
-    setIsAttendanceModalOpen(true); // Open modal immediately, show loading inside
+    setIsAttendanceModalOpen(true);
+
     try {
-      const students = await getStudentsByClassId(lop.id);
+      const [students, fetchedAttendance] = await Promise.all([
+        getStudentsByClassId(lop.id),
+        getAttendanceForClassOnDate(lop.id, today)
+      ]);
       setStudentsForAttendanceList(students);
+      setExistingAttendanceData(fetchedAttendance);
+      console.log("[DiemDanhPage] Fetched existing attendance: ", fetchedAttendance);
     } catch (err) {
-      console.error("Error fetching students for attendance:", err);
+      console.error("Error fetching students or attendance:", err);
       toast({
-        title: "Lỗi tải danh sách học sinh",
-        description: (err as Error).message || "Không thể tải học sinh cho lớp này.",
+        title: "Lỗi tải dữ liệu điểm danh",
+        description: (err as Error).message || "Không thể tải học sinh hoặc dữ liệu điểm danh cho lớp này.",
         variant: "destructive",
       });
-      setIsAttendanceModalOpen(false); // Close modal on error
+      setIsAttendanceModalOpen(false);
     } finally {
       setIsLoadingStudentsForAttendance(false);
     }
   };
 
-  const handleSubmitAttendance = (attendanceData: Record<string, AttendanceStatus>) => {
-    console.log("Attendance Data Submitted:", attendanceData);
-    if (selectedClassForAttendance) {
-        toast({
-            title: `Điểm danh đã được ghi nhận (tạm thời) cho lớp ${selectedClassForAttendance.tenLop}.`,
-            description: "Tính năng lưu trữ vĩnh viễn sẽ được triển khai sau.",
-        });
+  const handleSubmitAttendance = (submittedAttendanceData: Record<string, AttendanceStatus>) => {
+    if (selectedClassForAttendance && currentDateForAttendance) {
+      saveAttendanceMutation.mutate({
+        classId: selectedClassForAttendance.id,
+        date: currentDateForAttendance,
+        attendanceData: submittedAttendanceData,
+      });
     }
     setIsAttendanceModalOpen(false);
     setSelectedClassForAttendance(null);
     setStudentsForAttendanceList([]);
-    // Here you would typically call a mutation to save the attendanceData to Firestore
-    // and then invalidate relevant queries to update UI (e.g., number of students attended)
+    setExistingAttendanceData({});
   };
 
+  const showLoadingState = isLoadingClasses || !isClient || !actualTodayVietnamese;
 
   return (
     <DashboardLayout>
@@ -113,23 +152,21 @@ export default function DiemDanhPage() {
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-bold text-foreground">Điểm danh Học sinh</h1>
         </div>
-        
+
         <div className="mb-6 p-4 bg-card rounded-lg shadow">
           <h2 className="text-xl font-semibold mb-1 text-foreground">
-            Hôm nay: <span className="text-primary">{todayVietnamese}</span>
+            Hôm nay: <span className="text-primary">{actualTodayVietnamese || <Skeleton className="h-6 w-20 inline-block" />}</span>
           </h2>
           <p className="text-sm text-muted-foreground">Danh sách các lớp có lịch học cần điểm danh.</p>
         </div>
-          
-        {isLoadingClasses && (
+
+        {showLoadingState && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[...Array(3)].map((_, i) => (
-              <ClassCardSkeleton key={i} />
-            ))}
+            {[...Array(3)].map((_, i) => <ClassCardSkeleton key={`skel-${i}`} />)}
           </div>
         )}
 
-        {isErrorClasses && (
+        {isErrorClasses && !showLoadingState && (
           <div className="flex flex-col items-center justify-center text-destructive p-6 border border-destructive/50 bg-destructive/10 rounded-lg shadow">
             <AlertCircle className="w-12 h-12 mb-3" />
             <p className="text-lg font-semibold">Lỗi tải danh sách lớp học</p>
@@ -140,21 +177,23 @@ export default function DiemDanhPage() {
           </div>
         )}
 
-        {!isLoadingClasses && !isErrorClasses && classesToday.length === 0 && (
-           <div className="text-center py-10 bg-card rounded-lg shadow p-6">
+        {!showLoadingState && !isErrorClasses && classesToday.length === 0 && (
+          <div className="text-center py-10 bg-card rounded-lg shadow p-6">
             <p className="text-xl text-muted-foreground">
-              {(classes && classes.length > 0) || (classes && classes.length === 0 && classesToday.length ===0) ? `Không có lớp nào có lịch học vào ${todayVietnamese} hôm nay.` : "Chưa có dữ liệu lớp học hoặc không có lớp nào hoạt động."}
+              {(classes && classes.length > 0) || (classes && classes.length === 0 && classesToday.length === 0)
+                ? `Không có lớp nào có lịch học vào ${actualTodayVietnamese} hôm nay.`
+                : "Chưa có dữ liệu lớp học hoặc không có lớp nào hoạt động."}
             </p>
           </div>
         )}
 
-        {!isLoadingClasses && !isErrorClasses && classesToday.length > 0 && (
+        {!showLoadingState && !isErrorClasses && classesToday.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {classesToday.map(lop => (
               <Card key={lop.id} className="flex flex-col shadow-md hover:shadow-lg transition-shadow">
                 <CardHeader>
                   <CardTitle className="text-xl text-primary flex items-center">
-                    <CalendarDays className="mr-2 h-6 w-6 text-primary" /> 
+                    <CalendarDays className="mr-2 h-6 w-6 text-primary" />
                     {lop.tenLop}
                   </CardTitle>
                   <CardDescription>
@@ -174,20 +213,20 @@ export default function DiemDanhPage() {
                     <Users className="mr-2 h-4 w-4 text-muted-foreground" />
                     <span>Sĩ số: {lop.soHocSinhHienTai} học sinh</span>
                   </div>
-                   <div className="flex items-center pt-1">
-                    <Users className="mr-2 h-4 w-4 text-green-500" /> 
-                    <span className="font-medium">Đã điểm danh: 0 / {lop.soHocSinhHienTai}</span>
+                  <div className="flex items-center pt-1">
+                    <Users className="mr-2 h-4 w-4 text-green-500" />
+                    <span className="font-medium">Đã điểm danh: 0 / {lop.soHocSinhHienTai}</span> {/* Placeholder */}
                   </div>
                 </CardContent>
                 <CardFooter>
-                  <Button 
+                  <Button
                     onClick={() => handleDiemDanhClick(lop)}
                     className="w-full flashing-button"
                     variant="default"
                     size="lg"
                     disabled={isLoadingStudentsForAttendance && selectedClassForAttendance?.id === lop.id}
                   >
-                    {isLoadingStudentsForAttendance && selectedClassForAttendance?.id === lop.id ? (
+                    {(isLoadingStudentsForAttendance || saveAttendanceMutation.isPending) && selectedClassForAttendance?.id === lop.id ? (
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     ) : (
                       <CheckCircle className="mr-2 h-5 w-5" />
@@ -199,27 +238,29 @@ export default function DiemDanhPage() {
             ))}
           </div>
         )}
-         <p className="text-sm text-muted-foreground mt-8 pt-4 border-t">
-          Các tính năng chi tiết như: ghi nhận có mặt/vắng mặt/GV nghỉ/học bù, thống kê điểm danh thực tế sẽ được triển khai sau.
+        <p className="text-sm text-muted-foreground mt-8 pt-4 border-t">
+          Các tính năng chi tiết như: ghi nhận GV nghỉ/học bù, thống kê điểm danh thực tế sẽ được triển khai sau.
         </p>
       </div>
-      {selectedClassForAttendance && (
+      {selectedClassForAttendance && currentDateForAttendance && (
         <AttendanceFormDialog
-            open={isAttendanceModalOpen}
-            onOpenChange={(open) => {
-                if (!open) {
-                    setSelectedClassForAttendance(null);
-                    setStudentsForAttendanceList([]);
-                }
-                setIsAttendanceModalOpen(open);
-            }}
-            lopHoc={selectedClassForAttendance}
-            students={studentsForAttendanceList}
-            onSubmit={handleSubmitAttendance}
-            isLoadingStudents={isLoadingStudentsForAttendance}
+          open={isAttendanceModalOpen}
+          onOpenChange={(open) => {
+            if (!open) {
+              setSelectedClassForAttendance(null);
+              setStudentsForAttendanceList([]);
+              setExistingAttendanceData({});
+            }
+            setIsAttendanceModalOpen(open);
+          }}
+          lopHoc={selectedClassForAttendance}
+          students={studentsForAttendanceList}
+          existingAttendance={existingAttendanceData}
+          date={currentDateForAttendance}
+          onSubmit={handleSubmitAttendance}
+          isLoadingStudents={isLoadingStudentsForAttendance}
         />
       )}
     </DashboardLayout>
   );
 }
-    
