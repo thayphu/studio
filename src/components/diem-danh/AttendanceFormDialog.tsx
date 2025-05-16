@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { HocSinh, LopHoc, AttendanceStatus } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
+import { cn } from '@/lib/utils';
 
 interface AttendanceFormDialogProps {
   open: boolean;
@@ -81,7 +82,13 @@ export default function AttendanceFormDialog({
               <p className="text-center text-muted-foreground py-4">Lớp này chưa có học sinh.</p>
             )}
             {!isLoadingStudents && students.map((student) => (
-              <div key={student.id} className="flex items-center justify-between p-3 border rounded-md shadow-sm bg-card">
+              <div 
+                key={student.id} 
+                className={cn(
+                  "flex items-center justify-between p-3 border rounded-md shadow-sm bg-card transition-all",
+                  attendance[student.id] === 'Vắng mặt' && "border-destructive ring-2 ring-destructive/50"
+                )}
+              >
                 <Label htmlFor={`status-${student.id}`} className="text-sm font-medium text-foreground">
                   {student.hoTen}
                 </Label>
