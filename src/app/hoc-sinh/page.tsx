@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { PlusCircle, Edit2, Trash2, Search, RefreshCw } from 'lucide-react';
 import { TEXTS_VI } from '@/lib/constants';
 import { useToast } from '@/hooks/use-toast';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -39,7 +39,7 @@ const StudentRowSkeleton = () => (
     <TableCell><Skeleton className="h-4 w-24" /></TableCell>
     <TableCell><Skeleton className="h-4 w-20" /></TableCell>
     <TableCell>
-      <div className="flex gap-2">
+      <div className="flex gap-2 justify-end">
         <Skeleton className="h-8 w-8" />
         <Skeleton className="h-8 w-8" />
       </div>
@@ -230,7 +230,7 @@ export default function HocSinhPage() {
             <TableBody>
               {isLoadingStudents ? (
                 <>
-                  {[...Array(5)].map((_, i) => ( // Increased skeleton rows for table view
+                  {[...Array(5)].map((_, i) => ( 
                     <StudentRowSkeleton key={i} />
                   ))}
                 </>
