@@ -10,13 +10,14 @@ import { TEXTS_VI } from '@/lib/constants';
 interface ClassCardProps {
   lopHoc: LopHoc;
   onEdit: (lopHoc: LopHoc) => void;
-  onDelete: (lopHoc: LopHoc) => void; // Changed to pass the whole LopHoc object
+  onDelete: (lopHoc: LopHoc) => void;
   onAddStudent: (lopHocId: string) => void;
+  onCloseClass: (lopHoc: LopHoc) => void; // Added prop for closing class
   isDeleting?: boolean;
   isUpdating?: boolean;
 }
 
-export default function ClassCard({ lopHoc, onEdit, onDelete, onAddStudent, isDeleting, isUpdating }: ClassCardProps) {
+export default function ClassCard({ lopHoc, onEdit, onDelete, onAddStudent, onCloseClass, isDeleting, isUpdating }: ClassCardProps) {
   let tongHocPhi: number;
   let hocPhiBuoi: number;
 
@@ -45,6 +46,11 @@ export default function ClassCard({ lopHoc, onEdit, onDelete, onAddStudent, isDe
 
   const actionInProgress = isDeleting || isUpdating;
 
+  const handleCloseClassClick = () => {
+    console.log('[ClassCard] Close Class button clicked for:', lopHoc.tenLop, lopHoc.id);
+    onCloseClass(lopHoc);
+  };
+
   return (
     <Card className={`flex flex-col h-full shadow-lg hover:shadow-xl transition-shadow duration-300 ${actionInProgress ? 'opacity-50 pointer-events-none' : ''}`}>
       <CardHeader className="pb-4">
@@ -54,6 +60,9 @@ export default function ClassCard({ lopHoc, onEdit, onDelete, onAddStudent, isDe
           </CardTitle>
           <Badge variant={lopHoc.trangThai === 'Đang hoạt động' ? 'default' : 'destructive'}>
             {lopHoc.trangThai}
+            {lopHoc.trangThai === 'Đã đóng' && lopHoc.ngayDongLop && (
+              <span className="text-xs ml-1">({lopHoc.ngayDongLop.substring(6,8)}/{lopHoc.ngayDongLop.substring(4,6)}/{lopHoc.ngayDongLop.substring(0,4)})</span>
+            )}
           </Badge>
         </div>
         <CardDescription className="flex items-center text-sm text-muted-foreground pt-1">
@@ -101,26 +110,33 @@ export default function ClassCard({ lopHoc, onEdit, onDelete, onAddStudent, isDe
         </div>
       </CardContent>
       <CardFooter className="flex flex-wrap gap-2 pt-4 border-t">
-        <Button variant="outline" size="icon" onClick={() => onEdit(lopHoc)} aria-label={TEXTS_VI.editButton} disabled={actionInProgress}>
-          {isUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Edit className="h-4 w-4" />}
+        <Button aria-label={TEXTS_VI.editButton} variant="outline" size="icon" onClick={() => onEdit(lopHoc)} disabled={actionInProgress}>
+          {isUpdating && lopHoc.trangThai !== 'Đã đóng' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Edit className="h-4 w-4" />}
         </Button>
-        <Button variant="destructive" size="icon" onClick={() => onDelete(lopHoc)} aria-label={TEXTS_VI.deleteButton} disabled={actionInProgress}>
+        <Button aria-label={TEXTS_VI.deleteButton} variant="destructive" size="icon" onClick={() => onDelete(lopHoc)} disabled={actionInProgress}>
           {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
         </Button>
         <Button
+          aria-label={TEXTS_VI.addStudentButton}
           variant="secondary"
           size="icon"
           onClick={() => onAddStudent(lopHoc.id)}
-          aria-label={TEXTS_VI.addStudentButton}
-          disabled={actionInProgress}
+          disabled={actionInProgress || lopHoc.trangThai === 'Đã đóng'}
         >
           <UserPlus className="h-4 w-4" />
         </Button>
-        {lopHoc.trangThai === 'Đang hoạt động' && (
-          <Button variant="outline" size="icon" aria-label={TEXTS_VI.closeClassButton} className="border-amber-500 text-amber-600 hover:bg-amber-50" disabled={actionInProgress}>
-            <XCircle className="h-4 w-4" />
+        
+          <Button 
+            variant="outline" 
+            size="icon" 
+            onClick={handleCloseClassClick} 
+            aria-label={TEXTS_VI.closeClassButton} 
+            className="border-amber-500 text-amber-600 hover:bg-amber-50" 
+            disabled={actionInProgress || lopHoc.trangThai === 'Đã đóng'}
+          >
+             {isUpdating && lopHoc.trangThai === 'Đang hoạt động' ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4" />}
           </Button>
-        )}
+        
       </CardFooter>
     </Card>
   );
