@@ -28,7 +28,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getClasses, recalculateAndUpdateClassStudentCount } from '@/services/lopHocService';
 import { getStudents, addStudent, deleteStudent as deleteStudentService, updateStudent as updateStudentService } from '@/services/hocSinhService';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useSearchParams, useRouter } from 'next/navigation'; // Import useSearchParams and useRouter
+import { useSearchParams, useRouter } from 'next/navigation';
 
 const StudentRowSkeleton = () => (
   <TableRow>
@@ -37,7 +37,7 @@ const StudentRowSkeleton = () => (
     <TableCell><Skeleton className="h-4 w-32" /></TableCell>
     <TableCell><Skeleton className="h-4 w-24" /></TableCell>
     <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+    <TableCell><Skeleton className="h-4 w-20" /></TableCell>
     <TableCell><Skeleton className="h-4 w-20" /></TableCell>
     <TableCell>
       <div className="flex gap-2 justify-end">
@@ -77,10 +77,9 @@ function HocSinhPageContent() {
     if (classId) {
       console.log("[HocSinhPage] ClassId from URL:", classId);
       setInitialClassIdFromUrl(classId);
-      setIsEditStudentModalOpen(false); // Ensure edit modal is closed
+      setIsEditStudentModalOpen(false); 
       setEditingStudent(null);
-      setIsAddStudentModalOpen(true); // Open add student modal
-      // Remove classId from URL to prevent re-triggering if user closes modal and reopens manually
+      setIsAddStudentModalOpen(true); 
       router.replace('/hoc-sinh', { scroll: false });
     }
   }, [searchParams, router]);
@@ -100,6 +99,7 @@ function HocSinhPageContent() {
     onSuccess: async (addedStudent) => {
       queryClient.invalidateQueries({ queryKey: ['students'] });
       if (addedStudent.lopId) {
+        console.log(`[HocSinhPage] Student added to class ${addedStudent.lopId}. Recalculating count.`);
         await recalculateAndUpdateClassStudentCount(addedStudent.lopId);
         queryClient.invalidateQueries({ queryKey: ['classes'] }); 
       }
@@ -109,7 +109,7 @@ function HocSinhPageContent() {
     onError: (error: Error) => {
       toast({
         title: "Lỗi khi thêm học sinh",
-        description: error.message,
+        description: `${error.message}. Vui lòng kiểm tra console server để biết thêm chi tiết.`,
         variant: "destructive",
       });
     },
@@ -122,16 +122,17 @@ function HocSinhPageContent() {
       queryClient.invalidateQueries({ queryKey: ['students'] });
 
       const studentBeforeEdit = editingStudent; 
-      const studentAfterEdit = updatedStudentDataFromForm;
+      const newLopId = updatedStudentDataFromForm.lopId;
+      const oldLopId = studentBeforeEdit?.lopId;
 
-      if (studentAfterEdit.lopId) {
-        console.log(`[HocSinhPage] Recalculating count for new/current class: ${studentAfterEdit.lopId}`);
-        await recalculateAndUpdateClassStudentCount(studentAfterEdit.lopId);
+      if (newLopId) {
+        console.log(`[HocSinhPage] Student updated in class ${newLopId}. Recalculating count for this class.`);
+        await recalculateAndUpdateClassStudentCount(newLopId);
       }
 
-      if (studentBeforeEdit?.lopId && studentBeforeEdit.lopId !== studentAfterEdit.lopId) {
-        console.log(`[HocSinhPage] Recalculating count for old class: ${studentBeforeEdit.lopId}`);
-        await recalculateAndUpdateClassStudentCount(studentBeforeEdit.lopId);
+      if (oldLopId && oldLopId !== newLopId) {
+        console.log(`[HocSinhPage] Student moved from old class ${oldLopId}. Recalculating count for old class.`);
+        await recalculateAndUpdateClassStudentCount(oldLopId);
       }
       
       queryClient.invalidateQueries({ queryKey: ['classes'] }); 
@@ -140,13 +141,13 @@ function HocSinhPageContent() {
       setEditingStudent(null);
       toast({
         title: "Cập nhật thành công!",
-        description: `Thông tin học sinh "${studentAfterEdit.hoTen}" đã được cập nhật.`,
+        description: `Thông tin học sinh "${updatedStudentDataFromForm.hoTen}" đã được cập nhật.`,
       });
     },
     onError: (error: Error) => {
       toast({
         title: "Lỗi khi cập nhật học sinh",
-        description: error.message,
+        description: `${error.message}. Vui lòng kiểm tra console server để biết thêm chi tiết.`,
         variant: "destructive",
       });
     },
@@ -161,6 +162,7 @@ function HocSinhPageContent() {
     onSuccess: async (params) => {
       queryClient.invalidateQueries({ queryKey: ['students'] });
       if (params.lopId) {
+        console.log(`[HocSinhPage] Student deleted from class ${params.lopId}. Recalculating count.`);
         await recalculateAndUpdateClassStudentCount(params.lopId);
         queryClient.invalidateQueries({ queryKey: ['classes'] });
       }
@@ -174,7 +176,7 @@ function HocSinhPageContent() {
     onError: (error: Error) => {
       toast({
         title: "Lỗi khi xóa học sinh",
-        description: error.message,
+        description: `${error.message}. Vui lòng kiểm tra console server để biết thêm chi tiết.`,
         variant: "destructive",
       });
       setIsDeleteDialogOpen(false);
@@ -207,7 +209,6 @@ function HocSinhPageContent() {
     setEditingStudent(null);
     setIsEditStudentModalOpen(false); 
     setIsAddStudentModalOpen(true);
-    // initialClassIdFromUrl will be used by AddStudentForm if set
     console.log("[HocSinhPage] States after handleOpenAddStudentModal: isEditStudentModalOpen=false, isAddStudentModalOpen=true, initialClassIdFromUrl:", initialClassIdFromUrl);
   };
   
@@ -224,7 +225,7 @@ function HocSinhPageContent() {
   
   const handleEditStudent = (student: HocSinh) => {
     console.log("[HocSinhPage] handleEditStudent called with student:", student.id);
-    setInitialClassIdFromUrl(null); // Clear any URL-based class ID
+    setInitialClassIdFromUrl(null); 
     setEditingStudent(student);
     setIsAddStudentModalOpen(false); 
     setIsEditStudentModalOpen(true);
@@ -236,15 +237,19 @@ function HocSinhPageContent() {
     setIsAddStudentModalOpen(false);
     setIsEditStudentModalOpen(false);
     setEditingStudent(null);
-    setInitialClassIdFromUrl(null); // Also reset this when dialogs are closed manually
+    setInitialClassIdFromUrl(null);
   }
 
   if (isErrorClasses || isErrorStudents) {
     const combinedError = errorClasses?.message || errorStudents?.message;
     return (
       <DashboardLayout>
-        <div className="flex flex-col items-center justify-center h-full text-red-500">
-          <p>Lỗi tải dữ liệu: {combinedError}</p>
+        <div className="flex flex-col items-center justify-center h-full text-red-500 p-6">
+          <p className="text-lg font-semibold">Lỗi tải dữ liệu</p>
+          <p className="text-sm mb-2">{combinedError}</p>
+          <p className="text-xs text-muted-foreground mb-4">
+            Vui lòng kiểm tra console của server Next.js để biết chi tiết lỗi từ Firebase (thường liên quan đến thiếu Index hoặc Firestore Security Rules).
+          </p>
           <Button onClick={() => {
             if(isErrorClasses) queryClient.invalidateQueries({ queryKey: ['classes'] });
             if(isErrorStudents) queryClient.invalidateQueries({ queryKey: ['students'] });
@@ -293,7 +298,7 @@ function HocSinhPageContent() {
                 initialData={editingStudent} 
                 isEditing={isEditStudentModalOpen && !!editingStudent}
                 isSubmitting={addStudentMutation.isPending || updateStudentMutation.isPending}
-                initialClassId={initialClassIdFromUrl} // Pass the pre-selected class ID
+                initialClassId={initialClassIdFromUrl}
               />
             )}
           </DialogContent>
