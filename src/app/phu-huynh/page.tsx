@@ -42,17 +42,26 @@ const calculateTuitionForStudent = (student: HocSinh, classesMap: Map<string, Lo
 
 const calculateNextPaymentDateDisplay = (student: HocSinh | null, studentClass: LopHoc | undefined): string => {
   if (!student || !studentClass || !studentClass.lichHoc || studentClass.lichHoc.length === 0) {
+    console.log("[PhuHuynhPage] calculateNextPaymentDateDisplay: Missing student, class, or schedule info", {student, studentClass});
     return "N/A (thiếu thông tin lớp hoặc lịch học)";
   }
 
   const startDateString = student.ngayThanhToanGanNhat || student.ngayDangKy;
-  if (!startDateString) return "N/A (thiếu ngày bắt đầu)";
+  if (!startDateString) {
+    console.log("[PhuHuynhPage] calculateNextPaymentDateDisplay: Missing start date for payment cycle calculation");
+    return "N/A (thiếu ngày bắt đầu)";
+  }
+  
+  console.log(`[PhuHuynhPage] calculateNextPaymentDateDisplay: Student ID: ${student.id}, StartDateString: ${startDateString}, Payment Cycle: ${student.chuKyThanhToan}, Class Schedule: ${studentClass.lichHoc.join(', ')}`);
 
   let currentCycleStartDate = parseISO(startDateString);
   let nextPaymentDate: Date | null = null;
 
   const classScheduleDays = studentClass.lichHoc.map(day => dayOfWeekToNumber(day)).filter(dayNum => dayNum !== undefined) as number[];
-  if (classScheduleDays.length === 0) return "N/A (lịch học không hợp lệ)";
+  if (classScheduleDays.length === 0) {
+    console.log("[PhuHuynhPage] calculateNextPaymentDateDisplay: Invalid class schedule days (empty after conversion)");
+    return "N/A (lịch học không hợp lệ)";
+  }
 
   const findNextScheduledDay = (fromDate: Date, inclusive: boolean = true): Date | null => {
     let currentDate = new Date(fromDate);
@@ -65,6 +74,7 @@ const calculateNextPaymentDateDisplay = (student: HocSinh | null, studentClass: 
       }
       currentDate = addDays(currentDate, 1);
     }
+    console.log(`[PhuHuynhPage] findNextScheduledDay: Could not find next scheduled day from ${fromDate.toISOString()} (inclusive: ${inclusive})`);
     return null;
   };
 
@@ -74,35 +84,50 @@ const calculateNextPaymentDateDisplay = (student: HocSinh | null, studentClass: 
     let lastSessionDate: Date | null = null;
     let currentDate = findNextScheduledDay(currentCycleStartDate, true);
 
-    if (!currentDate) return "N/A (không tìm thấy ngày học)";
+    if (!currentDate) {
+        console.log("[PhuHuynhPage] calculateNextPaymentDateDisplay: Could not find first session date for cycle.");
+        return "N/A (không tìm thấy ngày học)";
+    }
+    
+    console.log(`[PhuHuynhPage] calculateNextPaymentDateDisplay: Starting session count. First session on: ${currentDate.toISOString()}`);
 
     while (sessionsCounted < sessionsInCycle && currentDate) {
       sessionsCounted++;
       lastSessionDate = new Date(currentDate);
+      console.log(`[PhuHuynhPage] calculateNextPaymentDateDisplay: Counted session ${sessionsCounted} on ${lastSessionDate.toISOString()}`);
       if (sessionsCounted < sessionsInCycle) {
         currentDate = findNextScheduledDay(currentDate, false);
-        if (!currentDate) break;
+        if (!currentDate) {
+          console.log(`[PhuHuynhPage] calculateNextPaymentDateDisplay: Could not find next session after session ${sessionsCounted}.`);
+          break;
+        }
       }
     }
 
     if (lastSessionDate && sessionsCounted === sessionsInCycle) {
       nextPaymentDate = findNextScheduledDay(lastSessionDate, false);
+      console.log(`[PhuHuynhPage] calculateNextPaymentDateDisplay: Completed ${sessionsInCycle} sessions. Last session: ${lastSessionDate.toISOString()}. Next payment due from: ${nextPaymentDate?.toISOString()}`);
     } else {
+      console.log(`[PhuHuynhPage] calculateNextPaymentDateDisplay: Could not calculate full ${sessionsInCycle} sessions. Counted: ${sessionsCounted}`);
       return "N/A (không thể tính đủ số buổi)";
     }
 
   } else if (student.chuKyThanhToan === '1 tháng') {
     const nextCycleStartDateAttempt = addMonths(currentCycleStartDate, 1);
     nextPaymentDate = findNextScheduledDay(nextCycleStartDateAttempt, true);
+    console.log(`[PhuHuynhPage] calculateNextPaymentDateDisplay: Monthly cycle. Next cycle start attempt: ${nextCycleStartDateAttempt.toISOString()}. Next payment due from: ${nextPaymentDate?.toISOString()}`);
   } else if (student.chuKyThanhToan === 'Theo ngày') {
     nextPaymentDate = findNextScheduledDay(currentCycleStartDate, false);
+    console.log(`[PhuHuynhPage] calculateNextPaymentDateDisplay: Daily cycle. Next payment due from: ${nextPaymentDate?.toISOString()}`);
   } else {
+    console.log(`[PhuHuynhPage] calculateNextPaymentDateDisplay: Unknown payment cycle: ${student.chuKyThanhToan}`);
     return "N/A (chu kỳ thanh toán không xác định)";
   }
 
   if (nextPaymentDate) {
     return `dự kiến từ ${formatDateFn(nextPaymentDate, "dd/MM/yyyy", { locale: vi })}`;
   }
+  console.log("[PhuHuynhPage] calculateNextPaymentDateDisplay: Could not determine next payment date.");
   return "N/A (không tính được)";
 };
 
@@ -133,10 +158,12 @@ export default function PhuHuynhPage() {
       return;
     }
     setIsLoading(true);
-    setStudentInfo(null);
+    setStudentInfo(null); // Clear previous info
+    console.log(`[PhuHuynhPage] handleSearch started for studentId: ${studentId.trim()}`);
 
     try {
       const foundStudent = await getStudentById(studentId.trim());
+      console.log("[PhuHuynhPage] Student data from service:", foundStudent);
       if (foundStudent) {
         setStudentInfo(foundStudent);
       } else {
@@ -144,18 +171,27 @@ export default function PhuHuynhPage() {
         toast({ title: "Không tìm thấy", description: `Không tìm thấy học sinh với mã "${studentId}".`, variant: "default" });
       }
     } catch (error) {
-      console.error("Error searching student:", error);
+      console.error("[PhuHuynhPage] Error in handleSearch:", error);
       setStudentInfo(null);
-      toast({ title: "Lỗi tra cứu", description: "Đã có lỗi xảy ra khi tìm kiếm thông tin học sinh.", variant: "destructive" });
+      toast({ title: "Lỗi tra cứu", description: (error as Error).message || "Đã có lỗi xảy ra khi tìm kiếm thông tin học sinh.", variant: "destructive" });
     } finally {
       setIsLoading(false);
+      console.log("[PhuHuynhPage] handleSearch finished.");
     }
   };
+  
+  useEffect(() => {
+    console.log("[PhuHuynhPage] studentInfo state updated:", studentInfo);
+  }, [studentInfo]);
+
 
   const studentClass = useMemo(() => {
     if (studentInfo && studentInfo.lopId && classesMap.size > 0) {
-      return classesMap.get(studentInfo.lopId);
+      const sClass = classesMap.get(studentInfo.lopId);
+      console.log("[PhuHuynhPage] studentClass computed:", sClass);
+      return sClass;
     }
+    console.log("[PhuHuynhPage] studentClass computed: undefined (studentInfo, lopId, or classesMap missing/empty)", {studentInfo, classesMapSize: classesMap.size});
     return undefined;
   }, [studentInfo, classesMap]);
 
@@ -166,7 +202,7 @@ export default function PhuHuynhPage() {
         {
           stt: 1,
           date: formatDateFn(parseISO(studentInfo.ngayThanhToanGanNhat), "dd/MM/yyyy", { locale: vi }),
-          receiptNo: generateReceiptNumber(),
+          receiptNo: generateReceiptNumber(), // Example receipt number
           amount: formatCurrencyVND(paidAmount ?? undefined),
         }
       ];
@@ -190,12 +226,16 @@ export default function PhuHuynhPage() {
   }, [studentInfo, classesMap]);
 
 
-  const qrAmount = studentInfo && studentInfo.tinhTrangThanhToan !== 'Đã thanh toán' ? (calculateTuitionForStudent(studentInfo, classesMap) ?? 0) : 0;
-  const qrInfo = `HP ${studentInfo?.id || ''}`;
+  const vietQR_AccountNo = process.env.NEXT_PUBLIC_VIETQR_ACCOUNT_NO || "9704229262085470"; // Default if not set
+  const vietQR_AccountName = process.env.NEXT_PUBLIC_VIETQR_ACCOUNT_NAME || "Tran Dong Phu"; // Default if not set
+  const vietQR_AcqId = process.env.NEXT_PUBLIC_VIETQR_ACQ_ID || "970422"; // Default if not set (MB Bank)
 
-  const vietQR_AccountNo = process.env.NEXT_PUBLIC_VIETQR_ACCOUNT_NO || "9704229262085470";
-  const vietQR_AccountName = process.env.NEXT_PUBLIC_VIETQR_ACCOUNT_NAME || "Tran Dong Phu";
-  const vietQR_AcqId = process.env.NEXT_PUBLIC_VIETQR_ACQ_ID || "970422";
+  const tuitionFee = studentInfo ? calculateTuitionForStudent(studentInfo, classesMap) : null;
+  const qrAmount = studentInfo && studentInfo.tinhTrangThanhToan !== 'Đã thanh toán' && tuitionFee && tuitionFee > 0 ? tuitionFee : 0;
+  const qrInfo = `HP ${studentInfo?.id || ''}`;
+  
+  console.log("[PhuHuynhPage] VietQR Params:", { vietQR_AccountNo, vietQR_AccountName, vietQR_AcqId, qrAmount, qrInfo });
+
 
   const qrLink = studentInfo && qrAmount > 0 && vietQR_AccountNo && vietQR_AcqId
     ? `https://api.vietqr.io/v2/generate?accountNo=${vietQR_AccountNo}&accountName=${encodeURIComponent(vietQR_AccountName)}&acqId=${vietQR_AcqId}&amount=${qrAmount}&addInfo=${encodeURIComponent(qrInfo)}&template=compact`
@@ -323,7 +363,7 @@ export default function PhuHuynhPage() {
                       <li>Ngân hàng: <strong className="text-foreground">Ngân hàng Quân đội (MB Bank)</strong></li>
                       <li>Chủ tài khoản: <strong className="text-foreground">{vietQR_AccountName}</strong></li>
                       <li>Nội dung chuyển khoản: <strong className="text-destructive">HP {studentInfo.id}</strong></li>
-                      <li>Số tiền cần thanh toán: <strong className="text-destructive">{formatCurrencyVND(calculateTuitionForStudent(studentInfo, classesMap) ?? undefined)}</strong></li>
+                      <li>Số tiền cần thanh toán: <strong className="text-destructive">{formatCurrencyVND(qrAmount)}</strong></li>
                     </ul>
                     <div className="mt-6 text-center">
                       <p className="mb-2 font-medium">Hoặc quét mã QR (chứa nội dung chuyển khoản):</p>
@@ -397,3 +437,6 @@ const StatBox = ({ label, value, color }: StatBoxProps) => (
     <p className="text-xs">{label}</p>
   </div>
 );
+
+
+    
