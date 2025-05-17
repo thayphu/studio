@@ -81,7 +81,7 @@ const calculateNextPaymentDateDisplay = (student: HocSinh | null, studentClass: 
       lastSessionDate = new Date(currentDate);
       if (sessionsCounted < sessionsInCycle) {
         currentDate = findNextScheduledDay(currentDate, false);
-        if (!currentDate) break; 
+        if (!currentDate) break;
       }
     }
 
@@ -95,7 +95,6 @@ const calculateNextPaymentDateDisplay = (student: HocSinh | null, studentClass: 
     const nextCycleStartDateAttempt = addMonths(currentCycleStartDate, 1);
     nextPaymentDate = findNextScheduledDay(nextCycleStartDateAttempt, true);
   } else if (student.chuKyThanhToan === 'Theo ngày') {
-    // For "Theo ngày", the next payment is effectively the next scheduled day
     nextPaymentDate = findNextScheduledDay(currentCycleStartDate, false);
   } else {
     return "N/A (chu kỳ thanh toán không xác định)";
@@ -173,7 +172,7 @@ export default function PhuHuynhPage() {
         {
           stt: 1,
           date: formatDateFn(parseISO(studentInfo.ngayThanhToanGanNhat), "dd/MM/yyyy", { locale: vi }),
-          receiptNo: generateReceiptNumber(), // This generates a new number each time, might not be desired for history
+          receiptNo: generateReceiptNumber(),
           amount: formatCurrencyVND(paidAmount ?? undefined),
         }
       ];
@@ -185,7 +184,7 @@ export default function PhuHuynhPage() {
   const nextPaymentDateText = useMemo(() => {
     return calculateNextPaymentDateDisplay(studentInfo, studentClass);
   }, [studentInfo, studentClass]);
-  
+
   const hocPhiCanDongDisplay = useMemo(() => {
     if (studentInfo) {
       if (studentInfo.tinhTrangThanhToan === 'Đã thanh toán') {
@@ -199,9 +198,16 @@ export default function PhuHuynhPage() {
 
   const qrAmount = studentInfo && studentInfo.tinhTrangThanhToan !== 'Đã thanh toán' ? (calculateTuitionForStudent(studentInfo, classesMap) ?? 0) : 0;
   const qrInfo = `HP ${studentInfo?.id || ''}`;
-  const qrLink = studentInfo && qrAmount > 0 
+  const qrLink = studentInfo && qrAmount > 0
     ? `https://api.vietqr.io/v2/generate?accountNo=9704229262085470&accountName=Tran Dong Phu&acqId=970422&amount=${qrAmount}&addInfo=${encodeURIComponent(qrInfo)}&template=compact`
     : null;
+
+  // Add this console.log to check the generated qrLink
+  useEffect(() => {
+    if (studentInfo) { // Log only when studentInfo is available to avoid spamming
+      console.log("Generated qrLink:", qrLink);
+    }
+  }, [qrLink, studentInfo]);
 
 
   return (
@@ -317,7 +323,7 @@ export default function PhuHuynhPage() {
                   ) : <p className="text-muted-foreground">Chưa có lịch sử thanh toán chi tiết để hiển thị.</p>}
                 </InfoSection>
 
-                {qrLink && studentInfo.tinhTrangThanhToan !== 'Đã thanh toán' && (
+                {qrLink && studentInfo && studentInfo.tinhTrangThanhToan !== 'Đã thanh toán' && (
                   <InfoSection title="Hướng dẫn thanh toán" icon={<QrCode className="h-6 w-6 text-primary" />}>
                     <p className="font-semibold text-lg mb-2">Thông tin chuyển khoản:</p>
                     <ul className="space-y-1 list-disc list-inside text-muted-foreground">
@@ -368,7 +374,7 @@ const InfoSection = ({ title, icon, children }: InfoSectionProps) => (
       {icon}
       <span className="ml-2">{title}</span>
     </h3>
-    <div className="space-y-3">{children}</div> {/* Children now contain the grid div */}
+    <div className="space-y-3">{children}</div>
   </div>
 );
 
