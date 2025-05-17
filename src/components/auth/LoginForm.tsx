@@ -4,8 +4,8 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { useRouter, NextRouter } from 'next/navigation'; 
-import Link from 'next/link'; 
+import { useRouter, type NextRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -19,7 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { TEXTS_VI } from '@/lib/constants';
 import { useToast } from "@/hooks/use-toast";
-import { useState } from "react";
+import { useState, useEffect } from "react"; // Import useEffect
 import { Eye, EyeOff } from "lucide-react";
 
 const loginFormSchema = z.object({
@@ -30,10 +30,16 @@ const loginFormSchema = z.object({
 type LoginFormValues = z.infer<typeof loginFormSchema>;
 
 export default function LoginForm() {
-  const router = useRouter() as NextRouter; 
+  const router = useRouter() as NextRouter;
   const { toast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Log environment variables on component mount (client-side)
+  useEffect(() => {
+    console.log("DEBUG: NEXT_PUBLIC_ADMIN_USERNAME from client-side:", process.env.NEXT_PUBLIC_ADMIN_USERNAME);
+    console.log("DEBUG: NEXT_PUBLIC_ADMIN_PASSWORD from client-side:", process.env.NEXT_PUBLIC_ADMIN_PASSWORD);
+  }, []);
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginFormSchema),
@@ -55,6 +61,9 @@ export default function LoginForm() {
         description: "Thông tin đăng nhập quản trị chưa được thiết lập trong biến môi trường.",
         variant: "destructive",
       });
+      console.error("LOGIN_FORM_ERROR: Admin credentials environment variables are missing or undefined.");
+      console.error("LOGIN_FORM_ERROR: NEXT_PUBLIC_ADMIN_USERNAME:", adminUsername);
+      console.error("LOGIN_FORM_ERROR: NEXT_PUBLIC_ADMIN_PASSWORD:", adminPassword);
       setIsLoading(false);
       return;
     }
@@ -108,15 +117,15 @@ export default function LoginForm() {
                   <FormLabel>{TEXTS_VI.passwordLabel}</FormLabel>
                   <FormControl>
                     <div className="relative">
-                      <Input 
+                      <Input
                         type={showPassword ? "text" : "password"}
-                        placeholder="********" 
-                        {...field} 
+                        placeholder="********"
+                        {...field}
                       />
-                      <Button 
-                        type="button" 
-                        variant="ghost" 
-                        size="icon" 
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
                         className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
                         onClick={() => setShowPassword(!showPassword)}
                       >
@@ -130,11 +139,11 @@ export default function LoginForm() {
             />
             <div className="flex items-center justify-between">
               <div></div>
-              <Button 
-                type="button" 
-                variant="link" 
+              <Button
+                type="button"
+                variant="link"
                 className="px-0 text-sm text-muted-foreground hover:text-primary"
-                asChild 
+                asChild
               >
                 <Link href="/forgot-password">Quên mật khẩu?</Link>
               </Button>
