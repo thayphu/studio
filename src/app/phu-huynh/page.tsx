@@ -236,9 +236,9 @@ export default function PhuHuynhPage() {
     return "N/A";
   }, [studentInfo, classesMap]);
 
-  const vietQR_BankBin = process.env.NEXT_PUBLIC_VIETQR_BANK_BIN || "970422"; // Default MB Bank
-  const vietQR_AccountNo = process.env.NEXT_PUBLIC_VIETQR_ACCOUNT_NO || "YOUR_ACCOUNT_NO"; // Replace
-  const vietQR_AccountName = process.env.NEXT_PUBLIC_VIETQR_ACCOUNT_NAME || "YOUR_ACCOUNT_NAME"; // Replace
+  const vietQR_BankBin = process.env.NEXT_PUBLIC_VIETQR_BANK_BIN || "VIETQR_BANK_BIN_CHUA_CAU_HINH";
+  const vietQR_AccountNo = process.env.NEXT_PUBLIC_VIETQR_ACCOUNT_NO || "SO_TK_CHUA_CAU_HINH";
+  const vietQR_AccountName = process.env.NEXT_PUBLIC_VIETQR_ACCOUNT_NAME || "TEN_TK_CHUA_CAU_HINH";
   const vietQR_Template = process.env.NEXT_PUBLIC_VIETQR_TEMPLATE || "compact2";
 
 
@@ -254,7 +254,7 @@ export default function PhuHuynhPage() {
   });
   console.log("[PhuHuynhPage] VietQR Params for static link generation:", { vietQR_BankBin, vietQR_AccountNo, vietQR_AccountName, qrAmount, qrInfo, vietQR_Template });
 
-  const qrLink = studentInfo && qrAmount > 0 && vietQR_BankBin && vietQR_AccountNo && vietQR_Template
+  const qrLink = studentInfo && qrAmount > 0 && vietQR_BankBin && vietQR_AccountNo && vietQR_Template && vietQR_BankBin !== "VIETQR_BANK_BIN_CHUA_CAU_HINH" && vietQR_AccountNo !== "SO_TK_CHUA_CAU_HINH"
     ? `https://img.vietqr.io/image/${vietQR_BankBin}-${vietQR_AccountNo}-${vietQR_Template}.png?amount=${qrAmount}&addInfo=${encodeURIComponent(qrInfo)}&accountName=${encodeURIComponent(vietQR_AccountName)}`
     : null;
 
@@ -307,7 +307,7 @@ export default function PhuHuynhPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
                     <InfoRow label="Họ và tên" value={studentInfo.hoTen} />
                     <InfoRow label="Mã HS" value={studentInfo.id} />
-                    <InfoRow 
+                     <InfoRow 
                       label="Lớp" 
                       value={studentClass?.tenLop || 'N/A'} 
                       icon={<School className="h-5 w-5 text-muted-foreground" />} 
@@ -373,7 +373,7 @@ export default function PhuHuynhPage() {
 
                 {qrLink && studentInfo && studentInfo.tinhTrangThanhToan !== 'Đã thanh toán' && (
                   <InfoSection title="Hướng dẫn thanh toán" icon={<QrCode className="h-6 w-6 text-primary" />}>
-                    <div className="flex flex-col md:flex-row gap-4 items-start"> {/* Reduced gap and added items-start */}
+                    <div className="flex flex-col md:flex-row gap-4 items-start"> 
                       <div className="flex-1">
                         <p className="font-semibold text-lg mb-2">Thông tin chuyển khoản:</p>
                         <ul className="space-y-1 list-disc list-inside text-muted-foreground">
@@ -384,7 +384,7 @@ export default function PhuHuynhPage() {
                           <li>Số tiền cần thanh toán: <strong className="text-destructive">{formatCurrencyVND(qrAmount)}</strong></li>
                         </ul>
                       </div>
-                      <div className="md:w-auto flex flex-col items-center md:items-start mt-4 md:mt-0"> {/* Adjusted width and alignment */}
+                      <div className="md:w-auto flex flex-col items-center md:items-start mt-4 md:mt-0"> 
                         <p className="mb-2 font-medium text-center md:text-left">Hoặc quét mã QR:</p>
                         {qrLink ? (
                           <Image
@@ -397,7 +397,7 @@ export default function PhuHuynhPage() {
                             data-ai-hint="payment qrcode"
                           />
                         ) : (
-                          <p className="text-muted-foreground">Không thể tạo mã QR.</p>
+                          <p className="text-muted-foreground">Không thể tạo mã QR (Vui lòng cấu hình thông tin ngân hàng).</p>
                         )}
                       </div>
                     </div>
@@ -460,3 +460,4 @@ const StatBox = ({ label, value, color }: StatBoxProps) => (
     <p className="text-xs">{label}</p>
   </div>
 );
+
