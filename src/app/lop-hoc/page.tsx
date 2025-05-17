@@ -4,7 +4,7 @@
 import { useState } from 'react';
 import { PlusCircle, Filter, RefreshCw } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation'; // Import useRouter
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import {
@@ -12,10 +12,10 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
-  AlertDialogDescription as ShadAlertDialogDescription, // Alias to avoid conflict
+  AlertDialogDescription as ShadAlertDialogDescription,
   AlertDialogFooter,
-  AlertDialogHeader as ShadAlertDialogHeader, // Alias to avoid conflict
-  AlertDialogTitle as ShadAlertDialogTitle, // Alias to avoid conflict
+  AlertDialogHeader as ShadAlertDialogHeader,
+  AlertDialogTitle as ShadAlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import AddClassForm from '@/components/lop-hoc/AddClassForm';
 import ClassCard from '@/components/lop-hoc/ClassCard';
@@ -30,7 +30,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 export default function LopHocPage() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const router = useRouter();
+  const router = useRouter(); // Initialize useRouter
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClass, setEditingClass] = useState<LopHoc | null>(null);
@@ -73,7 +73,7 @@ export default function LopHocPage() {
     },
     onSuccess: (data) => {
       console.log('addClassMutation onSuccess called. Data:', data);
-      setIsModalOpen(false); // Close modal on success
+      setIsModalOpen(false); 
       toast({
         title: "Thêm lớp thành công!",
         description: `Lớp "${data.tenLop}" đã được thêm vào hệ thống.`,
@@ -197,9 +197,8 @@ export default function LopHocPage() {
   };
 
   const handleAddStudentToClass = (classId: string) => {
-    alert(`LopHocPage: Yêu cầu thêm học sinh vào lớp ${classId}. Chuyển đến trang quản lý học sinh.`);
-    console.log("Attempting to navigate to student page for class:", classId);
-    router.push('/hoc-sinh');
+    console.log("[LopHocPage] Navigating to add student for class:", classId);
+    router.push(`/hoc-sinh?classId=${classId}`);
   };
 
   if (isError) {
@@ -272,7 +271,7 @@ export default function LopHocPage() {
                 lopHoc={lopHoc}
                 onEdit={() => handleOpenEditModal(lopHoc)}
                 onDelete={() => handleOpenDeleteDialog(lopHoc)}
-                onAddStudent={handleAddStudentToClass}
+                onAddStudent={handleAddStudentToClass} // Directly pass the handler
                 isDeleting={deleteClassMutation.isPending && deleteClassMutation.variables === lopHoc.id}
                 isUpdating={updateClassMutation.isPending && updateClassMutation.variables?.id === lopHoc.id}
               />

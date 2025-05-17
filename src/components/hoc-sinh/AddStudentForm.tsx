@@ -47,18 +47,18 @@ const studentFormSchema = z.object({
   lopId: z.string().min(1, { message: "Vui lòng chọn lớp học." }),
   ngayDangKy: z.date({ required_error: "Ngày đăng ký không được để trống." }),
   chuKyThanhToan: z.enum(ALL_PAYMENT_CYCLES as [PaymentCycle, ...PaymentCycle[]], { message: "Chu kỳ thanh toán không hợp lệ." }),
-  // No need for id in form schema, it's generated or comes from initialData
 });
 
 type StudentFormInputValues = z.infer<typeof studentFormSchema>;
 
 interface AddStudentFormProps {
-  onSubmit: (data: HocSinh) => void; // Now expects full HocSinh for edit, Omit<...> for add
+  onSubmit: (data: HocSinh) => void;
   onClose: () => void;
   existingClasses: LopHoc[];
   initialData?: HocSinh | null;
   isEditing?: boolean;
   isSubmitting?: boolean;
+  initialClassId?: string | null; // New prop for pre-selected class
 }
 
 const capitalizeWords = (str: string): string => {
@@ -70,7 +70,15 @@ const capitalizeWords = (str: string): string => {
     .join(' ');
 };
 
-export default function AddStudentForm({ onSubmit, onClose, existingClasses, initialData, isEditing = false, isSubmitting = false }: AddStudentFormProps) {
+export default function AddStudentForm({ 
+  onSubmit, 
+  onClose, 
+  existingClasses, 
+  initialData, 
+  isEditing = false, 
+  isSubmitting = false,
+  initialClassId = null, // Destructure new prop
+}: AddStudentFormProps) {
   const { toast } = useToast();
   const [displayStudentId, setDisplayStudentId] = React.useState('');
 
@@ -88,8 +96,6 @@ export default function AddStudentForm({ onSubmit, onClose, existingClasses, ini
   });
 
   const selectedLopId = form.watch('lopId');
-  const formTitle = isEditing ? "Chỉnh sửa thông tin học sinh" : "Thêm học sinh mới";
-  const submitButtonText = isEditing ? "Lưu thay đổi" : TEXTS_VI.saveButton;
 
   React.useEffect(() => {
     if (isEditing && initialData) {
@@ -105,26 +111,36 @@ export default function AddStudentForm({ onSubmit, onClose, existingClasses, ini
       });
     } else if (!isEditing) {
       setDisplayStudentId(generateStudentId());
-      form.reset({ // Reset to defaults for add mode
+      form.reset({
         hoTen: "",
         ngaySinh: "", 
         diaChi: "",
         soDienThoai: "",
-        lopId: "",
+        lopId: initialClassId || "", // Pre-fill lopId if provided
         ngayDangKy: new Date(),
         chuKyThanhToan: "1 tháng",
       });
+      // If initialClassId is provided, also trigger the chuKyThanhToan update
+      if (initialClassId && existingClasses) {
+         const selectedClass = existingClasses.find(cls => cls.id === initialClassId);
+         if (selectedClass) {
+           form.setValue('chuKyThanhToan', selectedClass.chuKyDongPhi, { shouldValidate: true });
+         }
+      }
     }
-  }, [isEditing, initialData, form]);
+  }, [isEditing, initialData, form, initialClassId, existingClasses]);
 
   React.useEffect(() => {
-    if (selectedLopId && existingClasses) {
+    // Update chuKyThanhToan only if not editing and not from URL prefill context
+    // to avoid overriding user's choice if they change class after prefill.
+    // The initial prefill is handled in the previous useEffect.
+    if (!isEditing && !initialClassId && selectedLopId && existingClasses) {
       const selectedClass = existingClasses.find(cls => cls.id === selectedLopId);
       if (selectedClass) {
         form.setValue('chuKyThanhToan', selectedClass.chuKyDongPhi, { shouldValidate: true });
       }
     }
-  }, [selectedLopId, existingClasses, form]);
+  }, [selectedLopId, existingClasses, form, isEditing, initialClassId]);
 
   function handleSubmit(data: StudentFormInputValues) {
     let ngaySinhISO: string;
@@ -159,7 +175,6 @@ export default function AddStudentForm({ onSubmit, onClose, existingClasses, ini
       ngaySinh: ngaySinhISO,
       ngayDangKy: data.ngayDangKy.toISOString(),
       soDienThoai: data.soDienThoai || undefined,
-      // These fields are only relevant for edit, but kept for type consistency if add mode also sends full HocSinh
       tenLop: isEditing && initialData ? initialData.tenLop : undefined, 
       tinhTrangThanhToan: isEditing && initialData ? initialData.tinhTrangThanhToan : "Chưa thanh toán",
       ngayThanhToanGanNhat: isEditing && initialData ? initialData.ngayThanhToanGanNhat : undefined,
@@ -173,6 +188,8 @@ export default function AddStudentForm({ onSubmit, onClose, existingClasses, ini
         });
     }
   }
+  
+  const submitButtonText = isEditing ? "Lưu thay đổi" : TEXTS_VI.saveButton;
 
   return (
     <Form {...form}>
@@ -358,3 +375,4 @@ export default function AddStudentForm({ onSubmit, onClose, existingClasses, ini
     </Form>
   );
 }
+

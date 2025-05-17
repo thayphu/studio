@@ -1,6 +1,6 @@
 
 "use client";
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, Suspense } from 'react';
 import DashboardLayout from '../dashboard-layout';
 import { Button } from '@/components/ui/button';
 import { PlusCircle, Edit2, Trash2, Search, RefreshCw } from 'lucide-react';
@@ -12,9 +12,9 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
-  AlertDialogDescription as ShadAlertDialogDescription, // Alias
+  AlertDialogDescription as ShadAlertDialogDescription,
   AlertDialogFooter,
-  AlertDialogHeader as ShadAlertDialogHeader, // Alias
+  AlertDialogHeader as ShadAlertDialogHeader,
   AlertDialogTitle as AlertDialogTitleComponent,
 } from "@/components/ui/alert-dialog";
 import AddStudentForm from '@/components/hoc-sinh/AddStudentForm';
@@ -28,6 +28,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getClasses, recalculateAndUpdateClassStudentCount } from '@/services/lopHocService';
 import { getStudents, addStudent, deleteStudent as deleteStudentService, updateStudent as updateStudentService } from '@/services/hocSinhService';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useSearchParams, useRouter } from 'next/navigation'; // Import useSearchParams and useRouter
 
 const StudentRowSkeleton = () => (
   <TableRow>
@@ -47,16 +48,19 @@ const StudentRowSkeleton = () => (
   </TableRow>
 );
 
-
-export default function HocSinhPage() {
+function HocSinhPageContent() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
   const [isAddStudentModalOpen, setIsAddStudentModalOpen] = useState(false);
   const [isEditStudentModalOpen, setIsEditStudentModalOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<HocSinh | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [studentToDelete, setStudentToDelete] = useState<HocSinh | null>(null);
+  const [initialClassIdFromUrl, setInitialClassIdFromUrl] = useState<string | null>(null);
 
   const { data: existingClasses = [], isLoading: isLoadingClasses, isError: isErrorClasses, error: errorClasses } = useQuery<LopHoc[], Error>({
     queryKey: ['classes'],
@@ -67,6 +71,19 @@ export default function HocSinhPage() {
     queryKey: ['students'],
     queryFn: getStudents,
   });
+
+  useEffect(() => {
+    const classId = searchParams.get('classId');
+    if (classId) {
+      console.log("[HocSinhPage] ClassId from URL:", classId);
+      setInitialClassIdFromUrl(classId);
+      setIsEditStudentModalOpen(false); // Ensure edit modal is closed
+      setEditingStudent(null);
+      setIsAddStudentModalOpen(true); // Open add student modal
+      // Remove classId from URL to prevent re-triggering if user closes modal and reopens manually
+      router.replace('/hoc-sinh', { scroll: false });
+    }
+  }, [searchParams, router]);
   
   const filteredStudents = useMemo(() => {
     const currentStudents = studentsData || [];
@@ -87,7 +104,7 @@ export default function HocSinhPage() {
         queryClient.invalidateQueries({ queryKey: ['classes'] }); 
       }
       setIsAddStudentModalOpen(false);
-      // Toast for success is handled within AddStudentForm
+      setInitialClassIdFromUrl(null); // Reset after use
     },
     onError: (error: Error) => {
       toast({
@@ -107,20 +124,17 @@ export default function HocSinhPage() {
       const studentBeforeEdit = editingStudent; 
       const studentAfterEdit = updatedStudentDataFromForm;
 
-      // Recalculate for the class the student is NOW associated with (if any)
       if (studentAfterEdit.lopId) {
         console.log(`[HocSinhPage] Recalculating count for new/current class: ${studentAfterEdit.lopId}`);
         await recalculateAndUpdateClassStudentCount(studentAfterEdit.lopId);
       }
 
-      // If the student WAS in a class, and that class is DIFFERENT from the new class,
-      // then recalculate for the OLD class as well.
       if (studentBeforeEdit?.lopId && studentBeforeEdit.lopId !== studentAfterEdit.lopId) {
         console.log(`[HocSinhPage] Recalculating count for old class: ${studentBeforeEdit.lopId}`);
         await recalculateAndUpdateClassStudentCount(studentBeforeEdit.lopId);
       }
       
-      queryClient.invalidateQueries({ queryKey: ['classes'] }); // Ensure class list is refreshed
+      queryClient.invalidateQueries({ queryKey: ['classes'] }); 
 
       setIsEditStudentModalOpen(false);
       setEditingStudent(null);
@@ -193,7 +207,8 @@ export default function HocSinhPage() {
     setEditingStudent(null);
     setIsEditStudentModalOpen(false); 
     setIsAddStudentModalOpen(true);
-    console.log("[HocSinhPage] States after handleOpenAddStudentModal: isEditStudentModalOpen=false, isAddStudentModalOpen=true");
+    // initialClassIdFromUrl will be used by AddStudentForm if set
+    console.log("[HocSinhPage] States after handleOpenAddStudentModal: isEditStudentModalOpen=false, isAddStudentModalOpen=true, initialClassIdFromUrl:", initialClassIdFromUrl);
   };
   
   const handleOpenDeleteStudentDialog = (student: HocSinh) => {
@@ -209,6 +224,7 @@ export default function HocSinhPage() {
   
   const handleEditStudent = (student: HocSinh) => {
     console.log("[HocSinhPage] handleEditStudent called with student:", student.id);
+    setInitialClassIdFromUrl(null); // Clear any URL-based class ID
     setEditingStudent(student);
     setIsAddStudentModalOpen(false); 
     setIsEditStudentModalOpen(true);
@@ -220,6 +236,7 @@ export default function HocSinhPage() {
     setIsAddStudentModalOpen(false);
     setIsEditStudentModalOpen(false);
     setEditingStudent(null);
+    setInitialClassIdFromUrl(null); // Also reset this when dialogs are closed manually
   }
 
   if (isErrorClasses || isErrorStudents) {
@@ -238,26 +255,24 @@ export default function HocSinhPage() {
       </DashboardLayout>
     );
   }
-  console.log("[HocSinhPage] Rendering. isAddStudentModalOpen:", isAddStudentModalOpen, "isEditStudentModalOpen:", isEditStudentModalOpen, "editingStudent:", editingStudent?.id);
+  console.log("[HocSinhPage] Rendering. isAddStudentModalOpen:", isAddStudentModalOpen, "isEditStudentModalOpen:", isEditStudentModalOpen, "editingStudent:", editingStudent?.id, "initialClassIdFromUrl:", initialClassIdFromUrl);
 
   return (
     <DashboardLayout>
       <div className="container mx-auto py-8 px-4 md:px-6">
         <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
           <h1 className="text-3xl font-bold text-foreground">Quản lý Học sinh</h1>
-           <Button 
-            onClick={handleOpenAddStudentModal} 
-            disabled={isLoadingClasses || addStudentMutation.isPending || updateStudentMutation.isPending}
-          >
-            <PlusCircle className="mr-2 h-4 w-4" /> 
-            {isLoadingClasses ? "Đang tải lớp..." : "Thêm Học sinh"}
-          </Button>
+            <Button 
+              onClick={handleOpenAddStudentModal} 
+              disabled={isLoadingClasses || addStudentMutation.isPending || updateStudentMutation.isPending}
+            >
+              <PlusCircle className="mr-2 h-4 w-4" /> 
+              {isLoadingClasses ? "Đang tải lớp..." : "Thêm Học sinh"}
+            </Button>
         </div>
 
-        {/* Combined Dialog for Add/Edit Student */}
         <Dialog open={isAddStudentModalOpen || isEditStudentModalOpen} onOpenChange={(open) => {
           if (!open) closeDialogs();
-          // No specific setIs... needed here as open prop controls it directly
         }}>
           <DialogContent className="sm:max-w-[600px]">
             <DialogHeader>
@@ -278,6 +293,7 @@ export default function HocSinhPage() {
                 initialData={editingStudent} 
                 isEditing={isEditStudentModalOpen && !!editingStudent}
                 isSubmitting={addStudentMutation.isPending || updateStudentMutation.isPending}
+                initialClassId={initialClassIdFromUrl} // Pass the pre-selected class ID
               />
             )}
           </DialogContent>
@@ -396,7 +412,14 @@ export default function HocSinhPage() {
           </AlertDialogContent>
         </AlertDialog>
       )}
-
     </DashboardLayout>
   );
+}
+
+export default function HocSinhPage() {
+  return (
+    <Suspense fallback={<DashboardLayout><div className="p-6 text-center">Đang tải thông tin trang...</div></DashboardLayout>}>
+      <HocSinhPageContent />
+    </Suspense>
+  )
 }
