@@ -67,8 +67,6 @@ export const saveAttendance = async (
     collection(db, DIEM_DANH_COLLECTION),
     where("lopId", "==", classId),
     where("ngayDiemDanh", "==", formattedDate)
-    // Potentially add where("hocSinhId", "in", Object.keys(attendanceData)) if performance is an issue for very large classes,
-    // but this requires more complex querying or fetching all and filtering client-side for map.
   );
 
   try {
@@ -152,9 +150,43 @@ export const getDailyAttendanceSummary = async (
      if ((error as any)?.code === 'failed-precondition') {
         console.error(`[diemDanhService] Firestore Precondition Failed for getDailyAttendanceSummary: Missing index for ngayDiemDanh == ${formattedDate}. Check server logs for index creation link.`);
     }
-    throw error; // Re-throw to be caught by useQuery
+    throw error;
   }
 };
+
+/**
+ * Fetches an overall summary of attendance across all time.
+ * @returns A promise that resolves to an object with total counts of present and absent students.
+ */
+export const getOverallAttendanceSummary = async (): Promise<{ totalPresent: number; totalAbsent: number }> => {
+  console.log(`[diemDanhService] Firestore Fetching overall attendance summary`);
+
+  const attendanceQuery = query(collection(db, DIEM_DANH_COLLECTION));
+
+  let totalPresent = 0;
+  let totalAbsent = 0;
+
+  try {
+    const querySnapshot = await getDocs(attendanceQuery);
+    querySnapshot.forEach((doc) => {
+      const data = doc.data() as DiemDanhGhiNhan;
+      if (data.trangThai === 'Có mặt') {
+        totalPresent++;
+      } else if (data.trangThai === 'Vắng mặt') {
+        totalAbsent++;
+      }
+      // We are not counting 'GV nghỉ' or 'Học bù' for these overall stats
+    });
+    console.log(`[diemDanhService] Overall summary: Total Present: ${totalPresent}, Total Absent: ${totalAbsent}`);
+    return { totalPresent, totalAbsent };
+  } catch (error) {
+    console.error(`[diemDanhService] Error fetching overall attendance summary:`, error);
+    // This query is on the whole collection without filters, so index issues are less likely unless ordering is added.
+    // However, other issues like permissions could occur.
+    throw error;
+  }
+};
+
 
 /**
  * Fetches detailed attendance records for a specific date across all classes.
@@ -171,7 +203,7 @@ export const getDetailedAttendanceForDate = async (
   const attendanceQuery = query(
     collection(db, DIEM_DANH_COLLECTION),
     where("ngayDiemDanh", "==", formattedDate),
-    orderBy("lopId"), // Optional: order by class, then by student if needed
+    orderBy("lopId"), 
     orderBy("hocSinhId")
   );
 
@@ -187,6 +219,7 @@ export const getDetailedAttendanceForDate = async (
         ngayDiemDanh: data.ngayDiemDanh,
         trangThai: data.trangThai as AttendanceStatus,
         ghiChu: data.ghiChu,
+        // hoTen and tenLop would need to be joined/fetched separately if needed here
       });
     });
     console.log(`[diemDanhService] Fetched ${records.length} detailed attendance records for ${formattedDate}.`);
@@ -199,5 +232,3 @@ export const getDetailedAttendanceForDate = async (
     throw error;
   }
 };
-
-    

@@ -5,18 +5,18 @@ import { useState, useMemo, useEffect } from 'react';
 import DashboardLayout from '../dashboard-layout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle as ShadDialogTitle, DialogDescription as ShadDialogDescription } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useQuery } from '@tanstack/react-query';
 import { getStudents } from '@/services/hocSinhService';
 import { getClasses } from '@/services/lopHocService';
-import { getDailyAttendanceSummary, getDetailedAttendanceForDate } from '@/services/diemDanhService';
+import { getOverallAttendanceSummary, getDetailedAttendanceForDate } from '@/services/diemDanhService'; // Updated import
 import { getTeacherAbsentDaysSummary } from '@/services/giaoVienVangService';
 import type { HocSinh, LopHoc, AttendanceStatus, DiemDanhGhiNhan, GiaoVienVangRecord } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Users, UserCheck, UserX, CalendarOff, LineChart, PieChart, Archive, AlertCircle, BookCopy, DollarSign, CalendarDays, BadgeDollarSign } from 'lucide-react';
+import { Users, UserCheck, UserX, CalendarOff, LineChart, Archive, AlertCircle, BookCopy, DollarSign, CalendarDays, BadgeDollarSign } from 'lucide-react';
 import { format, parse } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { formatCurrencyVND } from '@/lib/utils';
@@ -66,7 +66,7 @@ export default function BaoCaoPage() {
   const [modalType, setModalType] = useState<ModalType | null>(null);
   const [modalTitle, setModalTitle] = useState('');
   const [modalData, setModalData] = useState<ModalData>({});
-  const [selectedDateForStats] = useState(new Date()); // For now, stats are for "today"
+  const [selectedDateForStats] = useState(new Date()); // For modal details for "today"
 
   const { data: students = [], isLoading: isLoadingStudents, isError: isErrorStudents } = useQuery<HocSinh[], Error>({
     queryKey: ['students'],
@@ -78,9 +78,9 @@ export default function BaoCaoPage() {
     queryFn: getClasses,
   });
 
-  const { data: attendanceSummary, isLoading: isLoadingAttendanceSummary, isError: isErrorAttendanceSummary } = useQuery({
-    queryKey: ['dailyAttendanceSummary', format(selectedDateForStats, 'yyyyMMdd')],
-    queryFn: () => getDailyAttendanceSummary(selectedDateForStats),
+  const { data: overallAttendanceSummary, isLoading: isLoadingOverallAttendance, isError: isErrorOverallAttendance } = useQuery({
+    queryKey: ['overallAttendanceSummary'],
+    queryFn: getOverallAttendanceSummary,
   });
   
   const { data: detailedAttendance, isLoading: isLoadingDetailedAttendance, isError: isErrorDetailedAttendance } = useQuery({
@@ -350,20 +350,22 @@ export default function BaoCaoPage() {
                 error={isErrorStudents}
               />
               <StatCard 
-                title={`HS Có mặt (Hôm nay: ${format(selectedDateForStats, 'dd/MM')})`}
-                value={attendanceSummary?.present ?? 0}
+                title="Tổng số lượt HS Có mặt"
+                value={overallAttendanceSummary?.totalPresent ?? 0}
                 icon={<UserCheck className="h-5 w-5 text-muted-foreground" />}
-                isLoading={isLoadingAttendanceSummary}
+                isLoading={isLoadingOverallAttendance}
                 onClick={() => openModal('presentStudents', `Học sinh có mặt - ${format(selectedDateForStats, 'dd/MM/yyyy')}`)}
-                error={isErrorAttendanceSummary}
+                description={`Chi tiết cho ngày: ${format(selectedDateForStats, 'dd/MM')}`}
+                error={isErrorOverallAttendance}
               />
               <StatCard 
-                title={`HS Vắng mặt (Hôm nay: ${format(selectedDateForStats, 'dd/MM')})`}
-                value={attendanceSummary?.absent ?? 0}
+                title="Tổng số lượt HS Vắng mặt"
+                value={overallAttendanceSummary?.totalAbsent ?? 0}
                 icon={<UserX className="h-5 w-5 text-muted-foreground" />}
-                isLoading={isLoadingAttendanceSummary}
+                isLoading={isLoadingOverallAttendance}
                 onClick={() => openModal('absentStudents', `Học sinh vắng mặt - ${format(selectedDateForStats, 'dd/MM/yyyy')}`)}
-                error={isErrorAttendanceSummary}
+                description={`Chi tiết cho ngày: ${format(selectedDateForStats, 'dd/MM')}`}
+                error={isErrorOverallAttendance}
               />
               <StatCard 
                 title="Số ngày GV vắng" 
@@ -444,8 +446,8 @@ export default function BaoCaoPage() {
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
           <DialogContent className="sm:max-w-3xl max-h-[85vh] flex flex-col">
             <DialogHeader>
-              <DialogTitle>{modalTitle}</DialogTitle>
-              {/* <DialogDescription>Chi tiết thông tin.</DialogDescription> */}
+              <ShadDialogTitle>{modalTitle}</ShadDialogTitle>
+              <ShadDialogDescription className="sr-only">Chi tiết thông tin.</ShadDialogDescription>
             </DialogHeader>
             <ScrollArea className="flex-grow pr-4 -mr-4">
               {renderModalContent()}
