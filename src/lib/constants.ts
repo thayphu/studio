@@ -22,10 +22,10 @@ export const PARENT_PORTAL_LINK = {
   icon: Search 
 };
 
-export const ADMIN_USERNAME = "dongphubte";
-// Password should not be stored in client-side constants. This is just for fulfilling the prompt.
-// In a real app, this would be handled by a secure authentication mechanism.
-export const ADMIN_PASSWORD_TEMP = "@Bentre2013"; 
+// Admin Credentials - WARNING: Storing credentials in client-side code is insecure.
+// Consider using Firebase Authentication or another secure method for production.
+export const ADMIN_USERNAME = "dongphubte@gmail.com";
+export const ADMIN_PASSWORD_TEMP = "@Quantriweb2013"; 
 
 
 // Vietnamese Texts
@@ -69,3 +69,4 @@ export const WEEKDAYS_VI: Record<string, number> = {
   'Thứ 6': 5,
   'Thứ 7': 6,
 };
+

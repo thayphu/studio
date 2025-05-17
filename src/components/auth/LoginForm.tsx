@@ -17,9 +17,9 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { TEXTS_VI } from '@/lib/constants';
+import { TEXTS_VI, ADMIN_USERNAME, ADMIN_PASSWORD_TEMP } from '@/lib/constants'; // Import credentials
 import { useToast } from "@/hooks/use-toast";
-import { useState, useEffect } from "react"; // Import useEffect
+import { useState, useEffect } from "react";
 import { Eye, EyeOff } from "lucide-react";
 
 const loginFormSchema = z.object({
@@ -35,10 +35,10 @@ export default function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Log environment variables on component mount (client-side)
   useEffect(() => {
-    console.log("DEBUG: NEXT_PUBLIC_ADMIN_USERNAME from client-side:", process.env.NEXT_PUBLIC_ADMIN_USERNAME);
-    console.log("DEBUG: NEXT_PUBLIC_ADMIN_PASSWORD from client-side:", process.env.NEXT_PUBLIC_ADMIN_PASSWORD);
+    // Client-side check for environment variables (can be removed if not using them)
+    // console.log("DEBUG: NEXT_PUBLIC_ADMIN_USERNAME from client-side:", process.env.NEXT_PUBLIC_ADMIN_USERNAME);
+    // console.log("DEBUG: NEXT_PUBLIC_ADMIN_PASSWORD from client-side:", process.env.NEXT_PUBLIC_ADMIN_PASSWORD);
   }, []);
 
   const form = useForm<LoginFormValues>({
@@ -51,19 +51,18 @@ export default function LoginForm() {
 
   function onSubmit(data: LoginFormValues) {
     setIsLoading(true);
-    // Read admin credentials from environment variables
-    const adminUsername = process.env.NEXT_PUBLIC_ADMIN_USERNAME;
-    const adminPassword = process.env.NEXT_PUBLIC_ADMIN_PASSWORD;
+    // Read admin credentials from constants.ts
+    const adminUsername = ADMIN_USERNAME;
+    const adminPassword = ADMIN_PASSWORD_TEMP;
 
     if (!adminUsername || !adminPassword) {
+      // This case should ideally not happen if constants are defined
       toast({
-        title: "Lỗi cấu hình",
-        description: "Thông tin đăng nhập quản trị chưa được thiết lập trong biến môi trường.",
+        title: "Lỗi Cấu Hình Đăng Nhập Nghiêm Trọng",
+        description: "Thông tin đăng nhập quản trị không được định nghĩa trong mã nguồn. Vui lòng liên hệ nhà phát triển.",
         variant: "destructive",
       });
-      console.error("LOGIN_FORM_ERROR: Admin credentials environment variables are missing or undefined.");
-      console.error("LOGIN_FORM_ERROR: NEXT_PUBLIC_ADMIN_USERNAME:", adminUsername);
-      console.error("LOGIN_FORM_ERROR: NEXT_PUBLIC_ADMIN_PASSWORD:", adminPassword);
+      console.error("LOGIN_FORM_ERROR: Admin credentials are not defined in constants.ts.");
       setIsLoading(false);
       return;
     }
@@ -73,7 +72,7 @@ export default function LoginForm() {
       if (data.username === adminUsername && data.password === adminPassword) {
         toast({
           title: "Đăng nhập thành công!",
-          description: "Chào mừng Đông Phú quay trở lại.",
+          description: "Chào mừng quay trở lại.",
         });
         router.push('/lop-hoc');
       } else {
@@ -103,7 +102,7 @@ export default function LoginForm() {
                 <FormItem>
                   <FormLabel>{TEXTS_VI.usernameLabel}</FormLabel>
                   <FormControl>
-                    <Input placeholder="dongphubte" {...field} />
+                    <Input {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -119,7 +118,6 @@ export default function LoginForm() {
                     <div className="relative">
                       <Input
                         type={showPassword ? "text" : "password"}
-                        placeholder="********"
                         {...field}
                       />
                       <Button
