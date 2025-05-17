@@ -5,7 +5,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Search, UserCircle, School, CalendarDays, FileText, PieChart, QrCode, Loader2, BadgePercent } from 'lucide-react';
+import { Search, UserCircle, School, CalendarDays, FileText, PieChart, QrCode, Loader2, BadgePercent, BookOpen } from 'lucide-react';
 import Image from 'next/image';
 import type { HocSinh, LopHoc, DayOfWeek } from '@/lib/types';
 import { getStudentById } from '@/services/hocSinhService';
@@ -159,27 +159,28 @@ export default function PhuHuynhPage() {
   const buoiGVVangPlaceholder = "--";
   const lichSuDiemDanhPlaceholder: { ngay: string; trangThai: string }[] = [];
 
-  const displayedPaymentHistory = useMemo(() => {
-    if (studentInfo && studentInfo.tinhTrangThanhToan === 'Đã thanh toán' && studentInfo.ngayThanhToanGanNhat && classesMap.size > 0) {
-      const paidAmount = calculateTuitionForStudent(studentInfo, classesMap);
-      return [
-        {
-          stt: 1,
-          date: formatDateFn(parseISO(studentInfo.ngayThanhToanGanNhat), "dd/MM/yyyy", { locale: vi }),
-          receiptNo: generateReceiptNumber(),
-          amount: formatCurrencyVND(paidAmount ?? undefined),
-        }
-      ];
-    }
-    return [];
-  }, [studentInfo, classesMap]);
-
   const studentClass = useMemo(() => {
     if (studentInfo && studentInfo.lopId && classesMap.size > 0) {
       return classesMap.get(studentInfo.lopId);
     }
     return undefined;
   }, [studentInfo, classesMap]);
+
+  const displayedPaymentHistory = useMemo(() => {
+    if (studentInfo && studentInfo.tinhTrangThanhToan === 'Đã thanh toán' && studentInfo.ngayThanhToanGanNhat && classesMap.size > 0 && studentClass) {
+      const paidAmount = calculateTuitionForStudent(studentInfo, classesMap);
+      return [
+        {
+          stt: 1,
+          date: formatDateFn(parseISO(studentInfo.ngayThanhToanGanNhat), "dd/MM/yyyy", { locale: vi }),
+          receiptNo: generateReceiptNumber(), // This generates a new number each time, might not be desired for history
+          amount: formatCurrencyVND(paidAmount ?? undefined),
+        }
+      ];
+    }
+    return [];
+  }, [studentInfo, classesMap, studentClass]);
+
 
   const nextPaymentDateText = useMemo(() => {
     return calculateNextPaymentDateDisplay(studentInfo, studentClass);
@@ -198,7 +199,6 @@ export default function PhuHuynhPage() {
 
   const qrAmount = studentInfo && studentInfo.tinhTrangThanhToan !== 'Đã thanh toán' ? (calculateTuitionForStudent(studentInfo, classesMap) ?? 0) : 0;
   const qrInfo = `HP ${studentInfo?.id || ''}`;
-  // VietQR does not support amount 0, so we should not generate QR if amount is 0 or student has paid
   const qrLink = studentInfo && qrAmount > 0 
     ? `https://api.vietqr.io/v2/generate?accountNo=9704229262085470&accountName=Tran Dong Phu&acqId=970422&amount=${qrAmount}&addInfo=${encodeURIComponent(qrInfo)}&template=compact`
     : null;
@@ -248,6 +248,9 @@ export default function PhuHuynhPage() {
                   <InfoRow label="Họ và tên" value={studentInfo.hoTen} />
                   <InfoRow label="Mã HS" value={studentInfo.id} />
                   <InfoRow label="Lớp" value={studentInfo.tenLop || 'N/A'} icon={<School className="h-5 w-5 text-muted-foreground" />} />
+                  {studentClass && studentClass.lichHoc && (
+                    <InfoRow label="Lịch học" value={studentClass.lichHoc.join(', ')} icon={<BookOpen className="h-5 w-5 text-muted-foreground" />} />
+                  )}
                   <InfoRow label="Ngày đăng ký" value={formatDateFn(parseISO(studentInfo.ngayDangKy), "dd/MM/yyyy", {locale: vi})} icon={<CalendarDays className="h-5 w-5 text-muted-foreground" />} />
                 </InfoSection>
 
@@ -390,3 +393,4 @@ const StatBox = ({ label, value, color }: StatBoxProps) => (
     <p className="text-xs">{label}</p>
   </div>
 );
+
