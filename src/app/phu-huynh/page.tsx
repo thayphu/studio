@@ -198,13 +198,17 @@ export default function PhuHuynhPage() {
 
   const qrAmount = studentInfo && studentInfo.tinhTrangThanhToan !== 'Đã thanh toán' ? (calculateTuitionForStudent(studentInfo, classesMap) ?? 0) : 0;
   const qrInfo = `HP ${studentInfo?.id || ''}`;
-  const qrLink = studentInfo && qrAmount > 0
-    ? `https://api.vietqr.io/v2/generate?accountNo=9704229262085470&accountName=Tran Dong Phu&acqId=970422&amount=${qrAmount}&addInfo=${encodeURIComponent(qrInfo)}&template=compact`
+
+  const vietQR_AccountNo = process.env.NEXT_PUBLIC_VIETQR_ACCOUNT_NO || "9704229262085470"; // Default/Example
+  const vietQR_AccountName = process.env.NEXT_PUBLIC_VIETQR_ACCOUNT_NAME || "Tran Dong Phu"; // Default/Example
+  const vietQR_AcqId = process.env.NEXT_PUBLIC_VIETQR_ACQ_ID || "970422"; // Default/Example MB Bank BIN
+
+  const qrLink = studentInfo && qrAmount > 0 && vietQR_AccountNo && vietQR_AcqId
+    ? `https://api.vietqr.io/v2/generate?accountNo=${vietQR_AccountNo}&accountName=${encodeURIComponent(vietQR_AccountName)}&acqId=${vietQR_AcqId}&amount=${qrAmount}&addInfo=${encodeURIComponent(qrInfo)}&template=compact`
     : null;
 
-  // Add this console.log to check the generated qrLink
   useEffect(() => {
-    if (studentInfo) { // Log only when studentInfo is available to avoid spamming
+    if (studentInfo) { 
       console.log("Generated qrLink:", qrLink);
     }
   }, [qrLink, studentInfo]);
@@ -254,12 +258,16 @@ export default function PhuHuynhPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
                     <InfoRow label="Họ và tên" value={studentInfo.hoTen} />
                     <InfoRow label="Mã HS" value={studentInfo.id} />
-                    {studentClass && (
-                      <InfoRow label="Lớp" value={studentInfo.tenLop || 'N/A'} icon={<School className="h-5 w-5 text-muted-foreground" />} />
-                    )}
-                    {studentClass && studentClass.lichHoc && studentClass.lichHoc.length > 0 && (
-                      <InfoRow label="Lịch học" value={studentClass.lichHoc.join(', ')} icon={<BookOpen className="h-5 w-5 text-muted-foreground" />} />
-                    )}
+                    <InfoRow 
+                      label="Lớp" 
+                      value={studentClass?.tenLop || 'N/A'} 
+                      icon={<School className="h-5 w-5 text-muted-foreground" />} 
+                    />
+                    <InfoRow 
+                      label="Lịch học" 
+                      value={studentClass?.lichHoc?.join(', ') || 'N/A'} 
+                      icon={<BookOpen className="h-5 w-5 text-muted-foreground" />} 
+                    />
                     <InfoRow label="Ngày đăng ký" value={formatDateFn(parseISO(studentInfo.ngayDangKy), "dd/MM/yyyy", {locale: vi})} icon={<CalendarDays className="h-5 w-5 text-muted-foreground" />} />
                   </div>
                 </InfoSection>
@@ -327,9 +335,9 @@ export default function PhuHuynhPage() {
                   <InfoSection title="Hướng dẫn thanh toán" icon={<QrCode className="h-6 w-6 text-primary" />}>
                     <p className="font-semibold text-lg mb-2">Thông tin chuyển khoản:</p>
                     <ul className="space-y-1 list-disc list-inside text-muted-foreground">
-                      <li>Số tài khoản: <strong className="text-foreground">9704229262085470</strong></li>
+                      <li>Số tài khoản: <strong className="text-foreground">{vietQR_AccountNo}</strong></li>
                       <li>Ngân hàng: <strong className="text-foreground">Ngân hàng Quân đội (MB Bank)</strong></li>
-                      <li>Chủ tài khoản: <strong className="text-foreground">Tran Dong Phu</strong></li>
+                      <li>Chủ tài khoản: <strong className="text-foreground">{vietQR_AccountName}</strong></li>
                       <li>Nội dung chuyển khoản: <strong className="text-destructive">HP {studentInfo.id}</strong></li>
                       <li>Số tiền cần thanh toán: <strong className="text-destructive">{formatCurrencyVND(calculateTuitionForStudent(studentInfo, classesMap) ?? undefined)}</strong></li>
                     </ul>
