@@ -6,12 +6,12 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Search, UserCircle, School, CalendarDays, FileText, PieChart, QrCode, Loader2, BadgePercent, BookOpen } from 'lucide-react';
-import Image from 'next/image'; // Using next/image
+import Image from 'next/image';
 import type { HocSinh, LopHoc } from '@/lib/types';
 import { getStudentById } from '@/services/hocSinhService';
 import { getClasses } from '@/services/lopHocService';
 import { useToast } from '@/hooks/use-toast';
-import { format as formatDateFn, parseISO, addMonths, addDays, getDay } from 'date-fns';
+import { format as formatDateFn, parseISO, addMonths, addDays, getDay, isEqual } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { formatCurrencyVND, generateReceiptNumber, dayOfWeekToNumber } from '@/lib/utils';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -117,11 +117,7 @@ const calculateNextPaymentDateDisplay = (student: HocSinh | null, studentClass: 
     nextPaymentDate = findNextScheduledDay(nextCycleStartDateAttempt, true);
     console.log(`[PhuHuynhPage] calculateNextPaymentDateDisplay: Monthly cycle. Next cycle start attempt: ${nextCycleStartDateAttempt.toISOString()}. Next payment due from: ${nextPaymentDate?.toISOString()}`);
   } else if (student.chuKyThanhToan === 'Theo ngày') {
-    // For 'Theo ngày', if they paid today, next payment is for the next scheduled day.
-    // If a payment covers today's session, the next payment is for the *next* session.
     let dateToStartLookingFrom = currentCycleStartDate;
-    // If last payment was today and today is a class day, assume it covered today.
-    // So, look for the *next* class day.
     if (isEqual(new Date(currentCycleStartDate).setHours(0,0,0,0), new Date().setHours(0,0,0,0)) && classScheduleDays.includes(getDay(currentCycleStartDate))) {
         dateToStartLookingFrom = addDays(currentCycleStartDate, 1); 
     }
@@ -241,17 +237,16 @@ export default function PhuHuynhPage() {
   const vietQR_AccountNo = process.env.NEXT_PUBLIC_VIETQR_ACCOUNT_NO || "9704229262085470";
   const vietQR_AccountName = process.env.NEXT_PUBLIC_VIETQR_ACCOUNT_NAME || "Tran Dong Phu";
   const vietQR_Template = process.env.NEXT_PUBLIC_VIETQR_TEMPLATE || "compact2";
-  const vietQR_ImageExtension = process.env.NEXT_PUBLIC_VIETQR_IMAGE_EXTENSION || "jpg";
 
 
   const tuitionFee = studentInfo ? calculateTuitionForStudent(studentInfo, classesMap) : null;
   const qrAmount = studentInfo && studentInfo.tinhTrangThanhToan !== 'Đã thanh toán' && tuitionFee && tuitionFee > 0 ? tuitionFee : 0;
   const qrInfo = `HP ${studentInfo?.id || ''}`;
   
-  console.log("[PhuHuynhPage] VietQR Params for static link generation:", { vietQR_BankBin, vietQR_AccountNo, vietQR_AccountName, qrAmount, qrInfo, vietQR_Template, vietQR_ImageExtension });
+  console.log("[PhuHuynhPage] VietQR Params for static link generation:", { vietQR_BankBin, vietQR_AccountNo, vietQR_AccountName, qrAmount, qrInfo, vietQR_Template });
 
   const qrLink = studentInfo && qrAmount > 0 && vietQR_BankBin && vietQR_AccountNo && vietQR_Template
-    ? `https://img.vietqr.io/image/${vietQR_BankBin}-${vietQR_AccountNo}-${vietQR_Template}.${vietQR_ImageExtension}?amount=${qrAmount}&addInfo=${encodeURIComponent(qrInfo)}&accountName=${encodeURIComponent(vietQR_AccountName)}`
+    ? `https://img.vietqr.io/image/${vietQR_BankBin}-${vietQR_AccountNo}-${vietQR_Template}.png?amount=${qrAmount}&addInfo=${encodeURIComponent(qrInfo)}&accountName=${encodeURIComponent(vietQR_AccountName)}`
     : null;
 
   useEffect(() => {
@@ -372,7 +367,7 @@ export default function PhuHuynhPage() {
                     <p className="font-semibold text-lg mb-2">Thông tin chuyển khoản:</p>
                     <ul className="space-y-1 list-disc list-inside text-muted-foreground">
                       <li>Số tài khoản: <strong className="text-foreground">{vietQR_AccountNo}</strong></li>
-                      <li>Ngân hàng: <strong className="text-foreground">Ngân hàng Quân đội (MB Bank)</strong></li> {/* Example, should be dynamic or configurable if bank changes */}
+                      <li>Ngân hàng: <strong className="text-foreground">Ngân hàng Quân đội (MB Bank)</strong></li>
                       <li>Chủ tài khoản: <strong className="text-foreground">{vietQR_AccountName}</strong></li>
                       <li>Nội dung chuyển khoản: <strong className="text-destructive">HP {studentInfo.id}</strong></li>
                       <li>Số tiền cần thanh toán: <strong className="text-destructive">{formatCurrencyVND(qrAmount)}</strong></li>
@@ -386,7 +381,7 @@ export default function PhuHuynhPage() {
                           width={200}
                           height={200}
                           className="mx-auto rounded-lg shadow-md"
-                          priority // Consider adding priority if it's important LCP
+                          priority
                         />
                       ) : (
                         <p className="text-muted-foreground">Không thể tạo mã QR.</p>
