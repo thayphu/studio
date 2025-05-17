@@ -1,19 +1,45 @@
 
 "use client";
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Search, UserCircle, School, CalendarDays, FileText, PieChart, QrCode, Loader2 } from 'lucide-react';
 import Image from 'next/image';
-import type { HocSinh } from '@/lib/types'; // Import HocSinh type
+import type { HocSinh, LopHoc } from '@/lib/types'; // Import HocSinh type
 import { getStudentById } from '@/services/hocSinhService'; // Import the service
+import { getClasses } from '@/services/lopHocService'; // Import getClasses
 import { useToast } from '@/hooks/use-toast';
 import { format as formatDate, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { formatCurrencyVND } from '@/lib/utils';
+import { formatCurrencyVND, generateReceiptNumber } from '@/lib/utils'; // Added generateReceiptNumber
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useQuery } from '@tanstack/react-query';
+
+
+// Helper function to calculate tuition, similar to other pages
+const calculateTuitionForStudent = (student: HocSinh, classesMap: Map<string, LopHoc>): number | null => {
+  if (!student.lopId) return null;
+  const studentClass = classesMap.get(student.lopId);
+  if (!studentClass) return null;
+
+  let tongHocPhi: number;
+  const sessionsInCycleMap: { [key: string]: number | undefined } = {
+    '8 buổi': 8,
+    '10 buổi': 10,
+  };
+  const sessionsInDefinedCycle = sessionsInCycleMap[studentClass.chuKyDongPhi];
+
+  if (sessionsInDefinedCycle) {
+    tongHocPhi = studentClass.hocPhi * sessionsInDefinedCycle;
+  } else if (studentClass.chuKyDongPhi === '1 tháng' || studentClass.chuKyDongPhi === 'Theo ngày') {
+    tongHocPhi = studentClass.hocPhi;
+  } else {
+    tongHocPhi = studentClass.hocPhi; 
+  }
+  return tongHocPhi;
+};
 
 
 export default function PhuHuynhPage() {
@@ -22,6 +48,19 @@ export default function PhuHuynhPage() {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
+  const { data: classesData, isLoading: isLoadingClasses } = useQuery<LopHoc[], Error>({
+    queryKey: ['classes'],
+    queryFn: getClasses,
+  });
+
+  const classesMap = useMemo(() => {
+    const currentClasses = classesData || [];
+    if (currentClasses.length === 0 && !isLoadingClasses) return new Map<string, LopHoc>();
+    const map = new Map<string, LopHoc>();
+    currentClasses.forEach(cls => map.set(cls.id, cls));
+    return map;
+  }, [classesData, isLoadingClasses]);
+
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!studentId.trim()) {
@@ -29,7 +68,7 @@ export default function PhuHuynhPage() {
       return;
     }
     setIsLoading(true);
-    setStudentInfo(null); // Clear previous info
+    setStudentInfo(null); 
 
     try {
       const foundStudent = await getStudentById(studentId.trim());
@@ -48,7 +87,6 @@ export default function PhuHuynhPage() {
     }
   };
 
-  // Placeholder data for sections not yet implemented with real data
   const hocPhiCanDongPlaceholder = "N/A (liên hệ trung tâm)";
   const tongBuoiHocPlaceholder = "--";
   const buoiCoMatPlaceholder = "--";
@@ -57,25 +95,23 @@ export default function PhuHuynhPage() {
   const lichSuDiemDanhPlaceholder: { ngay: string; trangThai: string }[] = [];
   
   const displayedPaymentHistory = useMemo(() => {
-    if (studentInfo && studentInfo.tinhTrangThanhToan === 'Đã thanh toán' && studentInfo.ngayThanhToanGanNhat) {
-      // We don't have the exact amount of the last payment, nor a specific receipt number for it in HocSinh object.
-      // This will show the last payment date and a generic description for amount/receipt.
-      // A full history would require a HocPhiGhiNhan collection.
+    if (studentInfo && studentInfo.tinhTrangThanhToan === 'Đã thanh toán' && studentInfo.ngayThanhToanGanNhat && classesMap.size > 0) {
+      const paidAmount = calculateTuitionForStudent(studentInfo, classesMap);
       return [
         {
           stt: 1,
           date: formatDate(parseISO(studentInfo.ngayThanhToanGanNhat), "dd/MM/yyyy", { locale: vi }),
-          receiptNo: "GD gần nhất", // Placeholder for receipt number
-          amount: "Theo chu kỳ", // Placeholder for amount
+          receiptNo: generateReceiptNumber(), 
+          amount: formatCurrencyVND(paidAmount ?? undefined),
         }
       ];
     }
     return [];
-  }, [studentInfo]);
+  }, [studentInfo, classesMap]);
 
 
-  const qrAmount = 0; // Placeholder amount, actual fee calculation is complex and not yet implemented here
-  const qrInfo = `HP ${studentInfo?.id || ''}`; // Use studentInfo.id
+  const qrAmount = studentInfo ? (calculateTuitionForStudent(studentInfo, classesMap) ?? 0) : 0;
+  const qrInfo = `HP ${studentInfo?.id || ''}`;
   const qrLink = `https://api.vietqr.io/v2/generate?accountNo=9704229262085470&accountName=Tran Dong Phu&acqId=970422&amount=${qrAmount}&addInfo=${encodeURIComponent(qrInfo)}&template=compact`;
 
 
@@ -106,7 +142,7 @@ export default function PhuHuynhPage() {
                 type="text"
                 placeholder="Nhập Mã Học Sinh (VD: 2024001)"
                 value={studentId}
-                onChange={(e) => setStudentId(e.target.value.toUpperCase())} // Auto uppercase for consistency
+                onChange={(e) => setStudentId(e.target.value.toUpperCase())}
                 className="flex-grow text-base h-12"
                 required
               />
@@ -119,7 +155,6 @@ export default function PhuHuynhPage() {
             
             {!isLoading && studentInfo && (
               <div className="space-y-8">
-                {/* Basic Info */}
                 <InfoSection title="Thông tin chung" icon={<UserCircle className="h-6 w-6 text-primary" />}>
                   <InfoRow label="Họ và tên" value={studentInfo.hoTen} />
                   <InfoRow label="Mã HS" value={studentInfo.id} />
@@ -127,14 +162,12 @@ export default function PhuHuynhPage() {
                   <InfoRow label="Ngày đăng ký" value={formatDate(parseISO(studentInfo.ngayDangKy), "dd/MM/yyyy", {locale: vi})} icon={<CalendarDays className="h-5 w-5 text-muted-foreground" />} />
                 </InfoSection>
 
-                {/* Payment Info */}
                 <InfoSection title="Thông tin học phí" icon={<FileText className="h-6 w-6 text-primary" />}>
                   <InfoRow label="Chu kỳ thanh toán" value={studentInfo.chuKyThanhToan} />
                   <InfoRow label="Trạng thái" value={studentInfo.tinhTrangThanhToan} highlight={studentInfo.tinhTrangThanhToan === 'Chưa thanh toán' || studentInfo.tinhTrangThanhToan === 'Quá hạn'} />
-                   <InfoRow label="Học phí cần đóng" value={hocPhiCanDongPlaceholder} highlight={studentInfo.tinhTrangThanhToan !== 'Đã thanh toán'} />
+                   <InfoRow label="Học phí cần đóng" value={studentInfo.tinhTrangThanhToan !== 'Đã thanh toán' ? formatCurrencyVND(calculateTuitionForStudent(studentInfo, classesMap) ?? undefined) : "Đã hoàn tất"} highlight={studentInfo.tinhTrangThanhToan !== 'Đã thanh toán'} />
                 </InfoSection>
 
-                {/* Attendance Stats */}
                  <InfoSection title="Thống kê điểm danh (Toàn khóa)" icon={<PieChart className="h-6 w-6 text-primary" />}>
                    <p className="text-xs text-muted-foreground text-center mb-2">(Dữ liệu thống kê chi tiết đang được cập nhật)</p>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
@@ -145,7 +178,6 @@ export default function PhuHuynhPage() {
                   </div>
                 </InfoSection>
 
-                {/* Attendance History */}
                 <InfoSection title="Lịch sử điểm danh (Gần đây)" icon={<CalendarDays className="h-6 w-6 text-primary" />}>
                   {lichSuDiemDanhPlaceholder.length > 0 ? (
                     <ul className="space-y-2">
@@ -159,7 +191,6 @@ export default function PhuHuynhPage() {
                   ) : <p className="text-muted-foreground">Chưa có lịch sử điểm danh chi tiết để hiển thị.</p>}
                 </InfoSection>
 
-                {/* Payment History */}
                 <InfoSection title="Lịch sử thanh toán" icon={<FileText className="h-6 w-6 text-primary" />}>
                    {displayedPaymentHistory.length > 0 ? (
                     <div className="overflow-x-auto">
@@ -187,7 +218,6 @@ export default function PhuHuynhPage() {
                   ) : <p className="text-muted-foreground">Chưa có lịch sử thanh toán chi tiết để hiển thị.</p>}
                 </InfoSection>
 
-                {/* Payment Instructions */}
                 {(studentInfo.tinhTrangThanhToan === 'Chưa thanh toán' || studentInfo.tinhTrangThanhToan === 'Quá hạn') && (
                   <InfoSection title="Hướng dẫn thanh toán" icon={<QrCode className="h-6 w-6 text-primary" />}>
                     <p className="font-semibold text-lg mb-2">Thông tin chuyển khoản:</p>
@@ -196,7 +226,7 @@ export default function PhuHuynhPage() {
                       <li>Ngân hàng: <strong className="text-foreground">Ngân hàng Quân đội (MB Bank)</strong></li>
                       <li>Chủ tài khoản: <strong className="text-foreground">Tran Dong Phu</strong></li>
                       <li>Nội dung chuyển khoản: <strong className="text-destructive">HP {studentInfo.id}</strong></li>
-                      <li>Số tiền cần thanh toán: <strong className="text-destructive">{hocPhiCanDongPlaceholder}</strong></li>
+                      <li>Số tiền cần thanh toán: <strong className="text-destructive">{formatCurrencyVND(calculateTuitionForStudent(studentInfo, classesMap) ?? undefined)}</strong></li>
                     </ul>
                     <div className="mt-6 text-center">
                       <p className="mb-2 font-medium">Hoặc quét mã QR (chứa nội dung chuyển khoản):</p>
