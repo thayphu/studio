@@ -122,6 +122,9 @@ export const getDailyAttendanceSummary = async (
   const formattedDate = format(date, 'yyyyMMdd');
   console.log(`[diemDanhService] Firestore Fetching daily attendance summary for date ${formattedDate}`);
 
+  // PERFORMANCE WARNING: This query fetches ALL attendance records for a specific date.
+  // If there are many classes and students, this could be a large read operation.
+  // Consider server-side aggregation or more targeted queries if performance issues arise.
   const attendanceQuery = query(
     collection(db, DIEM_DANH_COLLECTION),
     where("ngayDiemDanh", "==", formattedDate)
@@ -161,6 +164,9 @@ export const getDailyAttendanceSummary = async (
 export const getOverallAttendanceSummary = async (): Promise<{ totalPresent: number; totalAbsent: number }> => {
   console.log(`[diemDanhService] Firestore Fetching overall attendance summary`);
 
+  // PERFORMANCE WARNING: This query fetches ALL documents in the DIEM_DANH_COLLECTION.
+  // For large datasets, this can be very slow and costly.
+  // Consider using server-side aggregation (e.g., Cloud Functions with counters) for better performance.
   const attendanceQuery = query(collection(db, DIEM_DANH_COLLECTION));
 
   let totalPresent = 0;
@@ -181,8 +187,6 @@ export const getOverallAttendanceSummary = async (): Promise<{ totalPresent: num
     return { totalPresent, totalAbsent };
   } catch (error) {
     console.error(`[diemDanhService] Error fetching overall attendance summary:`, error);
-    // This query is on the whole collection without filters, so index issues are less likely unless ordering is added.
-    // However, other issues like permissions could occur.
     throw error;
   }
 };
@@ -232,3 +236,4 @@ export const getDetailedAttendanceForDate = async (
     throw error;
   }
 };
+
