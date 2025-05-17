@@ -12,14 +12,14 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useQuery } from '@tanstack/react-query';
 import { getStudents } from '@/services/hocSinhService';
 import { getClasses } from '@/services/lopHocService';
-import { getOverallAttendanceSummary, getDetailedAttendanceForDate } from '@/services/diemDanhService'; // Updated import
+import { getOverallAttendanceSummary, getDetailedAttendanceForDate } from '@/services/diemDanhService';
 import { getTeacherAbsentDaysSummary } from '@/services/giaoVienVangService';
 import type { HocSinh, LopHoc, AttendanceStatus, DiemDanhGhiNhan, GiaoVienVangRecord } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Users, UserCheck, UserX, CalendarOff, LineChart, Archive, AlertCircle, BookCopy, DollarSign, CalendarDays, BadgeDollarSign } from 'lucide-react';
 import { format, parse } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { formatCurrencyVND } from '@/lib/utils';
+import { formatCurrencyVND, cn } from '@/lib/utils';
 
 type ModalType = 
   | 'totalStudents' 
@@ -66,7 +66,7 @@ export default function BaoCaoPage() {
   const [modalType, setModalType] = useState<ModalType | null>(null);
   const [modalTitle, setModalTitle] = useState('');
   const [modalData, setModalData] = useState<ModalData>({});
-  const [selectedDateForStats] = useState(new Date()); // For modal details for "today"
+  const [selectedDateForStats] = useState(new Date()); 
 
   const { data: students = [], isLoading: isLoadingStudents, isError: isErrorStudents } = useQuery<HocSinh[], Error>({
     queryKey: ['students'],
@@ -306,8 +306,15 @@ export default function BaoCaoPage() {
     }
   };
   
-  const StatCard = ({ title, value, icon, isLoading, onClick, description, error }: { title: string, value: string | number, icon: React.ReactNode, isLoading: boolean, onClick?: () => void, description?: string, error?: boolean }) => (
-    <Card className={`shadow-md hover:shadow-lg transition-shadow ${onClick ? 'cursor-pointer' : ''} ${error ? 'border-destructive bg-destructive/10' : ''}`} onClick={onClick}>
+  const StatCard = ({ title, value, icon, isLoading, onClick, description, error, baseBackgroundColor }: { title: string, value: string | number, icon: React.ReactNode, isLoading: boolean, onClick?: () => void, description?: string, error?: boolean, baseBackgroundColor?: string }) => (
+    <Card 
+      className={cn(
+        'shadow-md hover:shadow-lg transition-shadow',
+        onClick ? 'cursor-pointer' : '',
+        error ? 'border-destructive bg-destructive/10' : (baseBackgroundColor || '') 
+      )} 
+      onClick={onClick}
+    >
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium text-foreground">{title}</CardTitle>
         {icon}
@@ -348,6 +355,7 @@ export default function BaoCaoPage() {
                 isLoading={isLoadingStudents}
                 onClick={() => openModal('totalStudents', 'Danh sách tổng số học sinh', { students })}
                 error={isErrorStudents}
+                baseBackgroundColor="bg-sky-100 dark:bg-sky-900/30"
               />
               <StatCard 
                 title="Tổng số lượt HS Có mặt"
@@ -357,6 +365,7 @@ export default function BaoCaoPage() {
                 onClick={() => openModal('presentStudents', `Học sinh có mặt - ${format(selectedDateForStats, 'dd/MM/yyyy')}`)}
                 description={`Chi tiết cho ngày: ${format(selectedDateForStats, 'dd/MM')}`}
                 error={isErrorOverallAttendance}
+                baseBackgroundColor="bg-emerald-100 dark:bg-emerald-900/30"
               />
               <StatCard 
                 title="Tổng số lượt HS Vắng mặt"
@@ -366,6 +375,7 @@ export default function BaoCaoPage() {
                 onClick={() => openModal('absentStudents', `Học sinh vắng mặt - ${format(selectedDateForStats, 'dd/MM/yyyy')}`)}
                 description={`Chi tiết cho ngày: ${format(selectedDateForStats, 'dd/MM')}`}
                 error={isErrorOverallAttendance}
+                baseBackgroundColor="bg-rose-100 dark:bg-rose-900/30"
               />
               <StatCard 
                 title="Số ngày GV vắng" 
@@ -374,6 +384,7 @@ export default function BaoCaoPage() {
                 isLoading={isLoadingTeacherAbsentSummary}
                 onClick={() => openModal('teacherAbsentDays', 'Chi tiết các ngày GV vắng', { teacherAbsentRecords: teacherAbsentSummary?.records })}
                 error={isErrorTeacherAbsentSummary}
+                baseBackgroundColor="bg-amber-100 dark:bg-amber-900/30"
               />
             </div>
           </TabsContent>
@@ -388,6 +399,7 @@ export default function BaoCaoPage() {
                 onClick={() => openModal('revenueCollected', 'Chi tiết học phí đã thu (ước tính)', { financialData: financialStats.collectedDetails })}
                 description="Dựa trên trạng thái 'Đã thanh toán' của HS."
                 error={isErrorStudents || isErrorClasses}
+                baseBackgroundColor="bg-teal-100 dark:bg-teal-900/30"
               />
               <StatCard 
                 title="Số tiền dự kiến thu (ước tính)" 
@@ -397,6 +409,7 @@ export default function BaoCaoPage() {
                 onClick={() => openModal('revenueExpected', 'Chi tiết học phí dự kiến thu (ước tính)', { financialData: financialStats.expectedDetails })}
                 description="Dựa trên HS 'Chưa TT' & 'Quá hạn'."
                 error={isErrorStudents || isErrorClasses}
+                baseBackgroundColor="bg-violet-100 dark:bg-violet-900/30"
               />
             </div>
             <Card className="mt-6 shadow-md">
