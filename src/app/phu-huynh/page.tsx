@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,6 +13,8 @@ import { useToast } from '@/hooks/use-toast';
 import { format as formatDate, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { formatCurrencyVND } from '@/lib/utils';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+
 
 export default function PhuHuynhPage() {
   const [studentId, setStudentId] = useState('');
@@ -53,7 +55,23 @@ export default function PhuHuynhPage() {
   const buoiVangPlaceholder = "--";
   const buoiGVVangPlaceholder = "--";
   const lichSuDiemDanhPlaceholder: { ngay: string; trangThai: string }[] = [];
-  const lichSuThanhToanPlaceholder: any[] = [];
+  
+  const displayedPaymentHistory = useMemo(() => {
+    if (studentInfo && studentInfo.tinhTrangThanhToan === 'Đã thanh toán' && studentInfo.ngayThanhToanGanNhat) {
+      // We don't have the exact amount of the last payment, nor a specific receipt number for it in HocSinh object.
+      // This will show the last payment date and a generic description for amount/receipt.
+      // A full history would require a HocPhiGhiNhan collection.
+      return [
+        {
+          stt: 1,
+          date: formatDate(parseISO(studentInfo.ngayThanhToanGanNhat), "dd/MM/yyyy", { locale: vi }),
+          receiptNo: "GD gần nhất", // Placeholder for receipt number
+          amount: "Theo chu kỳ", // Placeholder for amount
+        }
+      ];
+    }
+    return [];
+  }, [studentInfo]);
 
 
   const qrAmount = 0; // Placeholder amount, actual fee calculation is complex and not yet implemented here
@@ -143,15 +161,29 @@ export default function PhuHuynhPage() {
 
                 {/* Payment History */}
                 <InfoSection title="Lịch sử thanh toán" icon={<FileText className="h-6 w-6 text-primary" />}>
-                   {lichSuThanhToanPlaceholder.length > 0 ? (
-                    <ul className="space-y-2">
-                      {lichSuThanhToanPlaceholder.map((item: any, index: number) => (
-                        <li key={index} className="flex justify-between p-2 bg-gray-50 rounded-md">
-                          <span>{item.ngayThanhToan} - HĐ: {item.hoaDonSo}</span>
-                          <span className="font-medium text-green-600">{formatCurrencyVND(item.soTien)}</span>
-                        </li>
-                      ))}
-                    </ul>
+                   {displayedPaymentHistory.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <Table className="min-w-full">
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-[50px]">STT</TableHead>
+                            <TableHead>Ngày thanh toán</TableHead>
+                            <TableHead>Số biên nhận</TableHead>
+                            <TableHead className="text-right">Số tiền</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {displayedPaymentHistory.map((item, index) => (
+                            <TableRow key={index}>
+                              <TableCell>{item.stt}</TableCell>
+                              <TableCell>{item.date}</TableCell>
+                              <TableCell>{item.receiptNo}</TableCell>
+                              <TableCell className="text-right">{item.amount}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
                   ) : <p className="text-muted-foreground">Chưa có lịch sử thanh toán chi tiết để hiển thị.</p>}
                 </InfoSection>
 
@@ -238,3 +270,4 @@ const StatBox = ({ label, value, color }: StatBoxProps) => (
     <p className="text-xs">{label}</p>
   </div>
 );
+
