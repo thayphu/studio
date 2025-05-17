@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { PlusCircle, Edit2, Trash2, Search, RefreshCw } from 'lucide-react';
 import { TEXTS_VI } from '@/lib/constants';
 import { useToast } from '@/hooks/use-toast';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'; // Removed DialogTrigger for manual control
 import {
   AlertDialog,
   AlertDialogAction,
@@ -77,13 +77,11 @@ function HocSinhPageContent() {
     if (classId) {
       console.log("[HocSinhPage] ClassId from URL detected:", classId);
       setInitialClassIdFromUrl(classId);
-      // Open the add student modal, not edit
       setEditingStudent(null);
       setIsEditStudentModalOpen(false);
-      setIsAddStudentModalOpen(true);
+      setIsAddStudentModalOpen(true); // Open Add dialog
       console.log("[HocSinhPage] Attempting to open AddStudentModal for classId:", classId);
-      // Remove classId from URL to prevent re-triggering on refresh or manual dialog open
-      router.replace('/hoc-sinh', { scroll: false });
+      router.replace('/hoc-sinh', { scroll: false }); // Remove classId from URL
     }
   }, [searchParams, router]);
   
@@ -106,7 +104,7 @@ function HocSinhPageContent() {
         await recalculateAndUpdateClassStudentCount(addedStudent.lopId);
         queryClient.invalidateQueries({ queryKey: ['classes'] }); 
       }
-      closeDialogs(); // Close dialog and reset initialClassIdFromUrl
+      closeDialogs();
       toast({
         title: "Thêm học sinh thành công!",
         description: `Học sinh "${addedStudent.hoTen}" đã được thêm với mã HS: ${addedStudent.id}.`,
@@ -192,13 +190,14 @@ function HocSinhPageContent() {
 
   const handleAddStudentSubmit = (newStudentDataFromForm: HocSinh) => {
     const { id: studentId, ...restOfData } = newStudentDataFromForm;
+    // Ensure correct type for what addStudent service expects
     const studentDataForAdd: Omit<HocSinh, 'id' | 'tenLop' | 'tinhTrangThanhToan' | 'ngayThanhToanGanNhat' | 'soBuoiDaHocTrongChuKy'> = {
       hoTen: restOfData.hoTen,
-      ngaySinh: restOfData.ngaySinh,
+      ngaySinh: restOfData.ngaySinh, // Already ISO string from form
       diaChi: restOfData.diaChi,
       soDienThoai: restOfData.soDienThoai,
       lopId: restOfData.lopId,
-      ngayDangKy: restOfData.ngayDangKy,
+      ngayDangKy: restOfData.ngayDangKy, // Already ISO string from form
       chuKyThanhToan: restOfData.chuKyThanhToan,
     };
     addStudentMutation.mutate({ studentData: studentDataForAdd, studentId });
@@ -211,7 +210,7 @@ function HocSinhPageContent() {
 
   const handleOpenAddStudentModal = () => {
     console.log("[HocSinhPage] handleOpenAddStudentModal called (manual open).");
-    setInitialClassIdFromUrl(null); // Ensure no pre-selection if opened manually
+    setInitialClassIdFromUrl(null); // Reset if opened manually
     setEditingStudent(null);
     setIsEditStudentModalOpen(false); 
     setIsAddStudentModalOpen(true);
@@ -283,10 +282,9 @@ function HocSinhPageContent() {
         
         <Dialog open={isAddStudentModalOpen || isEditStudentModalOpen} onOpenChange={(open) => {
           if (!open) closeDialogs();
-          // Explicitly set modal states based on which one was intended to be open
-          // This can prevent issues if onOpenChange is called unexpectedly
-          else if (editingStudent) setIsEditStudentModalOpen(true);
-          else setIsAddStudentModalOpen(true);
+          // This part is tricky with two separate states for dialogs.
+          // The `open` prop of Dialog should ideally be controlled by a single state or derived state.
+          // For now, `closeDialogs` handles resetting both.
         }}>
           <DialogContent className="sm:max-w-[600px]">
             <DialogHeader>
@@ -297,7 +295,7 @@ function HocSinhPageContent() {
                 {isEditStudentModalOpen && editingStudent ? "Cập nhật các thông tin dưới đây cho học sinh." : "Điền đầy đủ thông tin để thêm học sinh vào hệ thống."}
               </DialogDescription>
             </DialogHeader>
-            {isLoadingClasses && (isAddStudentModalOpen || isEditStudentModalOpen) ? (
+            {(isLoadingClasses && (isAddStudentModalOpen || (isEditStudentModalOpen && editingStudent))) ? (
               <div className="p-6 text-center">Đang tải danh sách lớp...</div>
             ) : ( (isAddStudentModalOpen || (isEditStudentModalOpen && editingStudent)) &&
               <AddStudentForm
@@ -308,6 +306,7 @@ function HocSinhPageContent() {
                 isEditing={isEditStudentModalOpen && !!editingStudent}
                 isSubmitting={addStudentMutation.isPending || updateStudentMutation.isPending}
                 initialClassId={initialClassIdFromUrl}
+                isLoadingClasses={isLoadingClasses} // Pass isLoadingClasses
               />
             )}
           </DialogContent>

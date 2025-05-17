@@ -59,6 +59,7 @@ interface AddStudentFormProps {
   isEditing?: boolean;
   isSubmitting?: boolean;
   initialClassId?: string | null;
+  isLoadingClasses?: boolean; // Added prop
 }
 
 const capitalizeWords = (str: string): string => {
@@ -78,6 +79,7 @@ export default function AddStudentForm({
   isEditing = false, 
   isSubmitting = false,
   initialClassId = null,
+  isLoadingClasses = false, // Added prop with default
 }: AddStudentFormProps) {
   const { toast } = useToast();
   const [displayStudentId, setDisplayStudentId] = React.useState('');
@@ -90,7 +92,7 @@ export default function AddStudentForm({
   const selectedLopId = form.watch('lopId');
 
   React.useEffect(() => {
-    console.log("[AddStudentForm] useEffect for form init/reset triggered. isEditing:", isEditing, "initialData:", initialData, "initialClassId:", initialClassId);
+    console.log("[AddStudentForm] useEffect for form init/reset triggered. isEditing:", isEditing, "initialData:", initialData, "initialClassId:", initialClassId, "existingClasses count:", existingClasses?.length);
     if (isEditing && initialData) {
       console.log("[AddStudentForm] Setting form for EDIT mode. Student ID:", initialData.id);
       setDisplayStudentId(initialData.id);
@@ -109,7 +111,7 @@ export default function AddStudentForm({
       setDisplayStudentId(newStudentId);
 
       let defaultLopId = "";
-      let defaultChuKyThanhToan: PaymentCycle = "1 tháng";
+      let defaultChuKyThanhToan: PaymentCycle = "1 tháng"; // Fallback payment cycle
 
       if (initialClassId && existingClasses && existingClasses.length > 0) {
         const selectedClass = existingClasses.find(cls => cls.id === initialClassId);
@@ -118,22 +120,22 @@ export default function AddStudentForm({
           defaultChuKyThanhToan = selectedClass.chuKyDongPhi;
           console.log(`[AddStudentForm] Pre-filling for Add mode. Class: ${selectedClass.tenLop} (ID: ${defaultLopId}), Payment Cycle: ${defaultChuKyThanhToan}`);
         } else {
-          console.warn(`[AddStudentForm] Initial class ID "${initialClassId}" provided but not found in existing classes. Using defaults for payment cycle, but will use initialClassId for lopId if it was passed.`);
+          console.warn(`[AddStudentForm] Initial class ID "${initialClassId}" provided but not found in existing classes. Setting lopId to initialClassId, using fallback payment cycle.`);
           defaultLopId = initialClassId; // Still attempt to set lopId if initialClassId was passed
         }
       } else if (initialClassId) {
           defaultLopId = initialClassId; // Set lopId if initialClassId is passed, even if class details for cycle aren't found yet
-          console.warn(`[AddStudentForm] Initial class ID "${initialClassId}" provided, but existingClasses is empty or not yet loaded. Setting lopId, using default payment cycle.`);
+          console.warn(`[AddStudentForm] Initial class ID "${initialClassId}" provided, but existingClasses is empty or not yet loaded. Setting lopId, using fallback payment cycle.`);
       } else {
-        console.log("[AddStudentForm] No initialClassId provided for Add mode. Using default empty lopId.");
+        console.log("[AddStudentForm] No initialClassId provided for Add mode. Using default empty lopId and fallback payment cycle.");
       }
-
+      
       form.reset({
         hoTen: "",
-        ngaySinh: "",
+        ngaySinh: "", // DD/MM/YYYY format
         diaChi: "",
         soDienThoai: "",
-        lopId: defaultLopId,
+        lopId: defaultLopId, // Will be an empty string if no initialClassId
         ngayDangKy: new Date(),
         chuKyThanhToan: defaultChuKyThanhToan,
       });
@@ -144,16 +146,24 @@ export default function AddStudentForm({
   React.useEffect(() => {
     // This effect updates the payment cycle if the class is changed *manually* in the form,
     // and it's not in edit mode, and the manually selected lopId is different from any initialClassId.
+    // Or if it IS in add mode, initialClassId IS set, but existingClasses was not available during the first effect run.
     const currentLopIdValue = form.getValues('lopId');
-    if (!isEditing && currentLopIdValue && currentLopIdValue !== initialClassId && existingClasses && existingClasses.length > 0) {
-      console.log(`[AddStudentForm] Manual class selection changed to: ${currentLopIdValue}. initialClassId was: ${initialClassId}`);
-      const selectedClass = existingClasses.find(cls => cls.id === currentLopIdValue);
-      if (selectedClass && selectedClass.chuKyDongPhi !== form.getValues('chuKyThanhToan')) {
-        console.log(`[AddStudentForm] Auto-updating payment cycle to: ${selectedClass.chuKyDongPhi} for class ${selectedClass.tenLop}`);
-        form.setValue('chuKyThanhToan', selectedClass.chuKyDongPhi, { shouldValidate: true });
-      }
+
+    if (!isEditing && currentLopIdValue && existingClasses && existingClasses.length > 0) {
+        const selectedClass = existingClasses.find(cls => cls.id === currentLopIdValue);
+        if (selectedClass && selectedClass.chuKyDongPhi !== form.getValues('chuKyThanhToan')) {
+            // Only update if the class's payment cycle is different from the current form value.
+            // This helps preserve manual changes to payment cycle if the user selected a class then changed cycle.
+            // However, for the auto-fill scenario (initialClassId), we usually want the class's cycle.
+            // This condition prioritizes class's cycle if it was auto-selected via initialClassId
+            // OR if user manually changes class.
+            if (initialClassId === currentLopIdValue || form.getValues('chuKyThanhToan') !== selectedClass.chuKyDongPhi) {
+                 console.log(`[AddStudentForm] Auto-updating payment cycle to: ${selectedClass.chuKyDongPhi} for class ${selectedClass.tenLop}`);
+                 form.setValue('chuKyThanhToan', selectedClass.chuKyDongPhi, { shouldValidate: true });
+            }
+        }
     }
-  }, [form.watch('lopId'), existingClasses, isEditing, initialClassId, form]);
+  }, [selectedLopId, existingClasses, isEditing, initialClassId, form]);
 
 
   function handleSubmit(data: StudentFormInputValues) {
