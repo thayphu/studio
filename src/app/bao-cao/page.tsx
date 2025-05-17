@@ -306,7 +306,17 @@ export default function BaoCaoPage() {
     }
   };
   
-  const StatCard = ({ title, value, icon, isLoading, onClick, description, error, baseBackgroundColor }: { title: string, value: string | number, icon: React.ReactNode, isLoading: boolean, onClick?: () => void, description?: string, error?: boolean, baseBackgroundColor?: string }) => (
+  const StatCard = ({ title, value, icon, isLoading, onClick, description, error, baseBackgroundColor, valueTextColor }: { 
+    title: string, 
+    value: string | number, 
+    icon: React.ReactNode, 
+    isLoading: boolean, 
+    onClick?: () => void, 
+    description?: string, 
+    error?: boolean, 
+    baseBackgroundColor?: string,
+    valueTextColor?: string // New prop
+  }) => (
     <Card 
       className={cn(
         'shadow-md hover:shadow-lg transition-shadow',
@@ -325,7 +335,7 @@ export default function BaoCaoPage() {
         ) : error ? (
            <div className="text-2xl font-bold text-destructive">Lỗi</div>
         ) : (
-          <div className="text-2xl font-bold text-primary">{value}</div>
+          <div className={cn("text-2xl font-bold", valueTextColor || "text-primary")}>{value}</div>
         )}
         {description && !isLoading && !error && <p className="text-xs text-muted-foreground">{description}</p>}
          {error && <p className="text-xs text-destructive-foreground">Không thể tải dữ liệu</p>}
@@ -356,6 +366,7 @@ export default function BaoCaoPage() {
                 onClick={() => openModal('totalStudents', 'Danh sách tổng số học sinh', { students })}
                 error={isErrorStudents}
                 baseBackgroundColor="bg-sky-100 dark:bg-sky-900/30"
+                valueTextColor="text-sky-700 dark:text-sky-200"
               />
               <StatCard 
                 title="Tổng số lượt HS Có mặt"
@@ -366,6 +377,7 @@ export default function BaoCaoPage() {
                 description={`Chi tiết cho ngày: ${format(selectedDateForStats, 'dd/MM')}`}
                 error={isErrorOverallAttendance}
                 baseBackgroundColor="bg-emerald-100 dark:bg-emerald-900/30"
+                valueTextColor="text-emerald-700 dark:text-emerald-200"
               />
               <StatCard 
                 title="Tổng số lượt HS Vắng mặt"
@@ -376,6 +388,7 @@ export default function BaoCaoPage() {
                 description={`Chi tiết cho ngày: ${format(selectedDateForStats, 'dd/MM')}`}
                 error={isErrorOverallAttendance}
                 baseBackgroundColor="bg-rose-100 dark:bg-rose-900/30"
+                valueTextColor="text-rose-700 dark:text-rose-200"
               />
               <StatCard 
                 title="Số ngày GV vắng" 
@@ -385,6 +398,7 @@ export default function BaoCaoPage() {
                 onClick={() => openModal('teacherAbsentDays', 'Chi tiết các ngày GV vắng', { teacherAbsentRecords: teacherAbsentSummary?.records })}
                 error={isErrorTeacherAbsentSummary}
                 baseBackgroundColor="bg-amber-100 dark:bg-amber-900/30"
+                valueTextColor="text-amber-700 dark:text-amber-200"
               />
             </div>
           </TabsContent>
@@ -400,6 +414,7 @@ export default function BaoCaoPage() {
                 description="Dựa trên trạng thái 'Đã thanh toán' của HS."
                 error={isErrorStudents || isErrorClasses}
                 baseBackgroundColor="bg-teal-100 dark:bg-teal-900/30"
+                valueTextColor="text-teal-700 dark:text-teal-200"
               />
               <StatCard 
                 title="Số tiền dự kiến thu (ước tính)" 
@@ -410,6 +425,7 @@ export default function BaoCaoPage() {
                 description="Dựa trên HS 'Chưa TT' & 'Quá hạn'."
                 error={isErrorStudents || isErrorClasses}
                 baseBackgroundColor="bg-violet-100 dark:bg-violet-900/30"
+                valueTextColor="text-violet-700 dark:text-violet-200"
               />
             </div>
             <Card className="mt-6 shadow-md">
@@ -474,3 +490,5 @@ export default function BaoCaoPage() {
     </DashboardLayout>
   );
 }
+
+
