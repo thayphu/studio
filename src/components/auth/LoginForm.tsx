@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { TEXTS_VI, ADMIN_USERNAME, ADMIN_PASSWORD_TEMP } from '@/lib/constants';
+import { TEXTS_VI } from '@/lib/constants';
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
@@ -45,8 +45,12 @@ export default function LoginForm() {
   function onSubmit(data: LoginFormValues) {
     setIsLoading(true);
     // Simulate API call
+    // In a real app, replace these with environment variables or a proper auth system
+    const adminUsername = process.env.NEXT_PUBLIC_ADMIN_USERNAME || "default_admin";
+    const adminPassword = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || "default_password";
+
     setTimeout(() => {
-      if (data.username === ADMIN_USERNAME && data.password === ADMIN_PASSWORD_TEMP) {
+      if (data.username === adminUsername && data.password === adminPassword) {
         toast({
           title: "Đăng nhập thành công!",
           description: "Chào mừng Đông Phú quay trở lại.",
@@ -62,6 +66,17 @@ export default function LoginForm() {
       setIsLoading(false);
     }, 1000);
   }
+
+  const handleForgotPassword = () => {
+    // For the current simple auth, a full "Forgot Password" is not feasible.
+    // This placeholder provides user feedback.
+    // For a real application, integrate with Firebase Authentication or a similar service.
+    toast({
+      title: "Quên mật khẩu?",
+      description: "Vui lòng liên hệ quản trị viên để được hỗ trợ đặt lại mật khẩu.",
+      duration: 5000,
+    });
+  };
 
   return (
     <Card className="shadow-xl">
@@ -113,6 +128,18 @@ export default function LoginForm() {
                 </FormItem>
               )}
             />
+            <div className="flex items-center justify-between">
+              {/* Placeholder for "Remember me" if needed in the future */}
+              <div></div>
+              <Button 
+                type="button" 
+                variant="link" 
+                className="px-0 text-sm text-muted-foreground hover:text-primary"
+                onClick={handleForgotPassword}
+              >
+                Quên mật khẩu?
+              </Button>
+            </div>
             <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isLoading}>
               {isLoading ? "Đang xử lý..." : TEXTS_VI.loginButton}
             </Button>
