@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription as ShadCardDescription } from "@/components/ui/card"; // Renamed DialogTitle to avoid conflict
-import { Dialog, DialogContent, DialogHeader, DialogTitle as ShadDialogTitle, DialogDescription } from '@/components/ui/dialog'; // Renamed DialogTitle to avoid conflict
+import { Dialog, DialogContent, DialogHeader, DialogTitle as ShadDialogTitle, DialogDescription, DialogClose } from '@/components/ui/dialog'; // Renamed DialogTitle to avoid conflict
 import {
   AlertDialog,
   AlertDialogAction,
@@ -246,9 +246,9 @@ export default function HocPhiPage() {
         </div>
 
         <Tabs defaultValue="unpaid" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 md:w-1/2 mb-6">
-            <TabsTrigger value="unpaid">Chưa thanh toán ({unpaidStudents.length})</TabsTrigger>
-            <TabsTrigger value="paid">Đã thanh toán ({paidStudents.length})</TabsTrigger>
+          <TabsList className="grid w-full md:w-auto md:max-w-sm grid-cols-2 mb-6 bg-primary/10 p-1 rounded-lg">
+            <TabsTrigger value="unpaid" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-primary/20 hover:text-primary focus-visible:ring-primary/50">Chưa thanh toán ({unpaidStudents.length})</TabsTrigger>
+            <TabsTrigger value="paid" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-primary/20 hover:text-primary focus-visible:ring-primary/50">Đã thanh toán ({paidStudents.length})</TabsTrigger>
           </TabsList>
           
           <TabsContent value="unpaid">
@@ -459,6 +459,13 @@ export default function HocPhiPage() {
                 paidAmount={currentPaidAmountForReceipt} 
                 classSchedule={classScheduleForReceipt}
               />
+              <DialogFooter className="sm:justify-start p-4 border-t">
+                <DialogClose asChild>
+                    <Button type="button" variant="outline">
+                        Đóng
+                    </Button>
+                </DialogClose>
+              </DialogFooter>
             </DialogContent>
           </Dialog>
         )}

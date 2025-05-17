@@ -8,7 +8,7 @@ import { getClasses } from '@/services/lopHocService';
 import { getStudentsByClassId } from '@/services/hocSinhService';
 import { getAttendanceForClassOnDate, saveAttendance } from '@/services/diemDanhService';
 import { createGiaoVienVangRecord, getPendingMakeupClasses, deleteGiaoVienVangRecordByClassAndDate, scheduleMakeupClass, getScheduledMakeupSessionsForDate } from '@/services/giaoVienVangService';
-import type { LopHoc, DayOfWeek, HocSinh, AttendanceStatus, GiaoVienVangRecord } from '@/lib/types';
+import type { LopHoc, DayOfWeek, HocSinh, AttendanceStatus, GiaoVienVangRecord, MakeupClassStatus } from '@/lib/types';
 import { ALL_DAYS_OF_WEEK } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { RefreshCw, AlertCircle, CalendarIcon, ListChecks, CalendarPlus, Pencil, Trash2, Edit, Edit3 } from 'lucide-react';
@@ -95,15 +95,26 @@ export default function DiemDanhPage() {
   }, [selectedDate]);
 
   const classesToDisplay = useMemo((): DisplayableClassForAttendance[] => {
-    if (!classes || !currentDisplayDayOfWeek || !isClient) return [];
+    console.log(`[DiemDanhPage] Recalculating classesToDisplay. Selected Date: ${selectedDate.toISOString()}`);
+    if (!classes || !currentDisplayDayOfWeek || !isClient) {
+        console.log(`[DiemDanhPage] classesToDisplay pre-condition fail: classes: ${!!classes}, currentDisplayDayOfWeek: ${currentDisplayDayOfWeek}, isClient: ${isClient}`);
+        return [];
+    }
+    console.log(`[DiemDanhPage] classes:`, classes.map(c => ({id: c.id, tenLop: c.tenLop, trangThai: c.trangThai, lichHoc: c.lichHoc})));
+    console.log(`[DiemDanhPage] currentDisplayDayOfWeek: ${currentDisplayDayOfWeek}`);
+    console.log(`[DiemDanhPage] scheduledMakeupSessionsForSelectedDate:`, scheduledMakeupSessionsForSelectedDate);
+
 
     const finalClasses: DisplayableClassForAttendance[] = [];
-    const processedClassIds = new Set<string>(); // To ensure a class is added only once if it's a makeup
+    const processedClassIds = new Set<string>(); 
 
-    // Prioritize makeup sessions scheduled for the selectedDate
+    console.log("[DiemDanhPage] Processing scheduled makeup sessions...");
     scheduledMakeupSessionsForSelectedDate.forEach(record => {
+        console.log("[DiemDanhPage] Makeup record:", record);
         const makeupClass = classes.find(cls => cls.id === record.classId);
+        console.log("[DiemDanhPage] Found makeupClass:", makeupClass);
         if (makeupClass && makeupClass.trangThai === 'Đang hoạt động') {
+            console.log(`[DiemDanhPage] Adding makeup session for class: ${makeupClass.tenLop}`);
             finalClasses.push({
                 ...makeupClass,
                 isMakeupSession: true,
@@ -111,15 +122,18 @@ export default function DiemDanhPage() {
                 originalDateForMakeup: record.originalDate
             });
             processedClassIds.add(makeupClass.id);
+        } else {
+            console.log(`[DiemDanhPage] Makeup class ${record.className} (ID: ${record.classId}) not found or not active.`);
         }
     });
 
-    // Add regularly scheduled classes if they haven't been added as makeup for this specific date
+    console.log("[DiemDanhPage] Processing regularly scheduled classes...");
     classes.forEach(cls => {
         if (cls.trangThai === 'Đang hoạt động' &&
             cls.lichHoc.includes(currentDisplayDayOfWeek) &&
-            !processedClassIds.has(cls.id) // Only add if not already processed as a makeup session for this date
+            !processedClassIds.has(cls.id) 
         ) {
+            console.log(`[DiemDanhPage] Adding regular session for class: ${cls.tenLop}`);
             finalClasses.push({
                 ...cls,
                 isMakeupSession: false,
@@ -128,9 +142,11 @@ export default function DiemDanhPage() {
         }
     });
     
-    return finalClasses.sort((a, b) => a.tenLop.localeCompare(b.tenLop, 'vi'));
+    const sortedFinalClasses = finalClasses.sort((a, b) => a.tenLop.localeCompare(b.tenLop, 'vi'));
+    console.log(`[DiemDanhPage] Final classesToDisplay:`, sortedFinalClasses.map(c => ({tenLop: c.tenLop, isMakeup: c.isMakeupSession})));
+    return sortedFinalClasses;
 
-  }, [classes, currentDisplayDayOfWeek, scheduledMakeupSessionsForSelectedDate, isClient]);
+  }, [classes, currentDisplayDayOfWeek, scheduledMakeupSessionsForSelectedDate, isClient, selectedDate]);
 
 
   const saveAttendanceMutation = useMutation({
@@ -185,8 +201,8 @@ export default function DiemDanhPage() {
       }
       queryClient.invalidateQueries({ queryKey: ['attendance', result.lop.id, format(result.date, 'yyyyMMdd')] });
       queryClient.invalidateQueries({ queryKey: ['studentsInClass', result.lop.id] });
-      queryClient.invalidateQueries({ queryKey: ['allMakeupRecords'] }); // Refresh the list in "Lịch Học Bù" tab
-      queryClient.invalidateQueries({ queryKey: ['scheduledMakeupForDate', format(result.date, 'yyyyMMdd')] }); // Refresh for current day if makeup was scheduled for it
+      queryClient.invalidateQueries({ queryKey: ['allMakeupRecords'] }); 
+      queryClient.invalidateQueries({ queryKey: ['scheduledMakeupForDate', format(result.date, 'yyyyMMdd')] }); 
       console.log(`[DiemDanhPage] markTeacherAbsentMutation onSuccess for class ${result.lop.tenLop}. Invalidated queries.`);
     },
     onError: (error: Error, variables) => {
@@ -206,7 +222,7 @@ export default function DiemDanhPage() {
       const students = await getStudentsByClassId(data.lop.id);
       const attendanceData: Record<string, AttendanceStatus> = {};
       students.forEach(student => {
-        attendanceData[student.id] = 'Có mặt'; // Revert to 'Có mặt'
+        attendanceData[student.id] = 'Có mặt'; 
       });
 
       console.log(`[DiemDanhPage] Reverting attendance for class: ${data.lop.tenLop}`);
@@ -247,7 +263,7 @@ export default function DiemDanhPage() {
         description: `Lịch học bù cho lớp ${variables.className} đã được cập nhật.`,
       });
       queryClient.invalidateQueries({ queryKey: ['allMakeupRecords'] });
-      queryClient.invalidateQueries({ queryKey: ['scheduledMakeupForDate'] }); // Invalidate all dates or specific one if possible
+      queryClient.invalidateQueries({ queryKey: ['scheduledMakeupForDate'] }); 
       setIsScheduleMakeupModalOpen(false);
       setSelectedRecordForMakeup(null);
     },
@@ -388,9 +404,9 @@ export default function DiemDanhPage() {
         </div>
 
         <Tabs defaultValue="diem-danh" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-6 md:w-1/2 lg:w-1/3">
-            <TabsTrigger value="diem-danh">Điểm danh</TabsTrigger>
-            <TabsTrigger value="hoc-bu">Lịch Học Bù</TabsTrigger>
+          <TabsList className="grid w-full md:w-auto md:max-w-sm grid-cols-2 mb-6 bg-primary/10 p-1 rounded-lg">
+            <TabsTrigger value="diem-danh" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-primary/20 hover:text-primary focus-visible:ring-primary/50">Điểm danh</TabsTrigger>
+            <TabsTrigger value="hoc-bu" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-primary/20 hover:text-primary focus-visible:ring-primary/50">Lịch Học Bù</TabsTrigger>
           </TabsList>
 
           <TabsContent value="diem-danh">
@@ -448,7 +464,7 @@ export default function DiemDanhPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {classesToDisplay.map(lop => (
                   <ClassAttendanceCard
-                    key={lop.id + (lop.isMakeupSession ? '-makeup' : '-regular')} // Ensure unique key if a class can be both
+                    key={lop.id + (lop.isMakeupSession ? '-makeup' : '-regular')} 
                     lop={lop}
                     selectedDate={selectedDate}
                     onDiemDanhClick={() => handleDiemDanhClick(lop)}
@@ -506,7 +522,7 @@ export default function DiemDanhPage() {
                 {!isLoadingAllMakeupRecords && !isErrorAllMakeupRecords && allMakeupRecords && allMakeupRecords.length > 0 && (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {allMakeupRecords.map(record => {
-                            if (!record) return null; // Add this check
+                            if (!record) return null; 
                             return (
                             <Card key={record.id} className="shadow-md hover:shadow-lg transition-shadow">
                                 <CardHeader>
@@ -528,8 +544,8 @@ export default function DiemDanhPage() {
                                             {record.notes && <p className="text-xs text-muted-foreground mt-1">Ghi chú: {record.notes}</p>}
                                         </div>
                                     )}
-                                    {record.status === 'đã hoàn thành' && <Badge variant="secondary">Đã hoàn thành</Badge>}
-                                    {record.status === 'đã hủy' && <Badge variant="destructive">Đã hủy</Badge>}
+                                    {record.status === ('đã hoàn thành' as MakeupClassStatus) && <Badge variant="secondary">Đã hoàn thành</Badge>}
+                                    {record.status === ('đã hủy' as MakeupClassStatus) && <Badge variant="destructive">Đã hủy</Badge>}
                                 </CardContent>
                                 <CardFooter className="flex flex-col sm:flex-row sm:justify-between gap-2">
                                     {record.status === 'chờ xếp lịch' && (

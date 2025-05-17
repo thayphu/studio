@@ -333,10 +333,10 @@ export default function BaoCaoPage() {
         <h1 className="text-3xl font-bold text-foreground mb-6">Báo cáo & Thống kê</h1>
 
         <Tabs defaultValue="tong-quan" className="w-full">
-          <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 mb-6">
-            <TabsTrigger value="tong-quan">Tổng quan</TabsTrigger>
-            <TabsTrigger value="tai-chinh">Báo cáo Tài chính</TabsTrigger>
-            <TabsTrigger value="lop-da-dong">Lớp đã đóng</TabsTrigger>
+          <TabsList className="grid w-full sm:w-auto sm:max-w-md grid-cols-1 sm:grid-cols-3 mb-6 bg-primary/10 p-1 rounded-lg">
+            <TabsTrigger value="tong-quan" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-primary/20 hover:text-primary focus-visible:ring-primary/50">Tổng quan</TabsTrigger>
+            <TabsTrigger value="tai-chinh" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-primary/20 hover:text-primary focus-visible:ring-primary/50">Báo cáo Tài chính</TabsTrigger>
+            <TabsTrigger value="lop-da-dong" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-primary/20 hover:text-primary focus-visible:ring-primary/50">Lớp đã đóng</TabsTrigger>
           </TabsList>
 
           <TabsContent value="tong-quan">
