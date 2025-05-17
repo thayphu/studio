@@ -4,8 +4,8 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { useRouter, NextRouter } from 'next/navigation'; // Corrected import for NextRouter
-import Link from 'next/link'; // Import Link
+import { useRouter, NextRouter } from 'next/navigation'; 
+import Link from 'next/link'; 
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -30,7 +30,7 @@ const loginFormSchema = z.object({
 type LoginFormValues = z.infer<typeof loginFormSchema>;
 
 export default function LoginForm() {
-  const router = useRouter() as NextRouter; // Cast to NextRouter if specific methods are needed, otherwise useRouter is fine
+  const router = useRouter() as NextRouter; 
   const { toast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -45,6 +45,7 @@ export default function LoginForm() {
 
   function onSubmit(data: LoginFormValues) {
     setIsLoading(true);
+    // Read admin credentials from environment variables
     const adminUsername = process.env.NEXT_PUBLIC_ADMIN_USERNAME;
     const adminPassword = process.env.NEXT_PUBLIC_ADMIN_PASSWORD;
 
@@ -58,6 +59,7 @@ export default function LoginForm() {
       return;
     }
 
+    // Simulate API call
     setTimeout(() => {
       if (data.username === adminUsername && data.password === adminPassword) {
         toast({
@@ -132,7 +134,7 @@ export default function LoginForm() {
                 type="button" 
                 variant="link" 
                 className="px-0 text-sm text-muted-foreground hover:text-primary"
-                asChild // Use asChild to make Button behave like Link
+                asChild 
               >
                 <Link href="/forgot-password">Quên mật khẩu?</Link>
               </Button>
