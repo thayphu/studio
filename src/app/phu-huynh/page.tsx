@@ -179,8 +179,12 @@ export default function PhuHuynhPage() {
       }
     } catch (error) {
       console.error("[PhuHuynhPage] Error in handleSearch:", error);
+      toast({
+        title: "Lỗi tra cứu",
+        description: (error as Error).message || "Đã có lỗi xảy ra khi tìm kiếm thông tin học sinh.",
+        variant: "destructive",
+      });
       setStudentInfo(null);
-      toast({ title: "Lỗi tra cứu", description: (error as Error).message || "Đã có lỗi xảy ra khi tìm kiếm thông tin học sinh.", variant: "destructive" });
     } finally {
       setIsLoading(false);
       console.log("[PhuHuynhPage] handleSearch finished.");
@@ -233,7 +237,7 @@ export default function PhuHuynhPage() {
   }, [studentInfo, classesMap]);
 
 
-  const vietQR_BankBin = process.env.NEXT_PUBLIC_VIETQR_BANK_BIN || "970422"; // Example: MB Bank
+  const vietQR_BankBin = process.env.NEXT_PUBLIC_VIETQR_BANK_BIN || "970422";
   const vietQR_AccountNo = process.env.NEXT_PUBLIC_VIETQR_ACCOUNT_NO || "9704229262085470";
   const vietQR_AccountName = process.env.NEXT_PUBLIC_VIETQR_ACCOUNT_NAME || "Tran Dong Phu";
   const vietQR_Template = process.env.NEXT_PUBLIC_VIETQR_TEMPLATE || "compact2";
@@ -243,6 +247,12 @@ export default function PhuHuynhPage() {
   const qrAmount = studentInfo && studentInfo.tinhTrangThanhToan !== 'Đã thanh toán' && tuitionFee && tuitionFee > 0 ? tuitionFee : 0;
   const qrInfo = `HP ${studentInfo?.id || ''}`;
   
+  console.log("[PhuHuynhPage] VietQR Env Vars:", { 
+    bin: process.env.NEXT_PUBLIC_VIETQR_BANK_BIN, 
+    accNo: process.env.NEXT_PUBLIC_VIETQR_ACCOUNT_NO, 
+    accName: process.env.NEXT_PUBLIC_VIETQR_ACCOUNT_NAME,
+    template: process.env.NEXT_PUBLIC_VIETQR_TEMPLATE
+  });
   console.log("[PhuHuynhPage] VietQR Params for static link generation:", { vietQR_BankBin, vietQR_AccountNo, vietQR_AccountName, qrAmount, qrInfo, vietQR_Template });
 
   const qrLink = studentInfo && qrAmount > 0 && vietQR_BankBin && vietQR_AccountNo && vietQR_Template
@@ -364,33 +374,36 @@ export default function PhuHuynhPage() {
 
                 {qrLink && studentInfo && studentInfo.tinhTrangThanhToan !== 'Đã thanh toán' && (
                   <InfoSection title="Hướng dẫn thanh toán" icon={<QrCode className="h-6 w-6 text-primary" />}>
-                    <p className="font-semibold text-lg mb-2">Thông tin chuyển khoản:</p>
-                    <ul className="space-y-1 list-disc list-inside text-muted-foreground">
-                      <li>Số tài khoản: <strong className="text-foreground">{vietQR_AccountNo}</strong></li>
-                      <li>Ngân hàng: <strong className="text-foreground">Ngân hàng Quân đội (MB Bank)</strong></li>
-                      <li>Chủ tài khoản: <strong className="text-foreground">{vietQR_AccountName}</strong></li>
-                      <li>Nội dung chuyển khoản: <strong className="text-destructive">HP {studentInfo.id}</strong></li>
-                      <li>Số tiền cần thanh toán: <strong className="text-destructive">{formatCurrencyVND(qrAmount)}</strong></li>
-                    </ul>
-                    <div className="mt-6 text-center">
-                      <p className="mb-2 font-medium">Hoặc quét mã QR (chứa nội dung chuyển khoản):</p>
-                      {qrLink ? (
-                        <Image
-                          src={qrLink}
-                          alt="QR Code thanh toán"
-                          width={200}
-                          height={200}
-                          className="mx-auto rounded-lg shadow-md"
-                          priority
-                        />
-                      ) : (
-                        <p className="text-muted-foreground">Không thể tạo mã QR.</p>
-                      )}
-                       <p className="text-xs text-muted-foreground mt-1">(Mã QR này đã bao gồm số tiền và nội dung chuyển khoản)</p>
+                    <div className="flex flex-col md:flex-row gap-6">
+                      <div className="flex-1">
+                        <p className="font-semibold text-lg mb-2">Thông tin chuyển khoản:</p>
+                        <ul className="space-y-1 list-disc list-inside text-muted-foreground">
+                          <li>Số tài khoản: <strong className="text-foreground">{vietQR_AccountNo}</strong></li>
+                          <li>Ngân hàng: <strong className="text-foreground">Ngân hàng Quân đội (MB Bank)</strong></li>
+                          <li>Chủ tài khoản: <strong className="text-foreground">{vietQR_AccountName}</strong></li>
+                          <li>Nội dung chuyển khoản: <strong className="text-destructive">HP {studentInfo.id}</strong></li>
+                          <li>Số tiền cần thanh toán: <strong className="text-destructive">{formatCurrencyVND(qrAmount)}</strong></li>
+                        </ul>
+                      </div>
+                      <div className="md:w-1/3 flex flex-col items-center md:items-end">
+                        <p className="mb-2 font-medium text-center md:text-right">Hoặc quét mã QR:</p>
+                        {qrLink ? (
+                          <Image
+                            src={qrLink}
+                            alt="QR Code thanh toán"
+                            width={150}
+                            height={150}
+                            className="rounded-lg shadow-md"
+                            priority
+                            data-ai-hint="payment qrcode"
+                          />
+                        ) : (
+                          <p className="text-muted-foreground">Không thể tạo mã QR.</p>
+                        )}
+                      </div>
                     </div>
                   </InfoSection>
                 )}
-
               </div>
             )}
             {!isLoading && !studentInfo && studentId && (
@@ -448,3 +461,5 @@ const StatBox = ({ label, value, color }: StatBoxProps) => (
     <p className="text-xs">{label}</p>
   </div>
 );
+
+    
