@@ -152,12 +152,6 @@ export default function PhuHuynhPage() {
     }
   };
 
-  const tongBuoiHocPlaceholder = "--";
-  const buoiCoMatPlaceholder = "--";
-  const buoiVangPlaceholder = "--";
-  const buoiGVVangPlaceholder = "--";
-  const lichSuDiemDanhPlaceholder: { ngay: string; trangThai: string }[] = [];
-
   const studentClass = useMemo(() => {
     if (studentInfo && studentInfo.lopId && classesMap.size > 0) {
       return classesMap.get(studentInfo.lopId);
@@ -199,19 +193,18 @@ export default function PhuHuynhPage() {
   const qrAmount = studentInfo && studentInfo.tinhTrangThanhToan !== 'Đã thanh toán' ? (calculateTuitionForStudent(studentInfo, classesMap) ?? 0) : 0;
   const qrInfo = `HP ${studentInfo?.id || ''}`;
 
-  const vietQR_AccountNo = process.env.NEXT_PUBLIC_VIETQR_ACCOUNT_NO || "9704229262085470"; // Default/Example
-  const vietQR_AccountName = process.env.NEXT_PUBLIC_VIETQR_ACCOUNT_NAME || "Tran Dong Phu"; // Default/Example
-  const vietQR_AcqId = process.env.NEXT_PUBLIC_VIETQR_ACQ_ID || "970422"; // Default/Example MB Bank BIN
+  const vietQR_AccountNo = process.env.NEXT_PUBLIC_VIETQR_ACCOUNT_NO || "9704229262085470";
+  const vietQR_AccountName = process.env.NEXT_PUBLIC_VIETQR_ACCOUNT_NAME || "Tran Dong Phu";
+  const vietQR_AcqId = process.env.NEXT_PUBLIC_VIETQR_ACQ_ID || "970422";
 
   const qrLink = studentInfo && qrAmount > 0 && vietQR_AccountNo && vietQR_AcqId
     ? `https://api.vietqr.io/v2/generate?accountNo=${vietQR_AccountNo}&accountName=${encodeURIComponent(vietQR_AccountName)}&acqId=${vietQR_AcqId}&amount=${qrAmount}&addInfo=${encodeURIComponent(qrInfo)}&template=compact`
     : null;
 
   useEffect(() => {
-    if (studentInfo) { 
-      console.log("Generated qrLink:", qrLink);
-    }
-  }, [qrLink, studentInfo]);
+    // This log will help verify the generated qrLink in the browser console
+    console.log("Generated qrLink:", qrLink);
+  }, [qrLink]);
 
 
   return (
@@ -263,7 +256,7 @@ export default function PhuHuynhPage() {
                       value={studentClass?.tenLop || 'N/A'} 
                       icon={<School className="h-5 w-5 text-muted-foreground" />} 
                     />
-                    <InfoRow 
+                     <InfoRow 
                       label="Lịch học" 
                       value={studentClass?.lichHoc?.join(', ') || 'N/A'} 
                       icon={<BookOpen className="h-5 w-5 text-muted-foreground" />} 
@@ -284,24 +277,15 @@ export default function PhuHuynhPage() {
                  <InfoSection title="Thống kê điểm danh (Toàn khóa)" icon={<PieChart className="h-6 w-6 text-primary" />}>
                    <p className="text-xs text-muted-foreground text-center mb-2">(Dữ liệu thống kê chi tiết đang được cập nhật)</p>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
-                    <StatBox label="Tổng buổi đã học" value={tongBuoiHocPlaceholder} color="bg-blue-100 text-blue-700" />
-                    <StatBox label="Buổi có mặt" value={buoiCoMatPlaceholder} color="bg-green-100 text-green-700" />
-                    <StatBox label="Buổi vắng" value={buoiVangPlaceholder} color="bg-red-100 text-red-700" />
-                    <StatBox label="GV vắng" value={buoiGVVangPlaceholder} color="bg-yellow-100 text-yellow-700" />
+                    <StatBox label="Tổng buổi đã học" value="--" color="bg-blue-100 text-blue-700" />
+                    <StatBox label="Buổi có mặt" value="--" color="bg-green-100 text-green-700" />
+                    <StatBox label="Buổi vắng" value="--" color="bg-red-100 text-red-700" />
+                    <StatBox label="GV vắng" value="--" color="bg-yellow-100 text-yellow-700" />
                   </div>
                 </InfoSection>
 
                 <InfoSection title="Lịch sử điểm danh (Gần đây)" icon={<CalendarDays className="h-6 w-6 text-primary" />}>
-                  {lichSuDiemDanhPlaceholder.length > 0 ? (
-                    <ul className="space-y-2">
-                      {lichSuDiemDanhPlaceholder.map((item: any, index: number) => (
-                        <li key={index} className="flex justify-between p-2 bg-gray-50 rounded-md">
-                          <span>{item.ngay}</span>
-                          <span className={`font-medium ${item.trangThai === 'Có mặt' ? 'text-green-600' : 'text-red-600'}`}>{item.trangThai}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : <p className="text-muted-foreground">Chưa có lịch sử điểm danh chi tiết để hiển thị.</p>}
+                  <p className="text-muted-foreground">Chưa có lịch sử điểm danh chi tiết để hiển thị.</p>
                 </InfoSection>
 
                 <InfoSection title="Lịch sử thanh toán" icon={<FileText className="h-6 w-6 text-primary" />}>
@@ -413,4 +397,3 @@ const StatBox = ({ label, value, color }: StatBoxProps) => (
     <p className="text-xs">{label}</p>
   </div>
 );
-

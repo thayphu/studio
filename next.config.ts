@@ -2,7 +2,6 @@
 import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
-  /* config options here */
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -19,7 +18,7 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: 'https',
-        hostname: 'api.vietqr.io', // Added VietQR API hostname
+        hostname: 'api.vietqr.io', // VietQR API hostname
         port: '',
         pathname: '/**',
       },
