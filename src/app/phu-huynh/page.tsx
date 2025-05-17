@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Search, UserCircle, School, CalendarDays, FileText, PieChart, QrCode, Loader2, BadgePercent, BookOpen } from 'lucide-react';
-import Image from 'next/image';
+// import Image from 'next/image'; // Temporarily using <img> for QR
 import type { HocSinh, LopHoc, DayOfWeek } from '@/lib/types';
 import { getStudentById } from '@/services/hocSinhService';
 import { getClasses } from '@/services/lopHocService';
@@ -158,7 +158,7 @@ export default function PhuHuynhPage() {
       return;
     }
     setIsLoading(true);
-    setStudentInfo(null); // Clear previous info
+    setStudentInfo(null); 
     console.log(`[PhuHuynhPage] handleSearch started for studentId: ${studentId.trim()}`);
 
     try {
@@ -202,7 +202,7 @@ export default function PhuHuynhPage() {
         {
           stt: 1,
           date: formatDateFn(parseISO(studentInfo.ngayThanhToanGanNhat), "dd/MM/yyyy", { locale: vi }),
-          receiptNo: generateReceiptNumber(), // Example receipt number
+          receiptNo: generateReceiptNumber(), 
           amount: formatCurrencyVND(paidAmount ?? undefined),
         }
       ];
@@ -226,15 +226,15 @@ export default function PhuHuynhPage() {
   }, [studentInfo, classesMap]);
 
 
-  const vietQR_AccountNo = process.env.NEXT_PUBLIC_VIETQR_ACCOUNT_NO || "9704229262085470"; // Default if not set
-  const vietQR_AccountName = process.env.NEXT_PUBLIC_VIETQR_ACCOUNT_NAME || "Tran Dong Phu"; // Default if not set
-  const vietQR_AcqId = process.env.NEXT_PUBLIC_VIETQR_ACQ_ID || "970422"; // Default if not set (MB Bank)
+  const vietQR_AccountNo = process.env.NEXT_PUBLIC_VIETQR_ACCOUNT_NO || "9704229262085470";
+  const vietQR_AccountName = process.env.NEXT_PUBLIC_VIETQR_ACCOUNT_NAME || "Tran Dong Phu";
+  const vietQR_AcqId = process.env.NEXT_PUBLIC_VIETQR_ACQ_ID || "970422"; 
 
   const tuitionFee = studentInfo ? calculateTuitionForStudent(studentInfo, classesMap) : null;
   const qrAmount = studentInfo && studentInfo.tinhTrangThanhToan !== 'Đã thanh toán' && tuitionFee && tuitionFee > 0 ? tuitionFee : 0;
   const qrInfo = `HP ${studentInfo?.id || ''}`;
   
-  console.log("[PhuHuynhPage] VietQR Params:", { vietQR_AccountNo, vietQR_AccountName, vietQR_AcqId, qrAmount, qrInfo });
+  console.log("[PhuHuynhPage] VietQR Params for link generation:", { vietQR_AccountNo, vietQR_AccountName, vietQR_AcqId, qrAmount, qrInfo });
 
 
   const qrLink = studentInfo && qrAmount > 0 && vietQR_AccountNo && vietQR_AcqId
@@ -242,8 +242,7 @@ export default function PhuHuynhPage() {
     : null;
 
   useEffect(() => {
-    // This log will help verify the generated qrLink in the browser console
-    console.log("Generated qrLink:", qrLink);
+    console.log("Final qrLink:", qrLink);
   }, [qrLink]);
 
 
@@ -367,13 +366,12 @@ export default function PhuHuynhPage() {
                     </ul>
                     <div className="mt-6 text-center">
                       <p className="mb-2 font-medium">Hoặc quét mã QR (chứa nội dung chuyển khoản):</p>
-                      <Image
+                      <img
                         src={qrLink}
                         alt="QR Code thanh toán"
                         width={200}
                         height={200}
                         className="mx-auto rounded-lg shadow-md"
-                        data-ai-hint="payment qrcode"
                       />
                        <p className="text-xs text-muted-foreground mt-1">(Mã QR này đã bao gồm số tiền và nội dung chuyển khoản)</p>
                     </div>
@@ -437,6 +435,3 @@ const StatBox = ({ label, value, color }: StatBoxProps) => (
     <p className="text-xs">{label}</p>
   </div>
 );
-
-
-    
