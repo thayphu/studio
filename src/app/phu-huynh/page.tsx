@@ -5,20 +5,19 @@ import { useState, useMemo, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Search, UserCircle, School, CalendarDays, FileText, PieChart, QrCode, Loader2 } from 'lucide-react';
+import { Search, UserCircle, School, CalendarDays, FileText, PieChart, QrCode, Loader2, BadgePercent } from 'lucide-react';
 import Image from 'next/image';
-import type { HocSinh, LopHoc } from '@/lib/types'; // Import HocSinh type
-import { getStudentById } from '@/services/hocSinhService'; // Import the service
-import { getClasses } from '@/services/lopHocService'; // Import getClasses
+import type { HocSinh, LopHoc, DayOfWeek } from '@/lib/types';
+import { getStudentById } from '@/services/hocSinhService';
+import { getClasses } from '@/services/lopHocService';
 import { useToast } from '@/hooks/use-toast';
-import { format as formatDate, parseISO } from 'date-fns';
+import { format as formatDateFn, parseISO, addMonths, addDays, getDay, isEqual, isAfter } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { formatCurrencyVND, generateReceiptNumber } from '@/lib/utils'; // Added generateReceiptNumber
+import { formatCurrencyVND, generateReceiptNumber, dayOfWeekToNumber } from '@/lib/utils';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useQuery } from '@tanstack/react-query';
 
 
-// Helper function to calculate tuition, similar to other pages
 const calculateTuitionForStudent = (student: HocSinh, classesMap: Map<string, LopHoc>): number | null => {
   if (!student.lopId) return null;
   const studentClass = classesMap.get(student.lopId);
@@ -36,9 +35,76 @@ const calculateTuitionForStudent = (student: HocSinh, classesMap: Map<string, Lo
   } else if (studentClass.chuKyDongPhi === '1 tháng' || studentClass.chuKyDongPhi === 'Theo ngày') {
     tongHocPhi = studentClass.hocPhi;
   } else {
-    tongHocPhi = studentClass.hocPhi; 
+    tongHocPhi = studentClass.hocPhi;
   }
   return tongHocPhi;
+};
+
+const calculateNextPaymentDateDisplay = (student: HocSinh | null, studentClass: LopHoc | undefined): string => {
+  if (!student || !studentClass || !studentClass.lichHoc || studentClass.lichHoc.length === 0) {
+    return "N/A (thiếu thông tin lớp hoặc lịch học)";
+  }
+
+  const startDateString = student.ngayThanhToanGanNhat || student.ngayDangKy;
+  if (!startDateString) return "N/A (thiếu ngày bắt đầu)";
+
+  let currentCycleStartDate = parseISO(startDateString);
+  let nextPaymentDate: Date | null = null;
+
+  const classScheduleDays = studentClass.lichHoc.map(day => dayOfWeekToNumber(day)).filter(dayNum => dayNum !== undefined) as number[];
+  if (classScheduleDays.length === 0) return "N/A (lịch học không hợp lệ)";
+
+  const findNextScheduledDay = (fromDate: Date, inclusive: boolean = true): Date | null => {
+    let currentDate = new Date(fromDate);
+    if (!inclusive) {
+      currentDate = addDays(currentDate, 1);
+    }
+    for (let i = 0; i < 365; i++) { // Limit search to avoid infinite loop
+      if (classScheduleDays.includes(getDay(currentDate))) {
+        return currentDate;
+      }
+      currentDate = addDays(currentDate, 1);
+    }
+    return null;
+  };
+
+  if (student.chuKyThanhToan === '8 buổi' || student.chuKyThanhToan === '10 buổi') {
+    const sessionsInCycle = student.chuKyThanhToan === '8 buổi' ? 8 : 10;
+    let sessionsCounted = 0;
+    let lastSessionDate: Date | null = null;
+    let currentDate = findNextScheduledDay(currentCycleStartDate, true);
+
+    if (!currentDate) return "N/A (không tìm thấy ngày học)";
+
+    while (sessionsCounted < sessionsInCycle && currentDate) {
+      sessionsCounted++;
+      lastSessionDate = new Date(currentDate);
+      if (sessionsCounted < sessionsInCycle) {
+        currentDate = findNextScheduledDay(currentDate, false);
+        if (!currentDate) break; 
+      }
+    }
+
+    if (lastSessionDate && sessionsCounted === sessionsInCycle) {
+      nextPaymentDate = findNextScheduledDay(lastSessionDate, false);
+    } else {
+      return "N/A (không thể tính đủ số buổi)";
+    }
+
+  } else if (student.chuKyThanhToan === '1 tháng') {
+    const nextCycleStartDateAttempt = addMonths(currentCycleStartDate, 1);
+    nextPaymentDate = findNextScheduledDay(nextCycleStartDateAttempt, true);
+  } else if (student.chuKyThanhToan === 'Theo ngày') {
+    // For "Theo ngày", the next payment is effectively the next scheduled day
+    nextPaymentDate = findNextScheduledDay(currentCycleStartDate, false);
+  } else {
+    return "N/A (chu kỳ thanh toán không xác định)";
+  }
+
+  if (nextPaymentDate) {
+    return `dự kiến từ ${formatDateFn(nextPaymentDate, "dd/MM/yyyy", { locale: vi })}`;
+  }
+  return "N/A (không tính được)";
 };
 
 
@@ -68,7 +134,7 @@ export default function PhuHuynhPage() {
       return;
     }
     setIsLoading(true);
-    setStudentInfo(null); 
+    setStudentInfo(null);
 
     try {
       const foundStudent = await getStudentById(studentId.trim());
@@ -87,21 +153,20 @@ export default function PhuHuynhPage() {
     }
   };
 
-  const hocPhiCanDongPlaceholder = "N/A (liên hệ trung tâm)";
   const tongBuoiHocPlaceholder = "--";
   const buoiCoMatPlaceholder = "--";
   const buoiVangPlaceholder = "--";
   const buoiGVVangPlaceholder = "--";
   const lichSuDiemDanhPlaceholder: { ngay: string; trangThai: string }[] = [];
-  
+
   const displayedPaymentHistory = useMemo(() => {
     if (studentInfo && studentInfo.tinhTrangThanhToan === 'Đã thanh toán' && studentInfo.ngayThanhToanGanNhat && classesMap.size > 0) {
       const paidAmount = calculateTuitionForStudent(studentInfo, classesMap);
       return [
         {
           stt: 1,
-          date: formatDate(parseISO(studentInfo.ngayThanhToanGanNhat), "dd/MM/yyyy", { locale: vi }),
-          receiptNo: generateReceiptNumber(), 
+          date: formatDateFn(parseISO(studentInfo.ngayThanhToanGanNhat), "dd/MM/yyyy", { locale: vi }),
+          receiptNo: generateReceiptNumber(),
           amount: formatCurrencyVND(paidAmount ?? undefined),
         }
       ];
@@ -109,10 +174,34 @@ export default function PhuHuynhPage() {
     return [];
   }, [studentInfo, classesMap]);
 
+  const studentClass = useMemo(() => {
+    if (studentInfo && studentInfo.lopId && classesMap.size > 0) {
+      return classesMap.get(studentInfo.lopId);
+    }
+    return undefined;
+  }, [studentInfo, classesMap]);
 
-  const qrAmount = studentInfo ? (calculateTuitionForStudent(studentInfo, classesMap) ?? 0) : 0;
+  const nextPaymentDateText = useMemo(() => {
+    return calculateNextPaymentDateDisplay(studentInfo, studentClass);
+  }, [studentInfo, studentClass]);
+  
+  const hocPhiCanDongDisplay = useMemo(() => {
+    if (studentInfo) {
+      if (studentInfo.tinhTrangThanhToan === 'Đã thanh toán') {
+        return "Đã hoàn tất";
+      }
+      return formatCurrencyVND(calculateTuitionForStudent(studentInfo, classesMap) ?? undefined);
+    }
+    return "N/A";
+  }, [studentInfo, classesMap]);
+
+
+  const qrAmount = studentInfo && studentInfo.tinhTrangThanhToan !== 'Đã thanh toán' ? (calculateTuitionForStudent(studentInfo, classesMap) ?? 0) : 0;
   const qrInfo = `HP ${studentInfo?.id || ''}`;
-  const qrLink = `https://api.vietqr.io/v2/generate?accountNo=9704229262085470&accountName=Tran Dong Phu&acqId=970422&amount=${qrAmount}&addInfo=${encodeURIComponent(qrInfo)}&template=compact`;
+  // VietQR does not support amount 0, so we should not generate QR if amount is 0 or student has paid
+  const qrLink = studentInfo && qrAmount > 0 
+    ? `https://api.vietqr.io/v2/generate?accountNo=9704229262085470&accountName=Tran Dong Phu&acqId=970422&amount=${qrAmount}&addInfo=${encodeURIComponent(qrInfo)}&template=compact`
+    : null;
 
 
   return (
@@ -152,20 +241,21 @@ export default function PhuHuynhPage() {
             </form>
 
             {isLoading && <div className="text-center py-4"><Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" /> <p className="text-muted-foreground mt-2">Đang tải thông tin...</p></div>}
-            
+
             {!isLoading && studentInfo && (
               <div className="space-y-8">
                 <InfoSection title="Thông tin chung" icon={<UserCircle className="h-6 w-6 text-primary" />}>
                   <InfoRow label="Họ và tên" value={studentInfo.hoTen} />
                   <InfoRow label="Mã HS" value={studentInfo.id} />
                   <InfoRow label="Lớp" value={studentInfo.tenLop || 'N/A'} icon={<School className="h-5 w-5 text-muted-foreground" />} />
-                  <InfoRow label="Ngày đăng ký" value={formatDate(parseISO(studentInfo.ngayDangKy), "dd/MM/yyyy", {locale: vi})} icon={<CalendarDays className="h-5 w-5 text-muted-foreground" />} />
+                  <InfoRow label="Ngày đăng ký" value={formatDateFn(parseISO(studentInfo.ngayDangKy), "dd/MM/yyyy", {locale: vi})} icon={<CalendarDays className="h-5 w-5 text-muted-foreground" />} />
                 </InfoSection>
 
                 <InfoSection title="Thông tin học phí" icon={<FileText className="h-6 w-6 text-primary" />}>
                   <InfoRow label="Chu kỳ thanh toán" value={studentInfo.chuKyThanhToan} />
                   <InfoRow label="Trạng thái" value={studentInfo.tinhTrangThanhToan} highlight={studentInfo.tinhTrangThanhToan === 'Chưa thanh toán' || studentInfo.tinhTrangThanhToan === 'Quá hạn'} />
-                   <InfoRow label="Học phí cần đóng" value={studentInfo.tinhTrangThanhToan !== 'Đã thanh toán' ? formatCurrencyVND(calculateTuitionForStudent(studentInfo, classesMap) ?? undefined) : "Đã hoàn tất"} highlight={studentInfo.tinhTrangThanhToan !== 'Đã thanh toán'} />
+                  <InfoRow label="Học phí cần đóng" value={hocPhiCanDongDisplay} highlight={studentInfo.tinhTrangThanhToan !== 'Đã thanh toán'} />
+                  <InfoRow label="Chu kỳ thanh toán tiếp theo" value={nextPaymentDateText} icon={<BadgePercent className="h-5 w-5 text-muted-foreground" />} />
                 </InfoSection>
 
                  <InfoSection title="Thống kê điểm danh (Toàn khóa)" icon={<PieChart className="h-6 w-6 text-primary" />}>
@@ -218,7 +308,7 @@ export default function PhuHuynhPage() {
                   ) : <p className="text-muted-foreground">Chưa có lịch sử thanh toán chi tiết để hiển thị.</p>}
                 </InfoSection>
 
-                {(studentInfo.tinhTrangThanhToan === 'Chưa thanh toán' || studentInfo.tinhTrangThanhToan === 'Quá hạn') && (
+                {qrLink && studentInfo.tinhTrangThanhToan !== 'Đã thanh toán' && (
                   <InfoSection title="Hướng dẫn thanh toán" icon={<QrCode className="h-6 w-6 text-primary" />}>
                     <p className="font-semibold text-lg mb-2">Thông tin chuyển khoản:</p>
                     <ul className="space-y-1 list-disc list-inside text-muted-foreground">
@@ -230,15 +320,15 @@ export default function PhuHuynhPage() {
                     </ul>
                     <div className="mt-6 text-center">
                       <p className="mb-2 font-medium">Hoặc quét mã QR (chứa nội dung chuyển khoản):</p>
-                      <Image 
-                        src={qrLink} 
-                        alt="QR Code thanh toán" 
-                        width={200} 
-                        height={200} 
+                      <Image
+                        src={qrLink}
+                        alt="QR Code thanh toán"
+                        width={200}
+                        height={200}
                         className="mx-auto rounded-lg shadow-md"
                         data-ai-hint="payment qrcode"
                       />
-                       <p className="text-xs text-muted-foreground mt-1">(Mã QR này chỉ chứa nội dung CK, chưa bao gồm số tiền)</p>
+                       <p className="text-xs text-muted-foreground mt-1">(Mã QR này đã bao gồm số tiền và nội dung chuyển khoản)</p>
                     </div>
                   </InfoSection>
                 )}
@@ -285,7 +375,7 @@ const InfoRow = ({ label, value, icon, highlight }: InfoRowProps) => (
       {icon && <span className="mr-1.5">{icon}</span>}
       {label}:
     </span>
-    <span className={`font-medium ${highlight ? 'text-destructive' : 'text-foreground'}`}>{value}</span>
+    <span className={`font-medium ${highlight ? 'text-destructive' : 'text-foreground'}`}>{String(value)}</span>
   </div>
 );
 
@@ -300,4 +390,3 @@ const StatBox = ({ label, value, color }: StatBoxProps) => (
     <p className="text-xs">{label}</p>
   </div>
 );
-
