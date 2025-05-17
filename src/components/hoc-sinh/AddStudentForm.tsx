@@ -58,7 +58,7 @@ interface AddStudentFormProps {
   initialData?: HocSinh | null;
   isEditing?: boolean;
   isSubmitting?: boolean;
-  initialClassId?: string | null; // New prop for pre-selected class
+  initialClassId?: string | null;
 }
 
 const capitalizeWords = (str: string): string => {
@@ -77,28 +77,22 @@ export default function AddStudentForm({
   initialData, 
   isEditing = false, 
   isSubmitting = false,
-  initialClassId = null, // Destructure new prop
+  initialClassId = null,
 }: AddStudentFormProps) {
   const { toast } = useToast();
   const [displayStudentId, setDisplayStudentId] = React.useState('');
 
   const form = useForm<StudentFormInputValues>({
     resolver: zodResolver(studentFormSchema),
-    defaultValues: {
-      hoTen: "",
-      ngaySinh: "", 
-      diaChi: "",
-      soDienThoai: "",
-      lopId: "",
-      ngayDangKy: new Date(),
-      chuKyThanhToan: "1 tháng", 
-    },
+    // Default values are set in useEffect based on mode
   });
-
+  
   const selectedLopId = form.watch('lopId');
 
   React.useEffect(() => {
+    console.log("[AddStudentForm] useEffect for form init/reset triggered. isEditing:", isEditing, "initialData:", initialData, "initialClassId:", initialClassId);
     if (isEditing && initialData) {
+      console.log("[AddStudentForm] Setting form for EDIT mode. Student ID:", initialData.id);
       setDisplayStudentId(initialData.id);
       form.reset({
         hoTen: initialData.hoTen,
@@ -107,40 +101,60 @@ export default function AddStudentForm({
         soDienThoai: initialData.soDienThoai || "",
         lopId: initialData.lopId,
         ngayDangKy: parseISO(initialData.ngayDangKy),
-        chuKyThanhToan: initialData.chuKyThanhToan,
+        chuKyThanhToan: initialData.chuKyThanhToan as PaymentCycle,
       });
-    } else if (!isEditing) {
-      setDisplayStudentId(generateStudentId());
+    } else if (!isEditing) { // Add mode
+      const newStudentId = generateStudentId();
+      console.log("[AddStudentForm] Setting form for ADD mode. Generated Student ID:", newStudentId, "Received initialClassId:", initialClassId);
+      setDisplayStudentId(newStudentId);
+
+      let defaultLopId = "";
+      let defaultChuKyThanhToan: PaymentCycle = "1 tháng";
+
+      if (initialClassId && existingClasses && existingClasses.length > 0) {
+        const selectedClass = existingClasses.find(cls => cls.id === initialClassId);
+        if (selectedClass) {
+          defaultLopId = selectedClass.id;
+          defaultChuKyThanhToan = selectedClass.chuKyDongPhi;
+          console.log(`[AddStudentForm] Pre-filling for Add mode. Class: ${selectedClass.tenLop} (ID: ${defaultLopId}), Payment Cycle: ${defaultChuKyThanhToan}`);
+        } else {
+          console.warn(`[AddStudentForm] Initial class ID "${initialClassId}" provided but not found in existing classes. Using defaults for payment cycle, but will use initialClassId for lopId if it was passed.`);
+          defaultLopId = initialClassId; // Still attempt to set lopId if initialClassId was passed
+        }
+      } else if (initialClassId) {
+          defaultLopId = initialClassId; // Set lopId if initialClassId is passed, even if class details for cycle aren't found yet
+          console.warn(`[AddStudentForm] Initial class ID "${initialClassId}" provided, but existingClasses is empty or not yet loaded. Setting lopId, using default payment cycle.`);
+      } else {
+        console.log("[AddStudentForm] No initialClassId provided for Add mode. Using default empty lopId.");
+      }
+
       form.reset({
         hoTen: "",
-        ngaySinh: "", 
+        ngaySinh: "",
         diaChi: "",
         soDienThoai: "",
-        lopId: initialClassId || "", // Pre-fill lopId if provided
+        lopId: defaultLopId,
         ngayDangKy: new Date(),
-        chuKyThanhToan: "1 tháng",
+        chuKyThanhToan: defaultChuKyThanhToan,
       });
-      // If initialClassId is provided, also trigger the chuKyThanhToan update
-      if (initialClassId && existingClasses) {
-         const selectedClass = existingClasses.find(cls => cls.id === initialClassId);
-         if (selectedClass) {
-           form.setValue('chuKyThanhToan', selectedClass.chuKyDongPhi, { shouldValidate: true });
-         }
-      }
     }
-  }, [isEditing, initialData, form, initialClassId, existingClasses]);
+  }, [isEditing, initialData, initialClassId, existingClasses, form]);
+
 
   React.useEffect(() => {
-    // Update chuKyThanhToan only if not editing and not from URL prefill context
-    // to avoid overriding user's choice if they change class after prefill.
-    // The initial prefill is handled in the previous useEffect.
-    if (!isEditing && !initialClassId && selectedLopId && existingClasses) {
-      const selectedClass = existingClasses.find(cls => cls.id === selectedLopId);
-      if (selectedClass) {
+    // This effect updates the payment cycle if the class is changed *manually* in the form,
+    // and it's not in edit mode, and the manually selected lopId is different from any initialClassId.
+    const currentLopIdValue = form.getValues('lopId');
+    if (!isEditing && currentLopIdValue && currentLopIdValue !== initialClassId && existingClasses && existingClasses.length > 0) {
+      console.log(`[AddStudentForm] Manual class selection changed to: ${currentLopIdValue}. initialClassId was: ${initialClassId}`);
+      const selectedClass = existingClasses.find(cls => cls.id === currentLopIdValue);
+      if (selectedClass && selectedClass.chuKyDongPhi !== form.getValues('chuKyThanhToan')) {
+        console.log(`[AddStudentForm] Auto-updating payment cycle to: ${selectedClass.chuKyDongPhi} for class ${selectedClass.tenLop}`);
         form.setValue('chuKyThanhToan', selectedClass.chuKyDongPhi, { shouldValidate: true });
       }
     }
-  }, [selectedLopId, existingClasses, form, isEditing, initialClassId]);
+  }, [form.watch('lopId'), existingClasses, isEditing, initialClassId, form]);
+
 
   function handleSubmit(data: StudentFormInputValues) {
     let ngaySinhISO: string;
@@ -169,24 +183,19 @@ export default function AddStudentForm({
     }
 
     const submissionData: HocSinh = {
-      id: isEditing && initialData ? initialData.id : displayStudentId,
+      id: displayStudentId, // For new, this is generated; for edit, this is from initialData via displayStudentId
       ...data,
       hoTen: capitalizeWords(data.hoTen),
       ngaySinh: ngaySinhISO,
       ngayDangKy: data.ngayDangKy.toISOString(),
       soDienThoai: data.soDienThoai || undefined,
-      tenLop: isEditing && initialData ? initialData.tenLop : undefined, 
+      tenLop: isEditing && initialData ? initialData.tenLop : (existingClasses.find(c=>c.id === data.lopId)?.tenLop || 'N/A'), 
       tinhTrangThanhToan: isEditing && initialData ? initialData.tinhTrangThanhToan : "Chưa thanh toán",
       ngayThanhToanGanNhat: isEditing && initialData ? initialData.ngayThanhToanGanNhat : undefined,
       soBuoiDaHocTrongChuKy: isEditing && initialData ? initialData.soBuoiDaHocTrongChuKy : undefined,
     };
+    console.log("[AddStudentForm] Submitting data:", submissionData);
     onSubmit(submissionData);
-    if (!isEditing) {
-        toast({
-        title: "Thêm học sinh thành công!",
-        description: `Học sinh "${submissionData.hoTen}" đã được thêm với mã HS: ${submissionData.id}.`,
-        });
-    }
   }
   
   const submitButtonText = isEditing ? "Lưu thay đổi" : TEXTS_VI.saveButton;
@@ -323,16 +332,16 @@ export default function AddStudentForm({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Lớp</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value}>
+                <Select onValueChange={field.onChange} value={field.value} disabled={isLoadingClasses || !(existingClasses && existingClasses.length > 0)}>
                   <FormControl>
                     <SelectTrigger>
-                      <SelectValue placeholder="Chọn lớp học" />
+                      <SelectValue placeholder={isLoadingClasses ? "Đang tải lớp..." : "Chọn lớp học"} />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {existingClasses.map((lop) => (
+                    {existingClasses && existingClasses.length > 0 ? existingClasses.map((lop) => (
                       <SelectItem key={lop.id} value={lop.id}>{lop.tenLop}</SelectItem>
-                    ))}
+                    )) : <SelectItem value="no-class" disabled>Không có lớp nào</SelectItem>}
                   </SelectContent>
                 </Select>
                 <FormMessage />
@@ -375,4 +384,3 @@ export default function AddStudentForm({
     </Form>
   );
 }
-

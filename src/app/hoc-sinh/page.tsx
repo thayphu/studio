@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { PlusCircle, Edit2, Trash2, Search, RefreshCw } from 'lucide-react';
 import { TEXTS_VI } from '@/lib/constants';
 import { useToast } from '@/hooks/use-toast';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -75,11 +75,14 @@ function HocSinhPageContent() {
   useEffect(() => {
     const classId = searchParams.get('classId');
     if (classId) {
-      console.log("[HocSinhPage] ClassId from URL:", classId);
+      console.log("[HocSinhPage] ClassId from URL detected:", classId);
       setInitialClassIdFromUrl(classId);
-      setIsEditStudentModalOpen(false); 
+      // Open the add student modal, not edit
       setEditingStudent(null);
-      setIsAddStudentModalOpen(true); 
+      setIsEditStudentModalOpen(false);
+      setIsAddStudentModalOpen(true);
+      console.log("[HocSinhPage] Attempting to open AddStudentModal for classId:", classId);
+      // Remove classId from URL to prevent re-triggering on refresh or manual dialog open
       router.replace('/hoc-sinh', { scroll: false });
     }
   }, [searchParams, router]);
@@ -103,8 +106,11 @@ function HocSinhPageContent() {
         await recalculateAndUpdateClassStudentCount(addedStudent.lopId);
         queryClient.invalidateQueries({ queryKey: ['classes'] }); 
       }
-      setIsAddStudentModalOpen(false);
-      setInitialClassIdFromUrl(null); // Reset after use
+      closeDialogs(); // Close dialog and reset initialClassIdFromUrl
+      toast({
+        title: "Thêm học sinh thành công!",
+        description: `Học sinh "${addedStudent.hoTen}" đã được thêm với mã HS: ${addedStudent.id}.`,
+      });
     },
     onError: (error: Error) => {
       toast({
@@ -137,8 +143,7 @@ function HocSinhPageContent() {
       
       queryClient.invalidateQueries({ queryKey: ['classes'] }); 
 
-      setIsEditStudentModalOpen(false);
-      setEditingStudent(null);
+      closeDialogs();
       toast({
         title: "Cập nhật thành công!",
         description: `Thông tin học sinh "${updatedStudentDataFromForm.hoTen}" đã được cập nhật.`,
@@ -205,11 +210,11 @@ function HocSinhPageContent() {
   };
 
   const handleOpenAddStudentModal = () => {
-    console.log("[HocSinhPage] handleOpenAddStudentModal called");
+    console.log("[HocSinhPage] handleOpenAddStudentModal called (manual open).");
+    setInitialClassIdFromUrl(null); // Ensure no pre-selection if opened manually
     setEditingStudent(null);
     setIsEditStudentModalOpen(false); 
     setIsAddStudentModalOpen(true);
-    console.log("[HocSinhPage] States after handleOpenAddStudentModal: isEditStudentModalOpen=false, isAddStudentModalOpen=true, initialClassIdFromUrl:", initialClassIdFromUrl);
   };
   
   const handleOpenDeleteStudentDialog = (student: HocSinh) => {
@@ -225,7 +230,7 @@ function HocSinhPageContent() {
   
   const handleEditStudent = (student: HocSinh) => {
     console.log("[HocSinhPage] handleEditStudent called with student:", student.id);
-    setInitialClassIdFromUrl(null); 
+    setInitialClassIdFromUrl(null); // Not pre-selecting class for edit
     setEditingStudent(student);
     setIsAddStudentModalOpen(false); 
     setIsEditStudentModalOpen(true);
@@ -233,11 +238,11 @@ function HocSinhPageContent() {
   };
 
   const closeDialogs = () => {
-    console.log("[HocSinhPage] closeDialogs called");
+    console.log("[HocSinhPage] closeDialogs called. Resetting modal states and initialClassIdFromUrl.");
     setIsAddStudentModalOpen(false);
     setIsEditStudentModalOpen(false);
     setEditingStudent(null);
-    setInitialClassIdFromUrl(null);
+    setInitialClassIdFromUrl(null); // Important to reset this
   }
 
   if (isErrorClasses || isErrorStudents) {
@@ -275,9 +280,13 @@ function HocSinhPageContent() {
               {isLoadingClasses ? "Đang tải lớp..." : "Thêm Học sinh"}
             </Button>
         </div>
-
+        
         <Dialog open={isAddStudentModalOpen || isEditStudentModalOpen} onOpenChange={(open) => {
           if (!open) closeDialogs();
+          // Explicitly set modal states based on which one was intended to be open
+          // This can prevent issues if onOpenChange is called unexpectedly
+          else if (editingStudent) setIsEditStudentModalOpen(true);
+          else setIsAddStudentModalOpen(true);
         }}>
           <DialogContent className="sm:max-w-[600px]">
             <DialogHeader>
