@@ -20,14 +20,12 @@ export const getStudents = async (): Promise<HocSinh[]> => {
     console.log(`[hocSinhService] Fetched ${classesSnapshot.size} classes for denormalization.`);
   } catch (error) {
     console.error("[hocSinhService] Error fetching classes for student denormalization:", error);
-    // Decide if you want to throw or proceed with 'N/A' for class names
-    // For now, we'll proceed, and tenLop will be 'N/A' if classesData is empty.
   }
 
   const studentsQuery = query(hocSinhCollectionRef, orderBy("hoTen", "asc"));
   
   try {
-    console.log("[hocSinhService] Executing students query:", JSON.stringify(studentsQuery, null, 2)); // This might not serialize well, but gives an idea.
+    console.log("[hocSinhService] Executing students query...");
     const querySnapshot = await getDocs(studentsQuery);
     console.log(`[hocSinhService] Fetched ${querySnapshot.size} student documents.`);
     
@@ -47,9 +45,52 @@ export const getStudents = async (): Promise<HocSinh[]> => {
     if ((error as any)?.code === 'failed-precondition') {
         console.error("[hocSinhService] Firestore Precondition Failed for getStudents: This often means a required Firestore index is missing. The query 'orderBy(\"hoTen\", \"asc\")' on the 'hocSinh' collection likely needs an index on the 'hoTen' field (ascending). Check server logs for a direct link to create the index in Firebase Console.");
     }
-    throw error; // Re-throw the error so useQuery can catch it
+    throw error;
   }
 };
+
+export const getStudentById = async (studentId: string): Promise<HocSinh | null> => {
+  if (!studentId) {
+    console.warn("[hocSinhService] getStudentById called with no studentId.");
+    return null;
+  }
+  console.log(`[hocSinhService] Attempting to fetch student by ID: ${studentId}`);
+  const studentDocRef = doc(db, "hocSinh", studentId);
+  try {
+    const studentDocSnap = await getFirestoreDoc(studentDocRef);
+    if (studentDocSnap.exists()) {
+      const studentData = studentDocSnap.data() as Omit<HocSinh, 'id' | 'tenLop'>;
+      let tenLop = 'N/A';
+      if (studentData.lopId) {
+        try {
+          const classDocRef = doc(db, "lopHoc", studentData.lopId);
+          const classDoc = await getFirestoreDoc(classDocRef);
+          if (classDoc.exists()) {
+            tenLop = (classDoc.data() as LopHoc).tenLop;
+          } else {
+            console.warn(`[hocSinhService] Class with ID ${studentData.lopId} not found for student ${studentId}.`);
+          }
+        } catch (error) {
+          console.error(`[hocSinhService] Error fetching class name for student ${studentId}:`, error);
+        }
+      }
+      const student: HocSinh = {
+        id: studentDocSnap.id,
+        ...studentData,
+        tenLop: tenLop,
+      };
+      console.log(`[hocSinhService] Found student:`, student);
+      return student;
+    } else {
+      console.log(`[hocSinhService] No student found with ID: ${studentId}`);
+      return null;
+    }
+  } catch (error) {
+    console.error(`[hocSinhService] Error fetching student by ID ${studentId}:`, error);
+    throw error;
+  }
+};
+
 
 export const getStudentsByClassId = async (classId: string): Promise<HocSinh[]> => {
   if (!classId) {
@@ -62,9 +103,13 @@ export const getStudentsByClassId = async (classId: string): Promise<HocSinh[]> 
     const querySnapshot = await getDocs(studentsQuery);
     const students = querySnapshot.docs.map(docSnapshot => {
       const studentData = docSnapshot.data() as Omit<HocSinh, 'id' | 'tenLop'>;
+      // tenLop is not strictly needed here as it's for the attendance dialog
+      // which primarily lists students of a known class.
+      // However, if needed for other contexts, class data fetching could be added.
       return {
         id: docSnapshot.id,
         ...studentData,
+        // tenLop: will be populated by the component if needed or by studentData if already denormalized
       } as HocSinh;
     });
     console.log(`[hocSinhService] Fetched ${students.length} students for classId: ${classId}`);

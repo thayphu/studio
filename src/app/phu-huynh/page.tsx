@@ -5,55 +5,64 @@ import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Search, UserCircle, School, CalendarDays, FileText, PieChart, QrCode } from 'lucide-react';
+import { Search, UserCircle, School, CalendarDays, FileText, PieChart, QrCode, Loader2 } from 'lucide-react';
 import Image from 'next/image';
+import type { HocSinh } from '@/lib/types'; // Import HocSinh type
+import { getStudentById } from '@/services/hocSinhService'; // Import the service
+import { useToast } from '@/hooks/use-toast';
+import { format as formatDate, parseISO } from 'date-fns';
+import { vi } from 'date-fns/locale';
+import { formatCurrencyVND } from '@/lib/utils';
 
 export default function PhuHuynhPage() {
   const [studentId, setStudentId] = useState('');
-  const [studentInfo, setStudentInfo] = useState<any>(null); // Replace 'any' with actual type
+  const [studentInfo, setStudentInfo] = useState<HocSinh | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast();
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!studentId.trim()) return;
-    setIsLoading(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Mock data - replace with actual data fetching logic
-    if (studentId === "2024001") {
-      setStudentInfo({
-        hoTen: "Nguyễn Văn An",
-        maHS: "2024001",
-        lop: "Lớp 1A",
-        ngayDangKy: "15/08/2024",
-        chuKyThanhToan: "1 tháng",
-        trangThaiThanhToan: "Chưa thanh toán",
-        // ... other details
-        tongBuoiHoc: 20,
-        buoiCoMat: 18,
-        buoiVang: 2,
-        buoiGVVang: 0,
-        lichSuDiemDanh: [
-          { ngay: "01/09/2024", trangThai: "Có mặt" },
-          { ngay: "03/09/2024", trangThai: "Vắng mặt" },
-        ],
-        lichSuThanhToan: [],
-        hocPhiCanDong: 1200000,
-      });
-    } else {
-      setStudentInfo(null);
+    if (!studentId.trim()) {
+      toast({ title: "Lỗi", description: "Vui lòng nhập Mã Học Sinh.", variant: "destructive" });
+      return;
     }
-    setIsLoading(false);
+    setIsLoading(true);
+    setStudentInfo(null); // Clear previous info
+
+    try {
+      const foundStudent = await getStudentById(studentId.trim());
+      if (foundStudent) {
+        setStudentInfo(foundStudent);
+      } else {
+        setStudentInfo(null);
+        toast({ title: "Không tìm thấy", description: `Không tìm thấy học sinh với mã "${studentId}".`, variant: "default" });
+      }
+    } catch (error) {
+      console.error("Error searching student:", error);
+      setStudentInfo(null);
+      toast({ title: "Lỗi tra cứu", description: "Đã có lỗi xảy ra khi tìm kiếm thông tin học sinh.", variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const qrAmount = studentInfo?.hocPhiCanDong || 0;
-  const qrInfo = `HP ${studentInfo?.maHS || ''}`;
+  // Placeholder data for sections not yet implemented with real data
+  const hocPhiCanDongPlaceholder = "N/A (liên hệ trung tâm)";
+  const tongBuoiHocPlaceholder = "--";
+  const buoiCoMatPlaceholder = "--";
+  const buoiVangPlaceholder = "--";
+  const buoiGVVangPlaceholder = "--";
+  const lichSuDiemDanhPlaceholder: { ngay: string; trangThai: string }[] = [];
+  const lichSuThanhToanPlaceholder: any[] = [];
+
+
+  const qrAmount = 0; // Placeholder amount, actual fee calculation is complex and not yet implemented here
+  const qrInfo = `HP ${studentInfo?.id || ''}`; // Use studentInfo.id
   const qrLink = `https://api.vietqr.io/v2/generate?accountNo=9704229262085470&accountName=Tran Dong Phu&acqId=970422&amount=${qrAmount}&addInfo=${encodeURIComponent(qrInfo)}&template=compact`;
 
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-100 via-blue-50 to-yellow-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-secondary/10 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto">
         <div className="text-center mb-10">
            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-16 h-16 text-primary mx-auto mb-4">
@@ -62,7 +71,7 @@ export default function PhuHuynhPage() {
           <h1 className="text-4xl font-extrabold text-primary sm:text-5xl">
             HoEdu Solution
           </h1>
-          <p className="mt-3 text-xl text-gray-600">
+          <p className="mt-3 text-xl text-muted-foreground">
             Cổng thông tin tra cứu dành cho Phụ huynh
           </p>
         </div>
@@ -79,84 +88,86 @@ export default function PhuHuynhPage() {
                 type="text"
                 placeholder="Nhập Mã Học Sinh (VD: 2024001)"
                 value={studentId}
-                onChange={(e) => setStudentId(e.target.value)}
+                onChange={(e) => setStudentId(e.target.value.toUpperCase())} // Auto uppercase for consistency
                 className="flex-grow text-base h-12"
                 required
               />
               <Button type="submit" className="h-12 bg-accent hover:bg-accent/90 text-accent-foreground" disabled={isLoading}>
-                {isLoading ? 'Đang tìm...' : 'Tra cứu'}
+                {isLoading ? <Loader2 className="animate-spin" /> : 'Tra cứu'}
               </Button>
             </form>
 
-            {isLoading && <p className="text-center text-gray-600">Đang tải thông tin...</p>}
+            {isLoading && <div className="text-center py-4"><Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" /> <p className="text-muted-foreground mt-2">Đang tải thông tin...</p></div>}
             
             {!isLoading && studentInfo && (
               <div className="space-y-8">
                 {/* Basic Info */}
                 <InfoSection title="Thông tin chung" icon={<UserCircle className="h-6 w-6 text-primary" />}>
                   <InfoRow label="Họ và tên" value={studentInfo.hoTen} />
-                  <InfoRow label="Mã HS" value={studentInfo.maHS} />
-                  <InfoRow label="Lớp" value={studentInfo.lop} icon={<School className="h-5 w-5 text-gray-500" />} />
-                  <InfoRow label="Ngày đăng ký" value={studentInfo.ngayDangKy} icon={<CalendarDays className="h-5 w-5 text-gray-500" />} />
+                  <InfoRow label="Mã HS" value={studentInfo.id} />
+                  <InfoRow label="Lớp" value={studentInfo.tenLop || 'N/A'} icon={<School className="h-5 w-5 text-muted-foreground" />} />
+                  <InfoRow label="Ngày đăng ký" value={formatDate(parseISO(studentInfo.ngayDangKy), "dd/MM/yyyy", {locale: vi})} icon={<CalendarDays className="h-5 w-5 text-muted-foreground" />} />
                 </InfoSection>
 
                 {/* Payment Info */}
                 <InfoSection title="Thông tin học phí" icon={<FileText className="h-6 w-6 text-primary" />}>
                   <InfoRow label="Chu kỳ thanh toán" value={studentInfo.chuKyThanhToan} />
-                  <InfoRow label="Trạng thái" value={studentInfo.trangThaiThanhToan} highlight={studentInfo.trangThaiThanhToan === 'Chưa thanh toán' || studentInfo.trangThaiThanhToan === 'Quá hạn'} />
+                  <InfoRow label="Trạng thái" value={studentInfo.tinhTrangThanhToan} highlight={studentInfo.tinhTrangThanhToan === 'Chưa thanh toán' || studentInfo.tinhTrangThanhToan === 'Quá hạn'} />
+                   <InfoRow label="Học phí cần đóng" value={hocPhiCanDongPlaceholder} highlight={studentInfo.tinhTrangThanhToan !== 'Đã thanh toán'} />
                 </InfoSection>
 
                 {/* Attendance Stats */}
-                 <InfoSection title="Thống kê điểm danh" icon={<PieChart className="h-6 w-6 text-primary" />}>
+                 <InfoSection title="Thống kê điểm danh (Toàn khóa)" icon={<PieChart className="h-6 w-6 text-primary" />}>
+                   <p className="text-xs text-muted-foreground text-center mb-2">(Dữ liệu thống kê chi tiết đang được cập nhật)</p>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
-                    <StatBox label="Tổng buổi đã học" value={studentInfo.tongBuoiHoc} color="bg-blue-100 text-blue-700" />
-                    <StatBox label="Buổi có mặt" value={studentInfo.buoiCoMat} color="bg-green-100 text-green-700" />
-                    <StatBox label="Buổi vắng" value={studentInfo.buoiVang} color="bg-red-100 text-red-700" />
-                    <StatBox label="GV vắng" value={studentInfo.buoiGVVang} color="bg-yellow-100 text-yellow-700" />
+                    <StatBox label="Tổng buổi đã học" value={tongBuoiHocPlaceholder} color="bg-blue-100 text-blue-700" />
+                    <StatBox label="Buổi có mặt" value={buoiCoMatPlaceholder} color="bg-green-100 text-green-700" />
+                    <StatBox label="Buổi vắng" value={buoiVangPlaceholder} color="bg-red-100 text-red-700" />
+                    <StatBox label="GV vắng" value={buoiGVVangPlaceholder} color="bg-yellow-100 text-yellow-700" />
                   </div>
                 </InfoSection>
 
                 {/* Attendance History */}
-                <InfoSection title="Lịch sử điểm danh" icon={<CalendarDays className="h-6 w-6 text-primary" />}>
-                  {studentInfo.lichSuDiemDanh.length > 0 ? (
+                <InfoSection title="Lịch sử điểm danh (Gần đây)" icon={<CalendarDays className="h-6 w-6 text-primary" />}>
+                  {lichSuDiemDanhPlaceholder.length > 0 ? (
                     <ul className="space-y-2">
-                      {studentInfo.lichSuDiemDanh.map((item: any, index: number) => (
+                      {lichSuDiemDanhPlaceholder.map((item: any, index: number) => (
                         <li key={index} className="flex justify-between p-2 bg-gray-50 rounded-md">
                           <span>{item.ngay}</span>
                           <span className={`font-medium ${item.trangThai === 'Có mặt' ? 'text-green-600' : 'text-red-600'}`}>{item.trangThai}</span>
                         </li>
                       ))}
                     </ul>
-                  ) : <p className="text-gray-500">Chưa có lịch sử điểm danh.</p>}
+                  ) : <p className="text-muted-foreground">Chưa có lịch sử điểm danh chi tiết để hiển thị.</p>}
                 </InfoSection>
 
                 {/* Payment History */}
                 <InfoSection title="Lịch sử thanh toán" icon={<FileText className="h-6 w-6 text-primary" />}>
-                   {studentInfo.lichSuThanhToan.length > 0 ? (
+                   {lichSuThanhToanPlaceholder.length > 0 ? (
                     <ul className="space-y-2">
-                      {studentInfo.lichSuThanhToan.map((item: any, index: number) => (
+                      {lichSuThanhToanPlaceholder.map((item: any, index: number) => (
                         <li key={index} className="flex justify-between p-2 bg-gray-50 rounded-md">
                           <span>{item.ngayThanhToan} - HĐ: {item.hoaDonSo}</span>
-                          <span className="font-medium text-green-600">{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(item.soTien)}</span>
+                          <span className="font-medium text-green-600">{formatCurrencyVND(item.soTien)}</span>
                         </li>
                       ))}
                     </ul>
-                  ) : <p className="text-gray-500">Chưa có lịch sử thanh toán.</p>}
+                  ) : <p className="text-muted-foreground">Chưa có lịch sử thanh toán chi tiết để hiển thị.</p>}
                 </InfoSection>
 
                 {/* Payment Instructions */}
-                {(studentInfo.trangThaiThanhToan === 'Chưa thanh toán' || studentInfo.trangThaiThanhToan === 'Quá hạn') && (
+                {(studentInfo.tinhTrangThanhToan === 'Chưa thanh toán' || studentInfo.tinhTrangThanhToan === 'Quá hạn') && (
                   <InfoSection title="Hướng dẫn thanh toán" icon={<QrCode className="h-6 w-6 text-primary" />}>
                     <p className="font-semibold text-lg mb-2">Thông tin chuyển khoản:</p>
-                    <ul className="space-y-1 list-disc list-inside text-gray-700">
-                      <li>Số tài khoản: <strong className="text-gray-900">9704229262085470</strong></li>
-                      <li>Ngân hàng: <strong className="text-gray-900">Ngân hàng Quân đội (MB Bank)</strong></li>
-                      <li>Chủ tài khoản: <strong className="text-gray-900">Tran Dong Phu</strong></li>
-                      <li>Nội dung chuyển khoản: <strong className="text-red-600">HP {studentInfo.maHS}</strong></li>
-                      <li>Số tiền cần thanh toán: <strong className="text-red-600">{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(studentInfo.hocPhiCanDong)}</strong></li>
+                    <ul className="space-y-1 list-disc list-inside text-muted-foreground">
+                      <li>Số tài khoản: <strong className="text-foreground">9704229262085470</strong></li>
+                      <li>Ngân hàng: <strong className="text-foreground">Ngân hàng Quân đội (MB Bank)</strong></li>
+                      <li>Chủ tài khoản: <strong className="text-foreground">Tran Dong Phu</strong></li>
+                      <li>Nội dung chuyển khoản: <strong className="text-destructive">HP {studentInfo.id}</strong></li>
+                      <li>Số tiền cần thanh toán: <strong className="text-destructive">{hocPhiCanDongPlaceholder}</strong></li>
                     </ul>
                     <div className="mt-6 text-center">
-                      <p className="mb-2 font-medium">Hoặc quét mã QR:</p>
+                      <p className="mb-2 font-medium">Hoặc quét mã QR (chứa nội dung chuyển khoản):</p>
                       <Image 
                         src={qrLink} 
                         alt="QR Code thanh toán" 
@@ -165,6 +176,7 @@ export default function PhuHuynhPage() {
                         className="mx-auto rounded-lg shadow-md"
                         data-ai-hint="payment qrcode"
                       />
+                       <p className="text-xs text-muted-foreground mt-1">(Mã QR này chỉ chứa nội dung CK, chưa bao gồm số tiền)</p>
                     </div>
                   </InfoSection>
                 )}
@@ -172,11 +184,11 @@ export default function PhuHuynhPage() {
               </div>
             )}
             {!isLoading && !studentInfo && studentId && (
-              <p className="text-center text-red-600 font-medium">Không tìm thấy thông tin học sinh với mã "{studentId}".</p>
+              <p className="text-center text-destructive font-medium py-4">Không tìm thấy thông tin học sinh với mã "{studentId}". Vui lòng kiểm tra lại mã học sinh.</p>
             )}
           </CardContent>
         </Card>
-         <footer className="mt-12 text-center text-sm text-gray-500">
+         <footer className="mt-12 text-center text-sm text-muted-foreground">
           <p>&copy; {new Date().getFullYear()} HoEdu Solution. Phát triển bởi Đông Phú.</p>
         </footer>
       </div>
@@ -190,8 +202,8 @@ interface InfoSectionProps {
   children: React.ReactNode;
 }
 const InfoSection = ({ title, icon, children }: InfoSectionProps) => (
-  <div className="border-t border-gray-200 pt-6">
-    <h3 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
+  <div className="border-t border-border pt-6">
+    <h3 className="text-xl font-semibold text-foreground mb-4 flex items-center">
       {icon}
       <span className="ml-2">{title}</span>
     </h3>
@@ -207,11 +219,11 @@ interface InfoRowProps {
 }
 const InfoRow = ({ label, value, icon, highlight }: InfoRowProps) => (
   <div className="flex justify-between items-center text-sm">
-    <span className="text-gray-600 flex items-center">
+    <span className="text-muted-foreground flex items-center">
       {icon && <span className="mr-1.5">{icon}</span>}
       {label}:
     </span>
-    <span className={`font-medium ${highlight ? 'text-red-600' : 'text-gray-800'}`}>{value}</span>
+    <span className={`font-medium ${highlight ? 'text-destructive' : 'text-foreground'}`}>{value}</span>
   </div>
 );
 
@@ -226,4 +238,3 @@ const StatBox = ({ label, value, color }: StatBoxProps) => (
     <p className="text-xs">{label}</p>
   </div>
 );
-
