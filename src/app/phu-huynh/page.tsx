@@ -246,9 +246,9 @@ export default function PhuHuynhPage() {
     return "N/A";
   }, [studentInfo, classesMap]);
 
-  const vietQR_BankBin = process.env.NEXT_PUBLIC_VIETQR_BANK_BIN || "VIETQR_BANK_BIN_CHUA_CAU_HINH";
-  const vietQR_AccountNo = process.env.NEXT_PUBLIC_VIETQR_ACCOUNT_NO || "SO_TK_CHUA_CAU_HINH";
-  const vietQR_AccountName = process.env.NEXT_PUBLIC_VIETQR_ACCOUNT_NAME || "TEN_TK_CHUA_CAU_HINH";
+  const vietQR_BankBin = process.env.NEXT_PUBLIC_VIETQR_BANK_BIN || "970422";
+  const vietQR_AccountNo = process.env.NEXT_PUBLIC_VIETQR_ACCOUNT_NO || "9704229262085470";
+  const vietQR_AccountName = process.env.NEXT_PUBLIC_VIETQR_ACCOUNT_NAME || "TRAN DONG PHU";
   const vietQR_Template = process.env.NEXT_PUBLIC_VIETQR_TEMPLATE || "compact";
 
 
