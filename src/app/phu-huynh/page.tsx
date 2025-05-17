@@ -245,20 +245,26 @@ export default function PhuHuynhPage() {
             {!isLoading && studentInfo && (
               <div className="space-y-8">
                 <InfoSection title="Thông tin chung" icon={<UserCircle className="h-6 w-6 text-primary" />}>
-                  <InfoRow label="Họ và tên" value={studentInfo.hoTen} />
-                  <InfoRow label="Mã HS" value={studentInfo.id} />
-                  <InfoRow label="Lớp" value={studentInfo.tenLop || 'N/A'} icon={<School className="h-5 w-5 text-muted-foreground" />} />
-                  {studentClass && studentClass.lichHoc && (
-                    <InfoRow label="Lịch học" value={studentClass.lichHoc.join(', ')} icon={<BookOpen className="h-5 w-5 text-muted-foreground" />} />
-                  )}
-                  <InfoRow label="Ngày đăng ký" value={formatDateFn(parseISO(studentInfo.ngayDangKy), "dd/MM/yyyy", {locale: vi})} icon={<CalendarDays className="h-5 w-5 text-muted-foreground" />} />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
+                    <InfoRow label="Họ và tên" value={studentInfo.hoTen} />
+                    <InfoRow label="Mã HS" value={studentInfo.id} />
+                    {studentClass && (
+                      <InfoRow label="Lớp" value={studentInfo.tenLop || 'N/A'} icon={<School className="h-5 w-5 text-muted-foreground" />} />
+                    )}
+                    {studentClass && studentClass.lichHoc && studentClass.lichHoc.length > 0 && (
+                      <InfoRow label="Lịch học" value={studentClass.lichHoc.join(', ')} icon={<BookOpen className="h-5 w-5 text-muted-foreground" />} />
+                    )}
+                    <InfoRow label="Ngày đăng ký" value={formatDateFn(parseISO(studentInfo.ngayDangKy), "dd/MM/yyyy", {locale: vi})} icon={<CalendarDays className="h-5 w-5 text-muted-foreground" />} />
+                  </div>
                 </InfoSection>
 
                 <InfoSection title="Thông tin học phí" icon={<FileText className="h-6 w-6 text-primary" />}>
-                  <InfoRow label="Chu kỳ thanh toán" value={studentInfo.chuKyThanhToan} />
-                  <InfoRow label="Trạng thái" value={studentInfo.tinhTrangThanhToan} highlight={studentInfo.tinhTrangThanhToan === 'Chưa thanh toán' || studentInfo.tinhTrangThanhToan === 'Quá hạn'} />
-                  <InfoRow label="Học phí cần đóng" value={hocPhiCanDongDisplay} highlight={studentInfo.tinhTrangThanhToan !== 'Đã thanh toán'} />
-                  <InfoRow label="Chu kỳ thanh toán tiếp theo" value={nextPaymentDateText} icon={<BadgePercent className="h-5 w-5 text-muted-foreground" />} />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
+                    <InfoRow label="Chu kỳ thanh toán" value={studentInfo.chuKyThanhToan} />
+                    <InfoRow label="Trạng thái" value={studentInfo.tinhTrangThanhToan} highlight={studentInfo.tinhTrangThanhToan === 'Chưa thanh toán' || studentInfo.tinhTrangThanhToan === 'Quá hạn'} />
+                    <InfoRow label="Học phí cần đóng" value={hocPhiCanDongDisplay} highlight={studentInfo.tinhTrangThanhToan !== 'Đã thanh toán'} />
+                    <InfoRow label="Chu kỳ thanh toán tiếp theo" value={nextPaymentDateText} icon={<BadgePercent className="h-5 w-5 text-muted-foreground" />} />
+                  </div>
                 </InfoSection>
 
                  <InfoSection title="Thống kê điểm danh (Toàn khóa)" icon={<PieChart className="h-6 w-6 text-primary" />}>
@@ -362,7 +368,7 @@ const InfoSection = ({ title, icon, children }: InfoSectionProps) => (
       {icon}
       <span className="ml-2">{title}</span>
     </h3>
-    <div className="space-y-3">{children}</div>
+    <div className="space-y-3">{children}</div> {/* Children now contain the grid div */}
   </div>
 );
 
