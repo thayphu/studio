@@ -4,7 +4,8 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { useRouter } from 'next/navigation';
+import { useRouter, NextRouter } from 'next/navigation'; // Corrected import for NextRouter
+import Link from 'next/link'; // Import Link
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -29,7 +30,7 @@ const loginFormSchema = z.object({
 type LoginFormValues = z.infer<typeof loginFormSchema>;
 
 export default function LoginForm() {
-  const router = useRouter();
+  const router = useRouter() as NextRouter; // Cast to NextRouter if specific methods are needed, otherwise useRouter is fine
   const { toast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -44,10 +45,18 @@ export default function LoginForm() {
 
   function onSubmit(data: LoginFormValues) {
     setIsLoading(true);
-    // Simulate API call
-    // In a real app, replace these with environment variables or a proper auth system
-    const adminUsername = process.env.NEXT_PUBLIC_ADMIN_USERNAME || "default_admin";
-    const adminPassword = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || "default_password";
+    const adminUsername = process.env.NEXT_PUBLIC_ADMIN_USERNAME;
+    const adminPassword = process.env.NEXT_PUBLIC_ADMIN_PASSWORD;
+
+    if (!adminUsername || !adminPassword) {
+      toast({
+        title: "Lỗi cấu hình",
+        description: "Thông tin đăng nhập quản trị chưa được thiết lập trong biến môi trường.",
+        variant: "destructive",
+      });
+      setIsLoading(false);
+      return;
+    }
 
     setTimeout(() => {
       if (data.username === adminUsername && data.password === adminPassword) {
@@ -55,7 +64,7 @@ export default function LoginForm() {
           title: "Đăng nhập thành công!",
           description: "Chào mừng Đông Phú quay trở lại.",
         });
-        router.push('/lop-hoc'); // Redirect to dashboard or main page
+        router.push('/lop-hoc');
       } else {
         toast({
           title: "Đăng nhập thất bại",
@@ -66,17 +75,6 @@ export default function LoginForm() {
       setIsLoading(false);
     }, 1000);
   }
-
-  const handleForgotPassword = () => {
-    // For the current simple auth, a full "Forgot Password" is not feasible.
-    // This placeholder provides user feedback.
-    // For a real application, integrate with Firebase Authentication or a similar service.
-    toast({
-      title: "Quên mật khẩu?",
-      description: "Vui lòng liên hệ quản trị viên để được hỗ trợ đặt lại mật khẩu.",
-      duration: 5000,
-    });
-  };
 
   return (
     <Card className="shadow-xl">
@@ -129,15 +127,14 @@ export default function LoginForm() {
               )}
             />
             <div className="flex items-center justify-between">
-              {/* Placeholder for "Remember me" if needed in the future */}
               <div></div>
               <Button 
                 type="button" 
                 variant="link" 
                 className="px-0 text-sm text-muted-foreground hover:text-primary"
-                onClick={handleForgotPassword}
+                asChild // Use asChild to make Button behave like Link
               >
-                Quên mật khẩu?
+                <Link href="/forgot-password">Quên mật khẩu?</Link>
               </Button>
             </div>
             <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isLoading}>
