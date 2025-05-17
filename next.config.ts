@@ -18,7 +18,7 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: 'https',
-        hostname: 'api.vietqr.io', // VietQR API hostname
+        hostname: 'img.vietqr.io', // Updated VietQR hostname
         port: '',
         pathname: '/**',
       },
