@@ -59,7 +59,7 @@ interface AddStudentFormProps {
   isEditing?: boolean;
   isSubmitting?: boolean;
   initialClassId?: string | null;
-  isLoadingClasses?: boolean; // Added prop
+  isLoadingClasses?: boolean;
 }
 
 const capitalizeWords = (str: string): string => {
@@ -79,14 +79,22 @@ export default function AddStudentForm({
   isEditing = false, 
   isSubmitting = false,
   initialClassId = null,
-  isLoadingClasses = false, // Added prop with default
+  isLoadingClasses = false,
 }: AddStudentFormProps) {
   const { toast } = useToast();
   const [displayStudentId, setDisplayStudentId] = React.useState('');
 
   const form = useForm<StudentFormInputValues>({
     resolver: zodResolver(studentFormSchema),
-    // Default values are set in useEffect based on mode
+    defaultValues: { // Ensure all text inputs have a defined default value
+      hoTen: "",
+      ngaySinh: "",
+      diaChi: "",
+      soDienThoai: "",
+      lopId: "", // This will be overridden by useEffect if initialClassId or initialData exists
+      ngayDangKy: new Date(),
+      chuKyThanhToan: "1 tháng", // Default, will be overridden if class is selected
+    },
   });
   
   const selectedLopId = form.watch('lopId');
@@ -111,7 +119,7 @@ export default function AddStudentForm({
       setDisplayStudentId(newStudentId);
 
       let defaultLopId = "";
-      let defaultChuKyThanhToan: PaymentCycle = "1 tháng"; // Fallback payment cycle
+      let defaultChuKyThanhToan: PaymentCycle = "1 tháng"; 
 
       if (initialClassId && existingClasses && existingClasses.length > 0) {
         const selectedClass = existingClasses.find(cls => cls.id === initialClassId);
@@ -121,10 +129,10 @@ export default function AddStudentForm({
           console.log(`[AddStudentForm] Pre-filling for Add mode. Class: ${selectedClass.tenLop} (ID: ${defaultLopId}), Payment Cycle: ${defaultChuKyThanhToan}`);
         } else {
           console.warn(`[AddStudentForm] Initial class ID "${initialClassId}" provided but not found in existing classes. Setting lopId to initialClassId, using fallback payment cycle.`);
-          defaultLopId = initialClassId; // Still attempt to set lopId if initialClassId was passed
+          defaultLopId = initialClassId; 
         }
       } else if (initialClassId) {
-          defaultLopId = initialClassId; // Set lopId if initialClassId is passed, even if class details for cycle aren't found yet
+          defaultLopId = initialClassId; 
           console.warn(`[AddStudentForm] Initial class ID "${initialClassId}" provided, but existingClasses is empty or not yet loaded. Setting lopId, using fallback payment cycle.`);
       } else {
         console.log("[AddStudentForm] No initialClassId provided for Add mode. Using default empty lopId and fallback payment cycle.");
@@ -132,10 +140,10 @@ export default function AddStudentForm({
       
       form.reset({
         hoTen: "",
-        ngaySinh: "", // DD/MM/YYYY format
+        ngaySinh: "", 
         diaChi: "",
         soDienThoai: "",
-        lopId: defaultLopId, // Will be an empty string if no initialClassId
+        lopId: defaultLopId, 
         ngayDangKy: new Date(),
         chuKyThanhToan: defaultChuKyThanhToan,
       });
@@ -144,23 +152,23 @@ export default function AddStudentForm({
 
 
   React.useEffect(() => {
-    // This effect updates the payment cycle if the class is changed *manually* in the form,
-    // and it's not in edit mode, and the manually selected lopId is different from any initialClassId.
-    // Or if it IS in add mode, initialClassId IS set, but existingClasses was not available during the first effect run.
     const currentLopIdValue = form.getValues('lopId');
+    console.log(`[AddStudentForm] lopId changed or existingClasses updated. CurrentLopId: ${currentLopIdValue}, isEditing: ${isEditing}, initialClassId: ${initialClassId}`);
 
     if (!isEditing && currentLopIdValue && existingClasses && existingClasses.length > 0) {
         const selectedClass = existingClasses.find(cls => cls.id === currentLopIdValue);
-        if (selectedClass && selectedClass.chuKyDongPhi !== form.getValues('chuKyThanhToan')) {
-            // Only update if the class's payment cycle is different from the current form value.
-            // This helps preserve manual changes to payment cycle if the user selected a class then changed cycle.
-            // However, for the auto-fill scenario (initialClassId), we usually want the class's cycle.
-            // This condition prioritizes class's cycle if it was auto-selected via initialClassId
-            // OR if user manually changes class.
-            if (initialClassId === currentLopIdValue || form.getValues('chuKyThanhToan') !== selectedClass.chuKyDongPhi) {
-                 console.log(`[AddStudentForm] Auto-updating payment cycle to: ${selectedClass.chuKyDongPhi} for class ${selectedClass.tenLop}`);
-                 form.setValue('chuKyThanhToan', selectedClass.chuKyDongPhi, { shouldValidate: true });
+        if (selectedClass) {
+            console.log(`[AddStudentForm] Found selected class: ${selectedClass.tenLop}. Its payment cycle: ${selectedClass.chuKyDongPhi}. Current form payment cycle: ${form.getValues('chuKyThanhToan')}`);
+            // Only update if this isn't the initial auto-fill from initialClassId, OR if the class's default cycle is different.
+            // This prevents overriding a user's manual cycle change after a class was pre-selected.
+            if (initialClassId !== currentLopIdValue || form.getValues('chuKyThanhToan') !== selectedClass.chuKyDongPhi) {
+                 if (form.getValues('chuKyThanhToan') !== selectedClass.chuKyDongPhi) {
+                    console.log(`[AddStudentForm] Auto-updating payment cycle to: ${selectedClass.chuKyDongPhi} for class ${selectedClass.tenLop} due to manual class change or outdated cycle.`);
+                    form.setValue('chuKyThanhToan', selectedClass.chuKyDongPhi, { shouldValidate: true });
+                 }
             }
+        } else {
+             console.log(`[AddStudentForm] Class with ID ${currentLopIdValue} not found in existingClasses for payment cycle update.`);
         }
     }
   }, [selectedLopId, existingClasses, isEditing, initialClassId, form]);
@@ -193,7 +201,7 @@ export default function AddStudentForm({
     }
 
     const submissionData: HocSinh = {
-      id: displayStudentId, // For new, this is generated; for edit, this is from initialData via displayStudentId
+      id: displayStudentId, 
       ...data,
       hoTen: capitalizeWords(data.hoTen),
       ngaySinh: ngaySinhISO,
@@ -394,3 +402,4 @@ export default function AddStudentForm({
     </Form>
   );
 }
+
