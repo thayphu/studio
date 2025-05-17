@@ -236,10 +236,9 @@ export default function PhuHuynhPage() {
     return "N/A";
   }, [studentInfo, classesMap]);
 
-
-  const vietQR_BankBin = process.env.NEXT_PUBLIC_VIETQR_BANK_BIN || "970422";
-  const vietQR_AccountNo = process.env.NEXT_PUBLIC_VIETQR_ACCOUNT_NO || "9704229262085470";
-  const vietQR_AccountName = process.env.NEXT_PUBLIC_VIETQR_ACCOUNT_NAME || "Tran Dong Phu";
+  const vietQR_BankBin = process.env.NEXT_PUBLIC_VIETQR_BANK_BIN || "970422"; // Default MB Bank
+  const vietQR_AccountNo = process.env.NEXT_PUBLIC_VIETQR_ACCOUNT_NO || "YOUR_ACCOUNT_NO"; // Replace
+  const vietQR_AccountName = process.env.NEXT_PUBLIC_VIETQR_ACCOUNT_NAME || "YOUR_ACCOUNT_NAME"; // Replace
   const vietQR_Template = process.env.NEXT_PUBLIC_VIETQR_TEMPLATE || "compact2";
 
 
@@ -374,24 +373,24 @@ export default function PhuHuynhPage() {
 
                 {qrLink && studentInfo && studentInfo.tinhTrangThanhToan !== 'Đã thanh toán' && (
                   <InfoSection title="Hướng dẫn thanh toán" icon={<QrCode className="h-6 w-6 text-primary" />}>
-                    <div className="flex flex-col md:flex-row gap-6">
+                    <div className="flex flex-col md:flex-row gap-4 items-start"> {/* Reduced gap and added items-start */}
                       <div className="flex-1">
                         <p className="font-semibold text-lg mb-2">Thông tin chuyển khoản:</p>
                         <ul className="space-y-1 list-disc list-inside text-muted-foreground">
                           <li>Số tài khoản: <strong className="text-foreground">{vietQR_AccountNo}</strong></li>
-                          <li>Ngân hàng: <strong className="text-foreground">Ngân hàng Quân đội (MB Bank)</strong></li>
+                          <li>Ngân hàng: <strong className="text-foreground">Ngân hàng Quân đội (MB Bank)</strong></li> 
                           <li>Chủ tài khoản: <strong className="text-foreground">{vietQR_AccountName}</strong></li>
                           <li>Nội dung chuyển khoản: <strong className="text-destructive">HP {studentInfo.id}</strong></li>
                           <li>Số tiền cần thanh toán: <strong className="text-destructive">{formatCurrencyVND(qrAmount)}</strong></li>
                         </ul>
                       </div>
-                      <div className="md:w-1/3 flex flex-col items-center md:items-end">
-                        <p className="mb-2 font-medium text-center md:text-right">Hoặc quét mã QR:</p>
+                      <div className="md:w-auto flex flex-col items-center md:items-start mt-4 md:mt-0"> {/* Adjusted width and alignment */}
+                        <p className="mb-2 font-medium text-center md:text-left">Hoặc quét mã QR:</p>
                         {qrLink ? (
                           <Image
                             src={qrLink}
                             alt="QR Code thanh toán"
-                            width={150}
+                            width={150} 
                             height={150}
                             className="rounded-lg shadow-md"
                             priority
@@ -461,5 +460,3 @@ const StatBox = ({ label, value, color }: StatBoxProps) => (
     <p className="text-xs">{label}</p>
   </div>
 );
-
-    
