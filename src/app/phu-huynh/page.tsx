@@ -5,7 +5,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Search, UserCircle, School, CalendarDays, FileText, PieChart, QrCode, Loader2, BadgePercent, BookOpen } from 'lucide-react';
+import { Search, UserCircle, School, CalendarDays, FileText, PieChart, QrCode, Loader2, BadgePercent, BookOpen, AlertCircle } from 'lucide-react';
 import Image from 'next/image';
 import type { HocSinh, LopHoc } from '@/lib/types';
 import { getStudentById } from '@/services/hocSinhService';
@@ -19,9 +19,18 @@ import { useQuery } from '@tanstack/react-query';
 
 
 const calculateTuitionForStudent = (student: HocSinh, classesMap: Map<string, LopHoc>): number | null => {
-  if (!student.lopId) return null;
+  console.log("[PhuHuynhPage] calculateTuitionForStudent called for student:", student?.id, "lopId:", student?.lopId);
+  if (!student || !student.lopId) {
+    console.log("[PhuHuynhPage] calculateTuitionForStudent: student or student.lopId is null/undefined.");
+    return null;
+  }
   const studentClass = classesMap.get(student.lopId);
-  if (!studentClass) return null;
+  if (!studentClass) {
+    console.log("[PhuHuynhPage] calculateTuitionForStudent: studentClass not found in classesMap for lopId:", student.lopId);
+    return null;
+  }
+  console.log("[PhuHuynhPage] calculateTuitionForStudent: studentClass found:", studentClass);
+
 
   let tongHocPhi: number;
   const sessionsInCycleMap: { [key: string]: number | undefined } = {
@@ -37,6 +46,7 @@ const calculateTuitionForStudent = (student: HocSinh, classesMap: Map<string, Lo
   } else {
     tongHocPhi = studentClass.hocPhi;
   }
+  console.log("[PhuHuynhPage] calculateTuitionForStudent: calculated fee:", tongHocPhi);
   return tongHocPhi;
 };
 
@@ -239,7 +249,7 @@ export default function PhuHuynhPage() {
   const vietQR_BankBin = process.env.NEXT_PUBLIC_VIETQR_BANK_BIN || "VIETQR_BANK_BIN_CHUA_CAU_HINH";
   const vietQR_AccountNo = process.env.NEXT_PUBLIC_VIETQR_ACCOUNT_NO || "SO_TK_CHUA_CAU_HINH";
   const vietQR_AccountName = process.env.NEXT_PUBLIC_VIETQR_ACCOUNT_NAME || "TEN_TK_CHUA_CAU_HINH";
-  const vietQR_Template = process.env.NEXT_PUBLIC_VIETQR_TEMPLATE || "compact2";
+  const vietQR_Template = process.env.NEXT_PUBLIC_VIETQR_TEMPLATE || "compact";
 
 
   const tuitionFee = studentInfo ? calculateTuitionForStudent(studentInfo, classesMap) : null;
@@ -254,7 +264,12 @@ export default function PhuHuynhPage() {
   });
   console.log("[PhuHuynhPage] VietQR Params for static link generation:", { vietQR_BankBin, vietQR_AccountNo, vietQR_AccountName, qrAmount, qrInfo, vietQR_Template });
 
-  const qrLink = studentInfo && qrAmount > 0 && vietQR_BankBin && vietQR_AccountNo && vietQR_Template && vietQR_BankBin !== "VIETQR_BANK_BIN_CHUA_CAU_HINH" && vietQR_AccountNo !== "SO_TK_CHUA_CAU_HINH"
+  const canGenerateQr = vietQR_BankBin && vietQR_AccountNo && vietQR_Template &&
+                        vietQR_BankBin !== "VIETQR_BANK_BIN_CHUA_CAU_HINH" &&
+                        vietQR_AccountNo !== "SO_TK_CHUA_CAU_HINH" &&
+                        vietQR_Template !== "TEMPLATE_CHUA_CAU_HINH";
+
+  const qrLink = studentInfo && qrAmount > 0 && canGenerateQr
     ? `https://img.vietqr.io/image/${vietQR_BankBin}-${vietQR_AccountNo}-${vietQR_Template}.png?amount=${qrAmount}&addInfo=${encodeURIComponent(qrInfo)}&accountName=${encodeURIComponent(vietQR_AccountName)}`
     : null;
 
@@ -371,7 +386,7 @@ export default function PhuHuynhPage() {
                   ) : <p className="text-muted-foreground">Chưa có lịch sử thanh toán chi tiết để hiển thị.</p>}
                 </InfoSection>
 
-                {qrLink && studentInfo && studentInfo.tinhTrangThanhToan !== 'Đã thanh toán' && (
+                {studentInfo && studentInfo.tinhTrangThanhToan !== 'Đã thanh toán' && qrAmount > 0 && (
                   <InfoSection title="Hướng dẫn thanh toán" icon={<QrCode className="h-6 w-6 text-primary" />}>
                     <div className="flex flex-col md:flex-row gap-4 items-start"> 
                       <div className="flex-1">
@@ -397,7 +412,11 @@ export default function PhuHuynhPage() {
                             data-ai-hint="payment qrcode"
                           />
                         ) : (
-                          <p className="text-muted-foreground">Không thể tạo mã QR (Vui lòng cấu hình thông tin ngân hàng).</p>
+                          <div className="p-4 border border-dashed border-destructive/50 bg-destructive/10 rounded-md text-center">
+                            <AlertCircle className="h-8 w-8 text-destructive mx-auto mb-2" />
+                            <p className="text-sm text-destructive-foreground font-medium">Không thể tạo mã QR</p>
+                            <p className="text-xs text-muted-foreground">Vui lòng kiểm tra cấu hình thông tin tài khoản ngân hàng trong hệ thống hoặc liên hệ quản trị viên.</p>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -460,4 +479,3 @@ const StatBox = ({ label, value, color }: StatBoxProps) => (
     <p className="text-xs">{label}</p>
   </div>
 );
-
