@@ -18,7 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getClasses } from '@/services/lopHocService';
 import { getStudentsByClassId } from '@/services/hocSinhService';
-import { saveTestScores } from '@/services/testScoreService';
+import { saveTestScores } from '@/services/testScoreService'; // Assuming getTestScoresForClassOnDate might be added here later
 import type { LopHoc, HocSinh, TestScoreRecord, StudentScoreInput, HomeworkStatus } from '@/lib/types';
 import { ALL_HOMEWORK_STATUSES } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -62,6 +62,8 @@ export default function KiemTraPage() {
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [studentScores, setStudentScores] = useState<Record<string, StudentScoreInput>>({});
+  const [savedStudentIdsForSession, setSavedStudentIdsForSession] = useState<Set<string>>(new Set());
+
 
   const [isGradeSlipModalOpen, setIsGradeSlipModalOpen] = useState(false);
   const [gradeSlipData, setGradeSlipData] = useState<ReportData | null>(null);
@@ -87,18 +89,22 @@ export default function KiemTraPage() {
   
   useEffect(() => {
     if (selectedClassId) {
-        console.log("[KiemTraPage] Class ID changed to:", selectedClassId, "- refetching students.");
+        console.log("[KiemTraPage] Class ID changed to:", selectedClassId, "- refetching students and resetting scores.");
         refetchStudentsInClass();
+        setStudentScores({});
+        setSavedStudentIdsForSession(new Set());
+        // TODO: Fetch existing scores for this new selectedClassId/selectedDate combination
     }
   }, [selectedClassId, refetchStudentsInClass]);
   
   useEffect(() => {
     if (selectedClassId && selectedDate) { 
-        console.log("[KiemTraPage] Date changed to:", selectedDate, "- clearing scores for new date.");
+        console.log("[KiemTraPage] Date changed to:", selectedDate, "- resetting scores for new date.");
         setStudentScores({});
+        setSavedStudentIdsForSession(new Set());
         // TODO: Fetch existing scores for this new selectedClassId/selectedDate combination
     }
-  }, [selectedDate, selectedClassId]); 
+  }, [selectedDate]); 
 
   const handleScoreInputChange = (studentId: string, field: keyof StudentScoreInput | 'homeworkStatus', value: any) => {
     setStudentScores(prev => ({
@@ -113,11 +119,13 @@ export default function KiemTraPage() {
 
   const saveScoresMutation = useMutation({
     mutationFn: (records: TestScoreRecord[]) => saveTestScores(records),
-    onSuccess: () => {
+    onSuccess: (data, variables) => { // variables here are the records passed to mutate
       toast({
         title: "Lưu điểm thành công!",
         description: "Điểm kiểm tra đã được ghi nhận.",
       });
+      const newlySavedIds = new Set(variables.map(record => record.studentId));
+      setSavedStudentIdsForSession(prev => new Set([...prev, ...newlySavedIds]));
       // Optionally, refetch scores for the current class/date after saving
       // queryClient.invalidateQueries({ queryKey: ['testScores', selectedClassId, format(selectedDate!, 'yyyy-MM-dd')] });
     },
@@ -150,17 +158,18 @@ export default function KiemTraPage() {
     const recordsToSave: TestScoreRecord[] = studentsInSelectedClass
     .map(student => {
         const currentScoreInput = studentScores[student.id];
-        // Only include students for whom some score data has been entered or modified
         if (!currentScoreInput || isScoreEntryEmpty(currentScoreInput)) {
             return null; 
         }
+        const scoreValue = currentScoreInput.score !== undefined && currentScoreInput.score !== null && currentScoreInput.score !== '' && !isNaN(Number(currentScoreInput.score)) ? Number(currentScoreInput.score) : undefined;
+
         return {
             studentId: student.id,
             studentName: student.hoTen,
             classId: selectedClassId,
             className: selectedClass.tenLop,
             testDate: format(selectedDate, 'yyyy-MM-dd'),
-            score: currentScoreInput.score !== undefined && currentScoreInput.score !== null && currentScoreInput.score !== '' && !isNaN(Number(currentScoreInput.score)) ? Number(currentScoreInput.score) : undefined,
+            score: scoreValue,
             masteredLesson: currentScoreInput.masteredLesson || false,
             vocabularyToReview: currentScoreInput.vocabularyToReview || '',
             generalRemarks: currentScoreInput.generalRemarks || '',
@@ -233,15 +242,19 @@ export default function KiemTraPage() {
     setIsGradeSlipModalOpen(true);
   };
 
-  const studentsToEnterScores = useMemo(() => {
+  const studentsForEntryTab = useMemo(() => {
     if (isLoadingStudents || !studentsInSelectedClass) return [];
-    return studentsInSelectedClass.filter(student => isScoreEntryEmpty(studentScores[student.id]));
-  }, [studentsInSelectedClass, studentScores, isLoadingStudents]);
+    return studentsInSelectedClass.filter(student =>
+      !savedStudentIdsForSession.has(student.id) || isScoreEntryEmpty(studentScores[student.id])
+    );
+  }, [studentsInSelectedClass, studentScores, isLoadingStudents, savedStudentIdsForSession]);
 
-  const studentsWithEnteredScores = useMemo(() => {
+  const studentsForHistoryTab = useMemo(() => {
     if (isLoadingStudents || !studentsInSelectedClass) return [];
-    return studentsInSelectedClass.filter(student => !isScoreEntryEmpty(studentScores[student.id]));
-  }, [studentsInSelectedClass, studentScores, isLoadingStudents]);
+    return studentsInSelectedClass.filter(student =>
+      savedStudentIdsForSession.has(student.id) && !isScoreEntryEmpty(studentScores[student.id])
+    );
+  }, [studentsInSelectedClass, studentScores, isLoadingStudents, savedStudentIdsForSession]);
 
 
   return (
@@ -322,10 +335,10 @@ export default function KiemTraPage() {
               <Tabs defaultValue="nhap-diem" className="w-full">
                 <TabsList className="grid w-full grid-cols-2 mb-4 bg-primary/10 p-1 rounded-lg">
                   <TabsTrigger value="nhap-diem" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-primary/20 hover:text-primary focus-visible:ring-primary/50">
-                    <Edit3 className="mr-2 h-4 w-4" /> Nhập điểm ({studentsToEnterScores.length})
+                    <Edit3 className="mr-2 h-4 w-4" /> Nhập điểm ({studentsForEntryTab.length})
                   </TabsTrigger>
                   <TabsTrigger value="lich-su" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-primary/20 hover:text-primary focus-visible:ring-primary/50">
-                    <ListChecks className="mr-2 h-4 w-4" /> Lịch sử nhập điểm ({studentsWithEnteredScores.length})
+                    <ListChecks className="mr-2 h-4 w-4" /> Lịch sử nhập điểm ({studentsForHistoryTab.length})
                   </TabsTrigger>
                 </TabsList>
                 
@@ -340,13 +353,13 @@ export default function KiemTraPage() {
                       <AlertCircle className="mr-2 h-5 w-5" /> Lỗi tải danh sách học sinh của lớp này.
                     </div>
                   )}
-                  {!isLoadingStudents && !isErrorStudents && studentsToEnterScores.length === 0 && studentsInSelectedClass.length > 0 && (
-                     <p className="text-muted-foreground text-center py-4">Tất cả học sinh đã có thông tin điểm cho ngày này (trong phiên làm việc).</p>
+                  {!isLoadingStudents && !isErrorStudents && studentsForEntryTab.length === 0 && studentsInSelectedClass.length > 0 && (
+                     <p className="text-muted-foreground text-center py-4">Tất cả học sinh đã được nhập hoặc lưu điểm cho ngày này.</p>
                   )}
-                   {!isLoadingStudents && !isErrorStudents && studentsToEnterScores.length === 0 && studentsInSelectedClass.length === 0 && (
+                   {!isLoadingStudents && !isErrorStudents && studentsForEntryTab.length === 0 && studentsInSelectedClass.length === 0 && (
                      <p className="text-muted-foreground text-center py-4">Lớp này chưa có học sinh.</p>
                   )}
-                  {!isLoadingStudents && !isErrorStudents && studentsToEnterScores.length > 0 && (
+                  {!isLoadingStudents && !isErrorStudents && studentsForEntryTab.length > 0 && (
                     <div className="overflow-x-auto">
                       <Table>
                         <TableHeader>
@@ -361,7 +374,7 @@ export default function KiemTraPage() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {studentsToEnterScores.map((student, index) => (
+                          {studentsForEntryTab.map((student, index) => (
                             <TableRow key={student.id}>
                               <TableCell>{index + 1}</TableCell>
                               <TableCell className="font-medium">{student.hoTen}</TableCell>
@@ -434,10 +447,10 @@ export default function KiemTraPage() {
                       <AlertCircle className="mr-2 h-5 w-5" /> Lỗi tải danh sách học sinh của lớp này.
                     </div>
                   )}
-                  {!isLoadingStudents && !isErrorStudents && studentsWithEnteredScores.length === 0 && (
-                     <p className="text-muted-foreground text-center py-4">Chưa có học sinh nào được nhập điểm trong phiên làm việc này.</p>
+                  {!isLoadingStudents && !isErrorStudents && studentsForHistoryTab.length === 0 && (
+                     <p className="text-muted-foreground text-center py-4">Chưa có học sinh nào được lưu điểm trong phiên làm việc này.</p>
                   )}
-                  {!isLoadingStudents && !isErrorStudents && studentsWithEnteredScores.length > 0 && (
+                  {!isLoadingStudents && !isErrorStudents && studentsForHistoryTab.length > 0 && (
                     <div className="overflow-x-auto">
                       <Table>
                         <TableHeader>
@@ -451,7 +464,7 @@ export default function KiemTraPage() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {studentsWithEnteredScores.map((student, index) => {
+                          {studentsForHistoryTab.map((student, index) => {
                             const scores = studentScores[student.id] || {};
                             return (
                               <TableRow key={student.id}>
@@ -480,11 +493,11 @@ export default function KiemTraPage() {
                 </TabsContent>
               </Tabs>
             </CardContent>
-            {(studentsInSelectedClass.length > 0 || studentsToEnterScores.length > 0) && (
+            {selectedClassId && (studentsInSelectedClass.length > 0) && (
               <CardFooter className="justify-end border-t pt-6">
                 <Button
                   onClick={handleSaveAllScores}
-                  disabled={saveScoresMutation.isPending}
+                  disabled={saveScoresMutation.isPending || studentsForEntryTab.length === 0 && studentsForHistoryTab.every(s => isScoreEntryEmpty(studentScores[s.id]))}
                 >
                   {saveScoresMutation.isPending && <Save className="mr-2 h-4 w-4 animate-spin" />}
                   Lưu Tất Cả Điểm
