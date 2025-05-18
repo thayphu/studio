@@ -40,7 +40,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const router = useRouter();
 
   useEffect(() => {
-    // console.log("DashboardLayout mounted or updated - " + new Date().toLocaleTimeString()); 
+    console.log("DashboardLayout mounted or updated - " + new Date().toLocaleTimeString()); 
   }, []); 
 
 
@@ -69,6 +69,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           <SidebarContent className="p-2">
             <SidebarMenu>
               {NAV_LINKS.map((link) => {
+                const tooltipContent = link.label; // Use string directly for tooltip
                 return (
                   <SidebarMenuItem key={link.href}>
                     <SidebarMenuButton
@@ -77,7 +78,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                       className={cn(
                         pathname.startsWith(link.href) ? "bg-primary/10 text-primary hover:bg-primary/20" : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                       )}
-                      tooltip={link.label} 
+                      tooltip={tooltipContent} 
                     >
                       <Link href={link.href}>
                         <link.icon className="h-5 w-5" />
@@ -94,7 +95,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               <SidebarMenuItem>
                 <SidebarMenuButton
                   asChild
-                  tooltip={PARENT_PORTAL_LINK.label} 
+                  tooltip={PARENT_PORTAL_LINK.label} // Use string directly for tooltip
                   className="cursor-pointer hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                   onClick={handleParentPortalClick}
                 >
@@ -147,3 +148,4 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     </SidebarProvider>
   );
 }
+
