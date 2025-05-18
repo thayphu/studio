@@ -47,6 +47,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     window.open(PARENT_PORTAL_LINK.href, '_blank');
   }, []);
 
+  // Memoize tooltip props for the parent portal link
   const parentPortalTooltipContent = React.useMemo(() => ({
     children: PARENT_PORTAL_LINK.label,
     side: "right" as const,
@@ -71,6 +72,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           <SidebarContent className="p-2">
             <SidebarMenu>
               {NAV_LINKS.map((link) => {
+                // Memoize tooltip props for each navigation link
                 const tooltipContent = React.useMemo(() => ({
                   children: link.label,
                   side: "right" as const,
@@ -85,7 +87,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                       className={cn(
                         pathname.startsWith(link.href) ? "bg-primary/10 text-primary hover:bg-primary/20" : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                       )}
-                      tooltip={tooltipContent}
+                      tooltip={tooltipContent} // Pass memoized object
                     >
                       <Link href={link.href}>
                         <link.icon className="h-5 w-5" />
@@ -102,7 +104,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     asChild
-                    tooltip={parentPortalTooltipContent}
+                    tooltip={parentPortalTooltipContent} // Pass memoized object
                     className="cursor-pointer hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                     onClick={handleParentPortalClick} 
                   >
