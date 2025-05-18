@@ -45,13 +45,13 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
   const handleParentPortalClick = React.useCallback(() => {
     window.open(PARENT_PORTAL_LINK.href, '_blank');
-  }, []); // PARENT_PORTAL_LINK.href is constant
+  }, []); 
 
   const parentPortalTooltipContent = React.useMemo(() => ({
     children: PARENT_PORTAL_LINK.label,
     side: "right" as const,
     align: "center" as const,
-  }), []); // PARENT_PORTAL_LINK.label is constant, so empty dependency array is fine.
+  }), []); 
 
 
   return (
@@ -72,18 +72,18 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           <SidebarContent className="p-2">
             <SidebarMenu>
               {NAV_LINKS.map((link) => {
-                const navLinkTooltipContent = React.useMemo(() => ({
-                  children: link.label,
-                  side: "right" as const,
-                  align: "center" as const,
-                }), [link.label]);
+                // const navLinkTooltipContent = React.useMemo(() => ({ // Temporarily removed for debugging
+                //   children: link.label,
+                //   side: "right" as const,
+                //   align: "center" as const,
+                // }), [link.label]);
 
                 return (
                   <SidebarMenuItem key={link.href}>
                     <SidebarMenuButton
                       asChild
                       isActive={pathname.startsWith(link.href)}
-                      tooltip={navLinkTooltipContent} // Pass memoized object
+                      // tooltip={navLinkTooltipContent} // Temporarily removed for debugging
                       className={cn(
                         "justify-start",
                         pathname.startsWith(link.href) && "bg-primary/10 text-primary hover:bg-primary/20"
@@ -104,7 +104,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     asChild
-                    tooltip={parentPortalTooltipContent} // Pass memoized object
+                    tooltip={parentPortalTooltipContent} 
                     className="justify-start"
                     onClick={handleParentPortalClick} 
                   >
@@ -128,7 +128,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                   <Avatar className="h-9 w-9">
-                    <AvatarImage src="https://placehold.co/100x100.png" alt="Admin Avatar" data-ai-hint="user avatar" />
+                    <AvatarImage src="https://placehold.co/100x100.png" alt="Admin Avatar" data-ai-hint="user avatar"/>
                     <AvatarFallback>DP</AvatarFallback>
                   </Avatar>
                 </Button>
