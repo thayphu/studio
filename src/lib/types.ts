@@ -99,16 +99,15 @@ export interface TestScoreRecord {
   testDate: string; // ISO Date string (e.g., YYYY-MM-DD)
   testName?: string; // Made optional
   score?: number;
-  // maxScore?: number; // Removed as per request
   masteredLesson: boolean; // "Đã thuộc bài" (true) or "Không thuộc bài" (false)
   vocabularyToReview?: string; // "Từ vựng cần học lại"
   generalRemarks?: string; // Other general remarks from teacher
   homeworkStatus?: HomeworkStatus; // Added
-  // Timestamp for when the record was created/updated can be added by Firestore serverTimestamp
+  createdAt?: string; // ISO string for client-side
+  updatedAt?: string; // ISO string for client-side
 }
 
 // Helper type for the form state on KiemTraPage
-export type StudentScoreInput = Omit<TestScoreRecord, 'id' | 'studentId' | 'studentName' | 'classId' | 'className' | 'testDate' | 'testName' | 'score'> & {
+export type StudentScoreInput = Omit<TestScoreRecord, 'id' | 'studentId' | 'studentName' | 'classId' | 'className' | 'testDate' | 'testName' | 'score' | 'createdAt' | 'updatedAt'> & {
   score?: number | string; // Allow string for input flexibility, convert to number on save
-  // maxScore?: number | string; // Removed
 };
