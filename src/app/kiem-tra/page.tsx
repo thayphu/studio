@@ -18,11 +18,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getClasses } from '@/services/lopHocService';
 import { getStudentsByClassId } from '@/services/hocSinhService';
-import { saveTestScores } from '@/services/testScoreService'; // Assuming getTestScoresForClassOnDate might be added here later
+import { saveTestScores } from '@/services/testScoreService';
 import type { LopHoc, HocSinh, TestScoreRecord, StudentScoreInput, HomeworkStatus } from '@/lib/types';
 import { ALL_HOMEWORK_STATUSES } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
-import { CalendarIcon, FileText, Save, Printer, AlertCircle, Download, Info, ListChecks, Edit3 } from 'lucide-react';
+import { CalendarIcon, FileText, Save, Printer, AlertCircle, Download, Info, ListChecks, Edit3, Star } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -39,6 +39,7 @@ interface ReportData {
   vocabularyToReview?: string;
   remarks?: string;
   homework: string;
+  homeworkStatusValue?: HomeworkStatus; // To determine display for "Không có bài tập về nhà"
   homeworkColor: string;
   footer: string;
 }
@@ -93,7 +94,6 @@ export default function KiemTraPage() {
         refetchStudentsInClass();
         setStudentScores({});
         setSavedStudentIdsForSession(new Set());
-        // TODO: Fetch existing scores for this new selectedClassId/selectedDate combination
     }
   }, [selectedClassId, refetchStudentsInClass]);
   
@@ -102,7 +102,6 @@ export default function KiemTraPage() {
         console.log("[KiemTraPage] Date changed to:", selectedDate, "- resetting scores for new date.");
         setStudentScores({});
         setSavedStudentIdsForSession(new Set());
-        // TODO: Fetch existing scores for this new selectedClassId/selectedDate combination
     }
   }, [selectedDate]); 
 
@@ -119,15 +118,13 @@ export default function KiemTraPage() {
 
   const saveScoresMutation = useMutation({
     mutationFn: (records: TestScoreRecord[]) => saveTestScores(records),
-    onSuccess: (data, variables) => { // variables here are the records passed to mutate
+    onSuccess: (data, variables) => { 
       toast({
         title: "Lưu điểm thành công!",
         description: "Điểm kiểm tra đã được ghi nhận.",
       });
       const newlySavedIds = new Set(variables.map(record => record.studentId));
       setSavedStudentIdsForSession(prev => new Set([...prev, ...newlySavedIds]));
-      // Optionally, refetch scores for the current class/date after saving
-      // queryClient.invalidateQueries({ queryKey: ['testScores', selectedClassId, format(selectedDate!, 'yyyy-MM-dd')] });
     },
     onError: (error: Error) => {
       toast({
@@ -204,23 +201,27 @@ export default function KiemTraPage() {
     const masteryText = studentData?.masteredLesson ? "Đã thuộc bài" : "Chưa thuộc bài";
     const masteryColor = studentData?.masteredLesson ? "text-blue-600 dark:text-blue-400" : "text-red-600 dark:text-red-400";
 
-    let homeworkText = "";
-    let homeworkColor = "text-foreground";
-    switch (studentData?.homeworkStatus) {
-        case 'Có làm đầy đủ':
-            homeworkText = "Đã làm bài tập về nhà: Có làm đầy đủ";
-            homeworkColor = "text-blue-600 dark:text-blue-400";
-            break;
-        case 'Chỉ làm 1 phần':
-            homeworkText = "Đã làm bài tập về nhà: Chỉ làm 1 phần";
-            homeworkColor = "text-orange-500 dark:text-orange-400";
-            break;
-        case 'Không có làm':
-            homeworkText = "Đã làm bài tập về nhà: Không có làm";
-            homeworkColor = "text-red-600 dark:text-red-400";
-            break;
-        default: homeworkText = "Đã làm bài tập về nhà: (chưa có thông tin)";
+    let homeworkText = "Không có bài tập về nhà"; // Default if no status
+    let homeworkColor = "text-foreground"; // Default color
+    const homeworkStatus = studentData?.homeworkStatus;
+
+    if (homeworkStatus) {
+      switch (homeworkStatus) {
+          case 'Có làm đầy đủ':
+              homeworkText = "Đã làm bài tập về nhà: Có làm đầy đủ";
+              homeworkColor = "text-blue-600 dark:text-blue-400";
+              break;
+          case 'Chỉ làm 1 phần':
+              homeworkText = "Đã làm bài tập về nhà: Chỉ làm 1 phần";
+              homeworkColor = "text-orange-500 dark:text-orange-400";
+              break;
+          case 'Không có làm':
+              homeworkText = "Đã làm bài tập về nhà: Không có làm";
+              homeworkColor = "text-red-600 dark:text-red-400";
+              break;
+      }
     }
+
 
     const reportDataToSet: ReportData = {
       studentName: student.hoTen,
@@ -233,6 +234,7 @@ export default function KiemTraPage() {
       vocabularyToReview: studentData?.vocabularyToReview || "Không có",
       remarks: studentData?.generalRemarks || "Không có",
       homework: homeworkText,
+      homeworkStatusValue: homeworkStatus,
       homeworkColor: homeworkColor,
       footer: "Quý Phụ huynh nhắc nhở các em viết lại những từ vựng chưa thuộc.\nTrân trọng"
     };
@@ -255,6 +257,42 @@ export default function KiemTraPage() {
       savedStudentIdsForSession.has(student.id) && !isScoreEntryEmpty(studentScores[student.id])
     );
   }, [studentsInSelectedClass, studentScores, isLoadingStudents, savedStudentIdsForSession]);
+
+  const StarRating = ({ count, starClassName }: { count: number, starClassName?: string }) => (
+    <div className="inline-flex items-center ml-2">
+      {[...Array(count)].map((_, i) => (
+        <Star key={i} className={cn("h-4 w-4", starClassName)} fill="currentColor" />
+      ))}
+    </div>
+  );
+
+  const renderScoreDisplay = (score?: number | string) => {
+    if (score === undefined || score === '' || score === null) {
+      return <span className="font-bold text-lg">N/A</span>;
+    }
+    const numScore = Number(score);
+    if (isNaN(numScore)) {
+      return <span className="font-bold text-lg text-muted-foreground">{String(score)}</span>; // Show original string if not a number
+    }
+
+    if (numScore >= 9 && numScore <= 10) {
+      return <>
+        <span className="font-bold text-lg text-red-600 dark:text-red-400">{numScore}</span>
+        <StarRating count={5} starClassName="text-red-500 dark:text-red-400" />
+      </>;
+    } else if (numScore >= 7) { // 7 - 8.9
+      return <>
+        <span className="font-bold text-lg text-blue-600 dark:text-blue-400">{numScore}</span>
+        <StarRating count={4} starClassName="text-blue-500 dark:text-blue-400" />
+      </>;
+    } else if (numScore >= 5) { // 5 - 6.9
+      return <>
+        <span className="font-bold text-lg text-violet-600 dark:text-violet-400">{numScore}</span>
+        <StarRating count={3} starClassName="text-violet-500 dark:text-violet-400" />
+      </>;
+    }
+    return <span className="font-bold text-lg">{numScore}</span>; // Scores below 5
+  };
 
 
   return (
@@ -369,8 +407,8 @@ export default function KiemTraPage() {
                             <TableHead className="w-[100px]">Điểm số</TableHead>
                             <TableHead className="w-[120px] text-center">Thuộc bài</TableHead>
                             <TableHead className="min-w-[180px]">Từ vựng cần học lại</TableHead>
-                            <TableHead className="min-w-[180px]">Nhận xét</TableHead>
                             <TableHead className="min-w-[200px]">Bài tập về nhà?</TableHead>
+                            <TableHead className="min-w-[180px]">Nhận xét</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -405,15 +443,7 @@ export default function KiemTraPage() {
                                   rows={1}
                                 />
                               </TableCell>
-                              <TableCell>
-                                <Textarea
-                                  placeholder="Nhận xét khác..."
-                                  value={studentScores[student.id]?.generalRemarks || ''}
-                                  onChange={(e) => handleScoreInputChange(student.id, 'generalRemarks', e.target.value)}
-                                  rows={1}
-                                />
-                              </TableCell>
-                              <TableCell>
+                               <TableCell>
                                 <Select
                                   value={studentScores[student.id]?.homeworkStatus || ''}
                                   onValueChange={(value) => handleScoreInputChange(student.id, 'homeworkStatus', value as HomeworkStatus)}
@@ -427,6 +457,14 @@ export default function KiemTraPage() {
                                     ))}
                                   </SelectContent>
                                 </Select>
+                              </TableCell>
+                              <TableCell>
+                                <Textarea
+                                  placeholder="Nhận xét khác..."
+                                  value={studentScores[student.id]?.generalRemarks || ''}
+                                  onChange={(e) => handleScoreInputChange(student.id, 'generalRemarks', e.target.value)}
+                                  rows={1}
+                                />
                               </TableCell>
                             </TableRow>
                           ))}
@@ -521,17 +559,31 @@ export default function KiemTraPage() {
               <p><span className="font-semibold">Họ và tên:</span> {gradeSlipData.studentName}</p>
               <p><span className="font-semibold">Mã HS:</span> {gradeSlipData.studentId}</p>
               <p><span className="font-semibold">Lớp:</span> {gradeSlipData.className}</p>
-              {gradeSlipData.score !== undefined && gradeSlipData.score !== '' && <p><span className="font-semibold">Điểm số:</span> <span className="font-bold text-lg">{gradeSlipData.score}</span></p>}
+              
+              <div>
+                <span className="font-semibold">Điểm số: </span>
+                {renderScoreDisplay(gradeSlipData.score)}
+              </div>
+
               <p><span className="font-semibold">Thuộc bài:</span> <span className={cn("font-bold", gradeSlipData.masteryColor)}>{gradeSlipData.mastery}</span></p>
+              
               <div>
                 <p className="font-semibold">Từ vựng cần học lại:</p>
                 <p className="pl-2 whitespace-pre-line">{gradeSlipData.vocabularyToReview || "Không có"}</p>
               </div>
+              
+              <div>
+                <p className="font-semibold">Bài tập về nhà:</p>
+                <p className={cn("font-semibold pl-2", gradeSlipData.homeworkColor)}>
+                  {gradeSlipData.homeworkStatusValue ? gradeSlipData.homework : "Không có bài tập về nhà"}
+                </p>
+              </div>
+
               <div>
                 <p className="font-semibold">Nhận xét:</p>
                 <p className="pl-2 whitespace-pre-line">{gradeSlipData.remarks || "Không có"}</p>
               </div>
-              <p><span className="font-semibold">Bài tập về nhà:</span> <span className={cn("font-semibold", gradeSlipData.homeworkColor)}>{gradeSlipData.homework}</span></p>
+
               <div className="pt-3 mt-3 border-t">
                 <p className="whitespace-pre-line text-muted-foreground italic">{gradeSlipData.footer}</p>
               </div>
