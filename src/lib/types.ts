@@ -86,6 +86,9 @@ export interface GiaoVienVangRecord {
   createdAt: string; // ISO Date string
 }
 
+export type TestFormat = "Kiểm tra bài cũ" | "Kiểm tra miệng" | "Kiểm tra 15 phút" | "Kiểm tra 45 phút" | "Chấm bài tập" | "";
+export const ALL_TEST_FORMATS: TestFormat[] = ["Kiểm tra bài cũ", "Kiểm tra miệng", "Kiểm tra 15 phút", "Kiểm tra 45 phút", "Chấm bài tập"];
+
 export type HomeworkStatus = 'Có làm đầy đủ' | 'Chỉ làm 1 phần' | 'Không có làm' | '';
 export const ALL_HOMEWORK_STATUSES: HomeworkStatus[] = ['Có làm đầy đủ', 'Chỉ làm 1 phần', 'Không có làm'];
 
@@ -97,17 +100,19 @@ export interface TestScoreRecord {
   classId: string;
   className?: string; // Denormalized
   testDate: string; // ISO Date string (e.g., YYYY-MM-DD)
-  testName?: string; // Made optional
+  testFormat?: TestFormat; // New field
   score?: number;
-  masteredLesson: boolean; // "Đã thuộc bài" (true) or "Không thuộc bài" (false)
+  masteredLesson: boolean; // Underlying boolean for mastery
+  // masteredLessonText?: string; // Descriptive text for mastery - will be calculated dynamically for display
   vocabularyToReview?: string; // "Từ vựng cần học lại"
   generalRemarks?: string; // Other general remarks from teacher
-  homeworkStatus?: HomeworkStatus; // Added
+  homeworkStatus?: HomeworkStatus;
   createdAt?: string; // ISO string for client-side
   updatedAt?: string; // ISO string for client-side
 }
 
 // Helper type for the form state on KiemTraPage
-export type StudentScoreInput = Omit<TestScoreRecord, 'id' | 'studentId' | 'studentName' | 'classId' | 'className' | 'testDate' | 'testName' | 'score' | 'createdAt' | 'updatedAt'> & {
+export type StudentScoreInput = Omit<TestScoreRecord, 'id' | 'studentId' | 'studentName' | 'classId' | 'className' | 'testDate' | 'createdAt' | 'updatedAt'> & {
   score?: number | string; // Allow string for input flexibility, convert to number on save
 };
+
