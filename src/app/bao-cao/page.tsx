@@ -71,16 +71,19 @@ export default function BaoCaoPage() {
   const { data: students = [], isLoading: isLoadingStudents, isError: isErrorStudents } = useQuery<HocSinh[], Error>({
     queryKey: ['students'],
     queryFn: getStudents,
+    staleTime: 60000 * 1, // 1 minute
   });
 
   const { data: classes = [], isLoading: isLoadingClasses, isError: isErrorClasses } = useQuery<LopHoc[], Error>({
     queryKey: ['classes'],
     queryFn: getClasses,
+    staleTime: 60000 * 1, // 1 minute
   });
 
   const { data: overallAttendanceSummary, isLoading: isLoadingOverallAttendance, isError: isErrorOverallAttendance } = useQuery({
     queryKey: ['overallAttendanceSummary'],
     queryFn: getOverallAttendanceSummary,
+    staleTime: 60000 * 5, // 5 minutes
   });
   
   const { data: detailedAttendance, isLoading: isLoadingDetailedAttendance, isError: isErrorDetailedAttendance } = useQuery({
@@ -92,6 +95,7 @@ export default function BaoCaoPage() {
   const { data: teacherAbsentSummary, isLoading: isLoadingTeacherAbsentSummary, isError: isErrorTeacherAbsentSummary } = useQuery({
     queryKey: ['teacherAbsentDaysSummary'],
     queryFn: getTeacherAbsentDaysSummary,
+    staleTime: 60000 * 5, // 5 minutes
   });
 
   const classesMap = useMemo(() => {
@@ -315,7 +319,7 @@ export default function BaoCaoPage() {
     description?: string, 
     error?: boolean, 
     baseBackgroundColor?: string,
-    valueTextColor?: string // New prop
+    valueTextColor?: string
   }) => (
     <Card 
       className={cn(
@@ -490,5 +494,3 @@ export default function BaoCaoPage() {
     </DashboardLayout>
   );
 }
-
-

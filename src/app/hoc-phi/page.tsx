@@ -8,16 +8,16 @@ import { Download, CreditCard, FileText, Edit2, Trash2, RefreshCw, Search, Loade
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription as ShadCardDescription } from "@/components/ui/card"; // Renamed DialogTitle to avoid conflict
-import { Dialog, DialogContent, DialogHeader, DialogTitle as ShadDialogTitle, DialogDescription, DialogClose } from '@/components/ui/dialog'; // Renamed DialogTitle to avoid conflict
+import { Card, CardContent, CardHeader, CardTitle, CardDescription as ShadCardDescription } from "@/components/ui/card"; 
+import { Dialog, DialogContent, DialogHeader, DialogTitle as ShadDialogTitle, DialogDescription, DialogClose } from '@/components/ui/dialog'; 
 import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
-  AlertDialogDescription as ShadAlertDialogDescriptionComponent, // Alias for AlertDialog
+  AlertDialogDescription as ShadAlertDialogDescriptionComponent, 
   AlertDialogFooter,
-  AlertDialogHeader as ShadAlertDialogHeader, // Renamed to avoid conflict with DialogHeader
+  AlertDialogHeader as ShadAlertDialogHeader, 
   AlertDialogTitle as AlertDialogTitleComponent, 
 } from "@/components/ui/alert-dialog";
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
@@ -31,7 +31,7 @@ import { Badge } from '@/components/ui/badge';
 import { formatCurrencyVND, generateReceiptNumber } from '@/lib/utils';
 import PaymentForm from '@/components/hoc-phi/PaymentForm';
 import ReceiptTemplate from '@/components/hoc-phi/ReceiptTemplate';
-// import { recordPayment } from '@/services/hocPhiService'; // To be created
+
 
 const StudentRowSkeleton = () => (
   <TableRow>
@@ -91,11 +91,13 @@ export default function HocPhiPage() {
   const { data: studentsData, isLoading: isLoadingStudents, isError: isErrorStudents, error: errorStudents } = useQuery<HocSinh[], Error>({
     queryKey: ['students'], 
     queryFn: getStudents,
+    staleTime: 60000 * 1, // 1 minute
   });
 
   const { data: classesData, isLoading: isLoadingClasses, isError: isErrorClasses, error: errorClasses } = useQuery<LopHoc[], Error>({
     queryKey: ['classes'], 
     queryFn: getClasses,
+    staleTime: 60000 * 1, // 1 minute
   });
 
   const classesMap = useMemo(() => {
@@ -138,9 +140,7 @@ export default function HocPhiPage() {
 
   const recordPaymentMutation = useMutation({
     mutationFn: async (paymentData: { studentId: string, paymentDetails: Omit<HocPhiGhiNhan, 'id' | 'hocSinhId' | 'hocSinhTen' | 'lopTen' | 'hoaDonSo'> }) => {
-      // Placeholder for actual service call
-      // await recordPayment(paymentData.studentId, paymentData.paymentDetails); 
-      // For now, directly update student status
+      
       await updateStudent(paymentData.studentId, { 
         tinhTrangThanhToan: 'Đã thanh toán',
         ngayThanhToanGanNhat: paymentData.paymentDetails.ngayThanhToan 
@@ -182,7 +182,7 @@ export default function HocPhiPage() {
     setStudentForReceipt(student);
     const studentClass = classesMap.get(student.lopId);
     setClassScheduleForReceipt(studentClass?.lichHoc);
-    setCurrentReceiptNumber(generateReceiptNumber()); // Generate a new receipt number each time
+    setCurrentReceiptNumber(generateReceiptNumber()); 
     setIsReceiptModalOpen(true);
   };
   
@@ -200,15 +200,14 @@ export default function HocPhiPage() {
 
   const confirmDeleteReceipt = () => {
     if (!receiptToDelete) return;
-    // Placeholder for actual receipt deletion logic
+    
     toast({
       title: "Đã xóa biên nhận (giả lập)",
       description: `Biên nhận cho học sinh ${receiptToDelete.hoTen} đã được xóa (chức năng đang được phát triển).`,
     });
     setIsDeleteReceiptDialogOpen(false);
     setReceiptToDelete(null);
-    // queryClient.invalidateQueries({ queryKey: ['receipts'] }); // If you have a receipts query
-    // queryClient.invalidateQueries({ queryKey: ['students'] }); // May need to revert student status if deleting a real payment
+    
   };
 
   const combinedError = errorStudents?.message || errorClasses?.message;

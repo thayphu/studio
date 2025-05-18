@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { PlusCircle, Edit2, Trash2, Search, RefreshCw } from 'lucide-react';
 import { TEXTS_VI } from '@/lib/constants';
 import { useToast } from '@/hooks/use-toast';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'; // Removed DialogTrigger for manual control
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -65,11 +65,13 @@ function HocSinhPageContent() {
   const { data: existingClasses = [], isLoading: isLoadingClasses, isError: isErrorClasses, error: errorClasses } = useQuery<LopHoc[], Error>({
     queryKey: ['classes'],
     queryFn: getClasses,
+    staleTime: 60000 * 1, // 1 minute
   });
 
   const { data: studentsData = [], isLoading: isLoadingStudents, isError: isErrorStudents, error: errorStudents } = useQuery<HocSinh[], Error>({
     queryKey: ['students'],
     queryFn: getStudents,
+    staleTime: 60000 * 1, // 1 minute
   });
 
   useEffect(() => {
@@ -79,9 +81,9 @@ function HocSinhPageContent() {
       setInitialClassIdFromUrl(classId);
       setEditingStudent(null);
       setIsEditStudentModalOpen(false);
-      setIsAddStudentModalOpen(true); // Open Add dialog
+      setIsAddStudentModalOpen(true); 
       console.log("[HocSinhPage] Attempting to open AddStudentModal for classId:", classId);
-      router.replace('/hoc-sinh', { scroll: false }); // Remove classId from URL
+      router.replace('/hoc-sinh', { scroll: false }); 
     }
   }, [searchParams, router]);
   
@@ -130,7 +132,7 @@ function HocSinhPageContent() {
       const oldLopId = studentBeforeEdit?.lopId;
 
       if (newLopId) {
-        console.log(`[HocSinhPage] Student updated in class ${newLopId}. Recalculating count for this class.`);
+        console.log(`[HocSinhPage] Student updated/confirmed in class ${newLopId}. Recalculating count for this class.`);
         await recalculateAndUpdateClassStudentCount(newLopId);
       }
 
@@ -190,14 +192,14 @@ function HocSinhPageContent() {
 
   const handleAddStudentSubmit = (newStudentDataFromForm: HocSinh) => {
     const { id: studentId, ...restOfData } = newStudentDataFromForm;
-    // Ensure correct type for what addStudent service expects
+    
     const studentDataForAdd: Omit<HocSinh, 'id' | 'tenLop' | 'tinhTrangThanhToan' | 'ngayThanhToanGanNhat' | 'soBuoiDaHocTrongChuKy'> = {
       hoTen: restOfData.hoTen,
-      ngaySinh: restOfData.ngaySinh, // Already ISO string from form
+      ngaySinh: restOfData.ngaySinh, 
       diaChi: restOfData.diaChi,
       soDienThoai: restOfData.soDienThoai,
       lopId: restOfData.lopId,
-      ngayDangKy: restOfData.ngayDangKy, // Already ISO string from form
+      ngayDangKy: restOfData.ngayDangKy, 
       chuKyThanhToan: restOfData.chuKyThanhToan,
     };
     addStudentMutation.mutate({ studentData: studentDataForAdd, studentId });
@@ -210,7 +212,7 @@ function HocSinhPageContent() {
 
   const handleOpenAddStudentModal = () => {
     console.log("[HocSinhPage] handleOpenAddStudentModal called (manual open).");
-    setInitialClassIdFromUrl(null); // Reset if opened manually
+    setInitialClassIdFromUrl(null); 
     setEditingStudent(null);
     setIsEditStudentModalOpen(false); 
     setIsAddStudentModalOpen(true);
@@ -229,7 +231,7 @@ function HocSinhPageContent() {
   
   const handleEditStudent = (student: HocSinh) => {
     console.log("[HocSinhPage] handleEditStudent called with student:", student.id);
-    setInitialClassIdFromUrl(null); // Not pre-selecting class for edit
+    setInitialClassIdFromUrl(null); 
     setEditingStudent(student);
     setIsAddStudentModalOpen(false); 
     setIsEditStudentModalOpen(true);
@@ -241,14 +243,14 @@ function HocSinhPageContent() {
     setIsAddStudentModalOpen(false);
     setIsEditStudentModalOpen(false);
     setEditingStudent(null);
-    setInitialClassIdFromUrl(null); // Important to reset this
+    setInitialClassIdFromUrl(null); 
   }
 
   if (isErrorClasses || isErrorStudents) {
     const combinedError = errorClasses?.message || errorStudents?.message;
     return (
       <DashboardLayout>
-        <div className="flex flex-col items-center justify-center h-full text-red-500 p-6">
+        <div className="flex flex-col items-center justify-center h-full text-destructive p-6">
           <p className="text-lg font-semibold">Lỗi tải dữ liệu</p>
           <p className="text-sm mb-2">{combinedError}</p>
           <p className="text-xs text-muted-foreground mb-4">
@@ -276,15 +278,12 @@ function HocSinhPageContent() {
               disabled={isLoadingClasses || addStudentMutation.isPending || updateStudentMutation.isPending}
             >
               <PlusCircle className="mr-2 h-4 w-4" /> 
-              {isLoadingClasses ? "Đang tải lớp..." : "Thêm Học sinh"}
+              {TEXTS_VI.addStudentButton}
             </Button>
         </div>
         
         <Dialog open={isAddStudentModalOpen || isEditStudentModalOpen} onOpenChange={(open) => {
           if (!open) closeDialogs();
-          // This part is tricky with two separate states for dialogs.
-          // The `open` prop of Dialog should ideally be controlled by a single state or derived state.
-          // For now, `closeDialogs` handles resetting both.
         }}>
           <DialogContent className="sm:max-w-[600px]">
             <DialogHeader>
@@ -306,7 +305,7 @@ function HocSinhPageContent() {
                 isEditing={isEditStudentModalOpen && !!editingStudent}
                 isSubmitting={addStudentMutation.isPending || updateStudentMutation.isPending}
                 initialClassId={initialClassIdFromUrl}
-                isLoadingClasses={isLoadingClasses} // Pass isLoadingClasses
+                isLoadingClasses={isLoadingClasses}
               />
             )}
           </DialogContent>

@@ -38,14 +38,14 @@ import { Badge } from '@/components/ui/badge';
 
 const getCurrentVietnameseDayOfWeek = (date: Date): DayOfWeek => {
   const todayIndex = date.getDay();
-  if (todayIndex === 0) return ALL_DAYS_OF_WEEK[6]; // Chủ Nhật
-  return ALL_DAYS_OF_WEEK[todayIndex - 1]; // Thứ 2 đến Thứ 7
+  if (todayIndex === 0) return ALL_DAYS_OF_WEEK[6]; 
+  return ALL_DAYS_OF_WEEK[todayIndex - 1]; 
 };
 
 export interface DisplayableClassForAttendance extends LopHoc {
   isMakeupSession?: boolean;
   sessionTime?: string;
-  originalDateForMakeup?: string; // YYYYMMDD format of the original missed date for context
+  originalDateForMakeup?: string; 
 }
 
 export default function DiemDanhPage() {
@@ -58,6 +58,7 @@ export default function DiemDanhPage() {
   const { data: classes, isLoading: isLoadingClasses, isError: isErrorClasses, error: errorClasses, refetch: refetchClasses } = useQuery<LopHoc[], Error>({
     queryKey: ['classes'],
     queryFn: getClasses,
+    staleTime: 60000 * 1, // 1 minute
   });
 
   const { data: allMakeupRecords = [], isLoading: isLoadingAllMakeupRecords, isError: isErrorAllMakeupRecords, error: errorAllMakeupRecords, refetch: refetchAllMakeupRecords } = useQuery<GiaoVienVangRecord[], Error>({
@@ -666,5 +667,3 @@ export default function DiemDanhPage() {
     </DashboardLayout>
   );
 }
-
-    

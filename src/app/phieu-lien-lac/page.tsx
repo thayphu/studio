@@ -93,6 +93,7 @@ export default function PhieuLienLacPage() {
   const { data: classes = [], isLoading: isLoadingClasses, isError: isErrorClasses } = useQuery<LopHoc[], Error>({
     queryKey: ['classes'],
     queryFn: getClasses,
+    staleTime: 60000 * 1, // 1 minute
   });
 
   const { data: studentsInSelectedClass = [], isLoading: isLoadingStudents, isError: isErrorStudents, refetch: refetchStudentsInClass } = useQuery<HocSinh[], Error>({
@@ -125,6 +126,7 @@ export default function PhieuLienLacPage() {
       const existingSlip = existingSlipsData?.find(s => s.studentId === student.id);
       let slipEntry: StudentSlipInput;
       if (existingSlip) {
+        console.log(`[PLLPage] Main useEffect: Student ${student.id}, existingSlip from DB:`, existingSlip);
         const masteryDetails = calculateMasteryDetails(existingSlip.testFormat, existingSlip.score);
         slipEntry = {
           testFormat: existingSlip.testFormat,
@@ -134,7 +136,10 @@ export default function PhieuLienLacPage() {
           vocabularyToReview: existingSlip.vocabularyToReview || '',
           remarks: existingSlip.remarks || '',
         };
-        if (!isSlipInputEmpty(slipEntry)) {
+        console.log(`[PLLPage] Main useEffect: Student ${student.id}, slipEntry created from DB:`, slipEntry);
+        const isEmpty = isSlipInputEmpty(slipEntry);
+        console.log(`[PLLPage] Main useEffect: Student ${student.id}, isSlipInputEmpty result: ${isEmpty}`);
+        if (!isEmpty) {
           newInitialLoadedIdsFromEffect.add(student.id);
         }
       } else {
@@ -158,8 +163,10 @@ export default function PhieuLienLacPage() {
         }
     }
     
+    console.log(`[PLLPage] Main useEffect: newInitialLoadedStudentSlipIds before set:`, newInitialLoadedIdsFromEffect);
     const currentStudentSlipInputsString = JSON.stringify(studentSlipInputs);
     const newInputsFromEffectString = JSON.stringify(newInputsFromEffect);
+
     if (currentStudentSlipInputsString !== newInputsFromEffectString) {
         console.log("[PLLPage] Main useEffect: studentSlipInputs changed, calling setStudentSlipInputs.");
         setStudentSlipInputs(newInputsFromEffect);
@@ -167,12 +174,13 @@ export default function PhieuLienLacPage() {
 
     const currentInitialLoadedStudentSlipIdsString = Array.from(initialLoadedStudentSlipIds).sort().join(',');
     const newInitialLoadedIdsFromEffectString = Array.from(newInitialLoadedIdsFromEffect).sort().join(',');
+
     if (currentInitialLoadedStudentSlipIdsString !== newInitialLoadedIdsFromEffectString) {
         console.log("[PLLPage] Main useEffect: initialLoadedStudentSlipIds changed, calling setInitialLoadedStudentSlipIds.");
         setInitialLoadedStudentSlipIds(newInitialLoadedIdsFromEffect);
     }
 
-  }, [existingSlipsData, studentsInSelectedClass, isLoadingExistingSlips, isLoadingStudents, isClient, memoizedFormattedSelectedDateKey]);
+  }, [existingSlipsData, studentsInSelectedClass, isLoadingExistingSlips, isLoadingStudents, isClient, memoizedFormattedSelectedDateKey, editingStudentId, studentSlipInputs]);
 
 
   useEffect(() => {
@@ -208,7 +216,7 @@ export default function PhieuLienLacPage() {
   }, []); 
 
   const studentsForHistoryTab = useMemo(() => {
-    console.log(`[PLLPage] Recalculating studentsForHistoryTab. InitialLoadedIDs:`, initialLoadedStudentSlipIds, `EditingStudentId: ${editingStudentId}`);
+    console.log(`[PLLPage] studentsForHistoryTab useMemo. initialLoadedStudentSlipIds:`, initialLoadedStudentSlipIds, `editingStudentId: ${editingStudentId}`);
     if (isLoadingStudents || !studentsInSelectedClass || isLoadingExistingSlips) return [];
     return studentsInSelectedClass.filter(student =>
       initialLoadedStudentSlipIds.has(student.id) &&
@@ -219,7 +227,7 @@ export default function PhieuLienLacPage() {
 
 
   const studentsForEntryTab = useMemo(() => {
-    console.log(`[PLLPage] Recalculating studentsForEntryTab. EditingStudentId: ${editingStudentId}`);
+    console.log(`[PLLPage] studentsForEntryTab useMemo. EditingStudentId: ${editingStudentId}`);
     if (isLoadingStudents || !studentsInSelectedClass || isLoadingExistingSlips) return [];
 
     if (editingStudentId) {
@@ -240,7 +248,7 @@ export default function PhieuLienLacPage() {
       toast({ title: "Thành công!", description: `Phiếu liên lạc đã được lưu cho ${variables.length} học sinh.` });
       queryClient.invalidateQueries({ queryKey: ['existingPhieuLienLac', selectedClassId, memoizedFormattedSelectedDateKey] });
       setEditingStudentId(null); 
-      console.log("[PLLPage] saveSlipsMutation onSuccess: Set editingStudentId to null.");
+      console.log("[PLLPage] saveSlipsMutation onSuccess: Set editingStudentId to null. Invalidated queries.");
     },
     onError: (error: Error) => {
       toast({
@@ -459,7 +467,7 @@ export default function PhieuLienLacPage() {
 
   const getLessonMasteryTextAndColor = (masteryText: string | undefined, isTrulyMastered: boolean): {text: string, className: string} => {
     const defaultText = "Chưa đánh giá";
-    const masteryDetails = calculateMasteryDetails(undefined, null); // Provide default if masteryText is undefined
+    const masteryDetails = calculateMasteryDetails(undefined, null); 
     if (!masteryText || masteryText.includes("Chưa chọn hình thức KT") || masteryText.includes("Chưa có điểm/Chưa đánh giá")) {
         return {text: masteryText || defaultText, className: "text-muted-foreground"};
     }
@@ -762,7 +770,7 @@ export default function PhieuLienLacPage() {
                         </ShadDialogDescription>
                     )}
                 </ShadDialogHeader>
-                <ScrollArea className="flex-grow mt-4"> {/* Added mt-4 for spacing from header */}
+                <ScrollArea className="flex-grow mt-4"> 
                     {currentSlipData ? (
                     <div className="space-y-1 leading-snug"> 
                         <div className="grid grid-cols-2 gap-x-2 mb-2">
@@ -822,7 +830,6 @@ const SlipDetailItem = ({ label, children }: { label: string; children: React.Re
   </div>
 );
 
-// Separator component definition as provided by shadcn/ui
 const Separator = React.forwardRef<
   React.ElementRef<"div">,
   React.HTMLAttributes<HTMLDivElement>

@@ -44,6 +44,7 @@ export default function LopHocPage() {
   const { data: classes = [], isLoading, isError, error, refetch } = useQuery<LopHoc[], Error>({
     queryKey: ['classes'],
     queryFn: getClasses,
+    staleTime: 60000 * 1, // 1 minute
   });
 
   const addClassMutation = useMutation({
@@ -59,7 +60,7 @@ export default function LopHocPage() {
         id: params.classId,
         soHocSinhHienTai: 0,
         trangThai: 'Đang hoạt động',
-        ngayDongLop: undefined, // Explicitly undefined as it's a new class
+        ngayDongLop: undefined, 
       };
       queryClient.setQueryData<LopHoc[]>(['classes'], (old = []) => [...old, optimisticClass].sort((a, b) => a.tenLop.localeCompare(b.tenLop, 'vi')));
       return { previousClasses };
@@ -77,7 +78,7 @@ export default function LopHocPage() {
     },
     onSuccess: (data) => {
       console.log('[LopHocPage] addClassMutation onSuccess called. Data:', data);
-      setIsModalOpen(false); // Close modal on success
+      setIsModalOpen(false); 
       toast({
         title: "Thêm lớp thành công!",
         description: `Lớp "${data.tenLop}" đã được thêm vào hệ thống.`,
@@ -102,7 +103,7 @@ export default function LopHocPage() {
       queryClient.setQueryData<LopHoc[]>(['classes'], (old = []) =>
         old.map(cls => cls.id === updatedClass.id ? updatedClass : cls).sort((a,b) => a.tenLop.localeCompare(b.tenLop, 'vi'))
       );
-      return { previousClasses, updatedClassFromMutate: updatedClass }; // Renamed for clarity
+      return { previousClasses, updatedClassFromMutate: updatedClass }; 
     },
     onError: (err, variables, context) => {
       console.error('[LopHocPage] updateClassMutation onError. Error:', err, 'Variables:', variables);
@@ -115,7 +116,7 @@ export default function LopHocPage() {
         variant: "destructive",
       });
     },
-    onSuccess: (data, variables, context) => { // `data` is void from updateClass, `variables` is the LopHoc object sent to mutate
+    onSuccess: (data, variables, context) => { 
       console.log('[LopHocPage] updateClassMutation onSuccess. Variables (updatedClass):', variables);
       toast({
         title: "Cập nhật thành công!",
@@ -125,7 +126,7 @@ export default function LopHocPage() {
         console.log('[LopHocPage] Closing "Close Class" dialog because class status is now Đã đóng.');
         setIsCloseClassDialogOpen(false);
         setClassToClose(null);
-      } else { // This branch is for when editing a class, not closing it
+      } else { 
         console.log('[LopHocPage] Closing "Edit Class" dialog.');
         setIsModalOpen(false);
         setEditingClass(null);
@@ -222,8 +223,7 @@ export default function LopHocPage() {
   };
 
   const handleAddStudentToClass = (classId: string) => {
-    console.log("[LopHocPage] Alert: Navigating to add student for class:", classId);
-    alert(`LopHocPage: Yêu cầu thêm học sinh vào lớp ${classId}. Chuyển đến trang quản lý học sinh.`);
+    console.log("[LopHocPage] Navigating to add student for class:", classId);
     router.push(`/hoc-sinh?classId=${classId}`);
   };
 
@@ -238,7 +238,7 @@ export default function LopHocPage() {
     }
     setClassToClose(lopHoc);
     setIsCloseClassDialogOpen(true);
-    console.log('[LopHocPage] State after setting for Close Class dialog: isCloseClassDialogOpen=', isCloseClassDialogOpen, 'classToClose=', classToClose?.tenLop); // Log state immediately
+    console.log('[LopHocPage] State after setting for Close Class dialog: isCloseClassDialogOpen=', isCloseClassDialogOpen, 'classToClose=', classToClose?.tenLop); 
   };
 
   const confirmCloseClass = () => {
