@@ -41,35 +41,40 @@ export const savePhieuLienLacRecords = async (
       continue;
     }
 
+    // Query for an existing record
+    // This query will require a composite index on studentId, classId, and date.
+    // Firestore will provide a link in the server console if the index is missing.
     const q = query(
       collection(db, PHIEU_LIEN_LAC_COLLECTION),
       where('studentId', '==', record.studentId),
       where('classId', '==', record.classId),
-      where('date', '==', record.date), // date is YYYY-MM-DD string
+      where('date', '==', record.date), 
       limit(1)
     );
 
     try {
+      console.log(`[phieuLienLacService] Processing record for student ${record.studentId} on ${record.date}. Querying for existing...`);
       const querySnapshot = await getDocs(q);
+      console.log(`[phieuLienLacService] Existing slip querySnapshot size for student ${record.studentId} on ${record.date}: ${querySnapshot.size}`);
+
       const dataToSave: Partial<PhieuLienLacRecord> & { studentId: string; classId: string; date: string; updatedAt: any; createdAt?: any } = {
         ...record,
         studentName: record.studentName || '',
         className: record.className || '',
-        testFormat: record.testFormat || undefined, // Ensure empty string becomes undefined
+        testFormat: record.testFormat || undefined,
         score: record.score === undefined || record.score === null ? null : Number(record.score),
         lessonMasteryText: record.lessonMasteryText || '',
-        homeworkStatus: record.homeworkStatus || undefined, // Ensure empty string becomes undefined
+        homeworkStatus: record.homeworkStatus || undefined,
         vocabularyToReview: record.vocabularyToReview || '',
         remarks: record.remarks || '',
         updatedAt: serverTimestamp(),
       };
       
-      // Remove fields that are empty strings if they are optional, to keep Firestore docs clean
       if (dataToSave.testFormat === "") dataToSave.testFormat = undefined;
       if (dataToSave.homeworkStatus === "") dataToSave.homeworkStatus = undefined;
 
 
-      console.log(`[phieuLienLacService] Student ${record.studentId}, date ${record.date}, dataToSave before Firestore:`, dataToSave);
+      console.log(`[phieuLienLacService] Data to save for student ${record.studentId} on ${record.date}:`, JSON.parse(JSON.stringify(dataToSave))); // Log serializable data
 
 
       if (!querySnapshot.empty) {
@@ -83,12 +88,12 @@ export const savePhieuLienLacRecords = async (
         batch.set(newDocRef, dataToSave);
       }
     } catch (error) {
-      console.error(`[phieuLienLacService] Error processing record for student ${record.studentId} on ${record.date}:`, error);
+      console.error(`[phieuLienLacService] Error processing (querying or preparing) record for student ${record.studentId} on ${record.date}:`, error);
       if ((error as any)?.code === 'failed-precondition' && (error as any)?.message.includes('index')) {
         console.error(`[phieuLienLacService] Firestore Precondition Failed (likely missing index) for query: studentId == ${record.studentId}, classId == ${record.classId}, date == ${record.date}. Check server logs for index creation link.`);
+      } else if ((error as any)?.code === 'permission-denied') {
+         console.error(`[phieuLienLacService] PERMISSION DENIED while processing record for student ${record.studentId}. Check Firestore rules for '${PHIEU_LIEN_LAC_COLLECTION}'.`);
       }
-       // Do not re-throw here to allow other records in the batch to be processed if possible.
-       // The main mutation's onError will handle the overall failure.
     }
   }
 
@@ -97,7 +102,11 @@ export const savePhieuLienLacRecords = async (
     console.log('[phieuLienLacService] Batch save/update of Phieu Lien Lac records successful.');
   } catch (error) {
     console.error('[phieuLienLacService] Error committing batch for Phieu Lien Lac records:', error);
-    throw new Error('Failed to commit Phieu Lien Lac records to Firestore.');
+    // Log the specific error from batch.commit()
+    if ((error as any)?.code === 'permission-denied') {
+        console.error(`[phieuLienLacService] PERMISSION DENIED during batch commit. Check Firestore rules for '${PHIEU_LIEN_LAC_COLLECTION}'.`);
+    }
+    throw new Error('Failed to commit Phieu Lien Lac records to Firestore. Check server console for details.');
   }
 };
 
@@ -112,6 +121,8 @@ export const getPhieuLienLacRecordsForClassOnDate = async (
   const formattedDate = format(slipDate, 'yyyy-MM-dd');
   console.log(`[phieuLienLacService] Fetching Phieu Lien Lac records for class ${classId} on date ${formattedDate}`);
 
+  // This query will require a composite index on classId and date.
+  // Firestore will provide a link in the server console if the index is missing.
   const q = query(
     collection(db, PHIEU_LIEN_LAC_COLLECTION),
     where('classId', '==', classId),
@@ -158,15 +169,18 @@ export const getPhieuLienLacRecordsForClassOnDate = async (
 export const getPhieuLienLacRecordsForStudentInRange = async (
   studentId: string,
   classId: string
+  // startDate?: Date, // Future enhancement
+  // endDate?: Date    // Future enhancement
 ): Promise<PhieuLienLacRecord[]> => {
   console.log(`[phieuLienLacService] Fetching ALL Phieu Lien Lac records for student ${studentId} in class ${classId}`);
 
   // This query requires a composite index on: studentId (asc), classId (asc), date (asc/desc)
+  // Firestore will provide a link in the server console if the index is missing.
   const q = query(
     collection(db, PHIEU_LIEN_LAC_COLLECTION),
     where('studentId', '==', studentId),
     where('classId', '==', classId),
-    orderBy('date', 'asc') // Get records in chronological order
+    orderBy('date', 'asc') 
   );
 
   try {
@@ -179,7 +193,7 @@ export const getPhieuLienLacRecordsForStudentInRange = async (
         studentName: data.studentName,
         classId: data.classId,
         className: data.className,
-        date: data.date, // Should be YYYY-MM-DD string
+        date: data.date, 
         testFormat: data.testFormat,
         score: data.score === null ? null : (data.score as number | undefined),
         lessonMasteryText: data.lessonMasteryText,
@@ -195,10 +209,13 @@ export const getPhieuLienLacRecordsForStudentInRange = async (
   } catch (error) {
     console.error(`[phieuLienLacService] Error fetching Phieu Lien Lac records for student ${studentId} in class ${classId}:`, error);
     if ((error as any)?.code === 'failed-precondition') {
-      console.error(`[phieuLienLacService] Firestore Precondition Failed for getPhieuLienLacRecordsForStudentInRange: Missing index for studentId == ${studentId}, classId == ${classId}, orderBy date. Check server logs for index creation link.`);
+      console.error(`[phieuLienLacService] Firestore Precondition Failed for getPhieuLienLacRecordsForStudentInRange: Missing index for studentId == ${studentId}, classId == ${classId}, orderBy date. Check YOUR SERVER CONSOLE for a link to create the index.`);
     } else if ((error as any)?.code === 'permission-denied') {
-       console.error(`[phieuLienLacService] Permission Denied for getPhieuLienLacRecordsForStudentInRange. Check Firestore Security Rules for collection '${PHIEU_LIEN_LAC_COLLECTION}'.`);
+       console.error(`[phieuLienLacService] Permission Denied for getPhieuLienLacRecordsForStudentInRange. Check Firestore Security Rules for collection '${PHIEU_LIEN_LAC_COLLECTION}'. Details in YOUR SERVER CONSOLE.`);
     }
-    throw new Error('Failed to fetch Phieu Lien Lac records for student.');
+    // It's important to re-throw or handle this appropriately
+    // The client-side useQuery will see this error.
+    throw new Error('Failed to fetch Phieu Lien Lac records for student. Check YOUR SERVER CONSOLE (Firebase Studio terminal) for specific Firebase errors (e.g., missing index, permissions).');
   }
 };
+
