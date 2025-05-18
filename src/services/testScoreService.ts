@@ -3,44 +3,46 @@
 
 import { db } from '@/lib/firebase';
 import type { TestScoreRecord, TestFormat, HomeworkStatus } from '@/lib/types';
-import { collection, query, where, getDocs, serverTimestamp, writeBatch, doc, Timestamp, setDoc } from "firebase/firestore"; // Added setDoc
+import { collection, query, where, getDocs, serverTimestamp, writeBatch, doc, Timestamp, setDoc, FieldValue } from "firebase/firestore";
 import { format } from 'date-fns';
 
 const TEST_SCORES_COLLECTION = "testScores";
 
-/**
- * Saves or updates multiple test score records in Firestore.
- * If a record for a student, class, and date already exists, it's updated.
- * Otherwise, a new record is created.
- * @param records An array of TestScoreRecord objects to save/update.
- */
 export const saveTestScores = async (records: TestScoreRecord[]): Promise<void> => {
   if (!records || records.length === 0) {
     console.log("[testScoreService] No records provided to save.");
     return;
   }
-  console.log("[testScoreService] Attempting to save/update test scores to Firestore:", records);
+  console.log("[testScoreService] Attempting to save/update test scores to Firestore. Records received:", JSON.parse(JSON.stringify(records)));
 
   const batch = writeBatch(db);
 
   for (const record of records) {
-    const finalScore = typeof record.score === 'number' && !isNaN(record.score) ? record.score : undefined;
-    
-    // Prepare the data to be saved, ensuring no undefined values for optional fields that Firestore doesn't like directly
-    const recordDataToSave: Omit<TestScoreRecord, 'id' | 'createdAt' | 'updatedAt'> & { updatedAt: any, createdAt?: any } = {
+    // Prepare the data for Firestore. Ensure optional fields are handled correctly.
+    // Firestore does not accept 'undefined'. Use 'null' or omit the field.
+    const dataForFirestore: any = {
       studentId: record.studentId,
-      studentName: record.studentName || "",
       classId: record.classId,
-      className: record.className || "",
-      testDate: record.testDate,
+      testDate: record.testDate, // Should be 'yyyy-MM-dd' string
       testFormat: record.testFormat || "",
-      score: finalScore, // This is fine as undefined, Firestore will omit it if so.
-      masteredLesson: record.masteredLesson,
+      masteredLesson: record.masteredLesson || false, // Default to false if undefined
       vocabularyToReview: record.vocabularyToReview || "",
       generalRemarks: record.generalRemarks || "",
-      homeworkStatus: record.homeworkStatus || "", // Empty string is fine
+      homeworkStatus: record.homeworkStatus || "",
       updatedAt: serverTimestamp(),
     };
+
+    // Handle optional fields like studentName and className
+    if (record.studentName) dataForFirestore.studentName = record.studentName;
+    if (record.className) dataForFirestore.className = record.className;
+    
+    // Handle the score field: it can be a number or null.
+    // If record.score is undefined (should not happen from client logic), it will be omitted.
+    // If record.score is null (explicitly cleared), it will be saved as null.
+    if (record.score !== undefined) {
+        dataForFirestore.score = record.score; // This will be number or null from client
+    }
+
 
     // Query for an existing document for this student, class, and date
     const existingScoreQuery = query(
@@ -53,46 +55,31 @@ export const saveTestScores = async (records: TestScoreRecord[]): Promise<void> 
     try {
       const querySnapshot = await getDocs(existingScoreQuery);
       if (!querySnapshot.empty) {
-        // Update existing record(s) - should ideally be only one, but loop to be safe
-        querySnapshot.forEach(docSnapshot => {
-          console.log(`[testScoreService] Updating existing score record ${docSnapshot.id} for student ${record.studentId}`);
-          const docRef = doc(db, TEST_SCORES_COLLECTION, docSnapshot.id);
-          batch.set(docRef, recordDataToSave, { merge: true }); // Use set with merge to update fields, will not add createdAt again
-        });
+        const docSnapshot = querySnapshot.docs[0]; // Assuming only one record per student/class/date
+        console.log(`[testScoreService] Updating existing score record ${docSnapshot.id} for student ${record.studentId} with data:`, JSON.parse(JSON.stringify(dataForFirestore)));
+        batch.set(doc(db, TEST_SCORES_COLLECTION, docSnapshot.id), dataForFirestore, { merge: true });
       } else {
-        // Add new record
-        console.log(`[testScoreService] Adding new score record for student ${record.studentId}`);
-        const newRecordRef = doc(collection(db, TEST_SCORES_COLLECTION)); // Generate a new doc ref
-        // Add createdAt only for new records
-        batch.set(newRecordRef, { ...recordDataToSave, createdAt: serverTimestamp() });
+        console.log(`[testScoreService] Adding new score record for student ${record.studentId} with data:`, JSON.parse(JSON.stringify(dataForFirestore)));
+        const newRecordRef = doc(collection(db, TEST_SCORES_COLLECTION));
+        batch.set(newRecordRef, { ...dataForFirestore, createdAt: serverTimestamp() });
       }
     } catch (queryError) {
-      console.error(`[testScoreService] Error querying for existing score for student ${record.studentId}:`, queryError);
-      // This might indicate missing indexes. Firestore might throw an error with a link.
-      // Fallback to creating a new record, though this might lead to duplicates if the query fails due to temporary issues and not missing index.
-      // For a more robust solution, handle queryError specifically if it's due to missing index.
-      const newRecordRefOnError = doc(collection(db, TEST_SCORES_COLLECTION));
-      console.warn(`[testScoreService] Fallback: Adding new score record for student ${record.studentId} due to query error.`);
-      batch.set(newRecordRefOnError, { ...recordDataToSave, createdAt: serverTimestamp() });
+      console.error(`[testScoreService] Error querying/preparing batch for student ${record.studentId}:`, queryError);
+      // Rethrow to be caught by the mutation's onError
+      throw new Error(`Failed to query or prepare data for student ${record.studentId}: ${(queryError as Error).message}`);
     }
   }
 
   try {
     await batch.commit();
-    console.log(`[testScoreService] Successfully committed batch of ${records.length} test score records (upsert logic).`);
+    console.log(`[testScoreService] Successfully committed batch of ${records.length} test score records.`);
   } catch (error) {
-    console.error("[testScoreService] Error committing batch for test scores (upsert logic):", error);
-    throw new Error("Failed to save test scores.");
+    console.error("[testScoreService] Error committing batch for test scores:", error);
+    throw new Error(`Failed to save test scores to Firestore: ${(error as Error).message}`);
   }
 };
 
-/**
- * Fetches test scores for a given class on a specific date.
- * Converts Firestore Timestamps for createdAt and updatedAt to ISO strings.
- * @param classId The ID of the class.
- * @param date The date for which to fetch scores.
- * @returns A promise that resolves to an array of TestScoreRecord objects.
- */
+
 export const getTestScoresForClassOnDate = async (classId: string, date: Date): Promise<TestScoreRecord[]> => {
   const formattedTestDate = format(date, 'yyyy-MM-dd');
   console.log(`[testScoreService] Fetching test scores for class ${classId} on date ${formattedTestDate}`);
@@ -107,6 +94,12 @@ export const getTestScoresForClassOnDate = async (classId: string, date: Date): 
     const querySnapshot = await getDocs(scoresQuery);
     const scores = querySnapshot.docs.map(docSnap => {
       const data = docSnap.data();
+      // Ensure 'score' is number or null, default to null if missing or not a number
+      let processedScore: number | null = null;
+      if (data.score !== undefined && data.score !== null && !isNaN(Number(data.score))) {
+        processedScore = Number(data.score);
+      }
+
       const scoreRecord: TestScoreRecord = { 
         id: docSnap.id, 
         studentId: data.studentId,
@@ -115,7 +108,7 @@ export const getTestScoresForClassOnDate = async (classId: string, date: Date): 
         className: data.className || "",
         testDate: data.testDate, 
         testFormat: data.testFormat as TestFormat || "",
-        score: data.score, 
+        score: processedScore, 
         masteredLesson: data.masteredLesson || false,
         vocabularyToReview: data.vocabularyToReview || "",
         generalRemarks: data.generalRemarks || "",
