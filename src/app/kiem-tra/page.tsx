@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from 'react';
-// import html2canvas from 'html2canvas'; // Temporarily commented for stability
+import html2canvas from 'html2canvas';
 import DashboardLayout from '../dashboard-layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -29,10 +29,6 @@ import { format, parse } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 
-declare global { // Declare html2canvas globally if not using direct import
-    var html2canvas: any;
-}
-
 const calculateMasteryDetails = (testFormat?: TestFormat, scoreInput?: number | string | null): { text: string; isMastered: boolean } => {
   const score = scoreInput !== undefined && scoreInput !== '' && scoreInput !== null && !isNaN(Number(scoreInput)) ? Number(scoreInput) : undefined;
 
@@ -40,7 +36,7 @@ const calculateMasteryDetails = (testFormat?: TestFormat, scoreInput?: number | 
 
   switch (testFormat) {
     case "Kiểm tra bài cũ":
-    case "Kiểm tra miệng": 
+    case "Kiểm tra miệng":
       if (score === 10) return { text: "Đã thuộc bài", isMastered: true };
       if (score === 9) return { text: "Thuộc bài nhưng còn sai sót", isMastered: true };
       if (testFormat === "Kiểm tra miệng") {
@@ -52,8 +48,8 @@ const calculateMasteryDetails = (testFormat?: TestFormat, scoreInput?: number | 
     case "Kiểm tra 15 phút":
     case "Kiểm tra 45 phút":
     case "Chấm bài tập":
-      if (score !== undefined) return { text: "Đã chấm điểm", isMastered: score >= 5 }; 
-      return { text: "Không kiểm tra từ vựng", isMastered: false }; 
+      if (score !== undefined) return { text: "Đã chấm điểm", isMastered: score >= 5 }; // Assuming 5 is passing for these
+      return { text: "Không kiểm tra từ vựng", isMastered: false }; // Or a neutral mastery for non-vocab tests
     default:
       return { text: "Chưa đánh giá", isMastered: false };
   }
@@ -87,13 +83,12 @@ export default function KiemTraPage() {
   const [isGradeSlipModalOpen, setIsGradeSlipModalOpen] = useState(false);
   const [gradeSlipData, setGradeSlipData] = useState<ReportData | null>(null);
 
+  const memoizedFormattedSelectedDateKey = useMemo(() => format(selectedDate, 'yyyy-MM-dd'), [selectedDate]);
+
+
   useEffect(() => {
     setIsClient(true);
   }, []);
-
-  const formattedDateForEffectKey = useMemo(() => format(selectedDate, 'yyyyMMdd'), [selectedDate]);
-  const formattedDateForQueryKey = useMemo(() => format(selectedDate, 'yyyy-MM-dd'), [selectedDate]);
-
 
   const { data: classes = [], isLoading: isLoadingClasses, isError: isErrorClasses } = useQuery<LopHoc[], Error>({
     queryKey: ['classes'],
@@ -104,80 +99,93 @@ export default function KiemTraPage() {
 
   const {
     data: studentsInSelectedClass = [],
-    // isLoading: isLoadingStudents, // isLoadingStudents will be derived from the query below
-    // isError: isErrorStudents,
+    isLoading: isLoadingStudents,
+    isError: isErrorStudents,
     refetch: refetchStudentsInClass,
   } = useQuery<HocSinh[], Error>({
     queryKey: ['studentsInClass', selectedClassId],
     queryFn: () => selectedClassId ? getStudentsByClassId(selectedClassId) : Promise.resolve([]),
     enabled: !!selectedClassId && isClient,
   });
-  
+
   const {
     data: existingScoresData,
-    isLoading: isLoadingExistingScoresAndStudents, // Combined loading state
-    isError: isErrorExistingScoresOrStudents, // Combined error state
-    error: errorExistingScoresOrStudents,
+    isLoading: isLoadingExistingScores,
+    isError: isErrorExistingScores,
+    error: errorExistingScores,
+    refetch: refetchExistingScores
   } = useQuery<TestScoreRecord[], Error>({
-    queryKey: ['existingTestScores', selectedClassId, formattedDateForQueryKey],
+    queryKey: ['existingTestScores', selectedClassId, memoizedFormattedSelectedDateKey],
     queryFn: () => {
       if (!selectedClassId || !selectedDate) {
         return Promise.resolve([]);
       }
-      // This query implicitly depends on studentsInSelectedClass being loaded too for full context,
-      // but for simplicity, we keep it focused on scores. Page-level isLoadingData handles combined state.
       return getTestScoresForClassOnDate(selectedClassId, selectedDate);
     },
     enabled: !!selectedClassId && !!selectedDate && isClient,
   });
 
-  const isLoadingStudents = useQuery({ queryKey: ['studentsInClass', selectedClassId] }).isLoading;
-  const isErrorStudents = useQuery({ queryKey: ['studentsInClass', selectedClassId] }).isError;
-
-
-  // Effect to reset scores when class or date changes
   useEffect(() => {
-    if (isClient) {
-      setStudentScores({});
-      setInitialLoadedStudentIds(new Set<string>());
-      setEditingStudentId(null);
+    console.log("[KiemTraPage] Selected date or class changed. Resetting scores and editing states.");
+    setStudentScores({});
+    setInitialLoadedStudentIds(new Set<string>());
+    setEditingStudentId(null); 
+    if(selectedClassId && selectedDate) {
+      queryClient.invalidateQueries({ queryKey: ['existingTestScores', selectedClassId, memoizedFormattedSelectedDateKey]});
     }
-  }, [selectedClassId, formattedDateForEffectKey, isClient]);
+  }, [memoizedFormattedSelectedDateKey, selectedClassId, queryClient]);
 
+  useEffect(() => {
+    // This effect synchronizes studentScores and initialLoadedStudentIds with data fetched from Firestore.
+    // It should only run when the fetched data (existingScoresData, studentsInSelectedClass) or their loading status changes.
+    console.log("[KiemTraPage] Syncing student scores with fetched data. isLoadingExistingScores:", isLoadingExistingScores, "existingScoresData count:", existingScoresData?.length);
+    if (isClient && !isLoadingExistingScores && studentsInSelectedClass && existingScoresData !== undefined) { // Check existingScoresData is not undefined
+        const newScores: Record<string, StudentScoreInput> = {};
+        const newInitialLoadedIds = new Set<string>();
 
-  // Effect to populate studentScores and initialLoadedStudentIds from existingScoresData
-useEffect(() => {
-  if (isClient && !isLoadingExistingScoresAndStudents && studentsInSelectedClass && existingScoresData) {
-    const newScores: Record<string, StudentScoreInput> = {};
-    const newInitialLoadedIds = new Set<string>();
+        studentsInSelectedClass.forEach(student => {
+            const scoreRecord = existingScoresData.find(sr => sr.studentId === student.id);
+            if (scoreRecord) {
+                const masteryDetails = calculateMasteryDetails(scoreRecord.testFormat, scoreRecord.score);
+                newScores[student.id] = {
+                    score: (scoreRecord.score !== undefined && scoreRecord.score !== null) ? String(scoreRecord.score) : '',
+                    testFormat: scoreRecord.testFormat || "",
+                    masteredLesson: masteryDetails.isMastered,
+                    vocabularyToReview: scoreRecord.vocabularyToReview || '',
+                    generalRemarks: scoreRecord.generalRemarks || '',
+                    homeworkStatus: scoreRecord.homeworkStatus || '',
+                };
+                if (!isScoreEntryEmpty(newScores[student.id])) {
+                    newInitialLoadedIds.add(student.id);
+                }
+            } else {
+                newScores[student.id] = {
+                    score: '', testFormat: "", masteredLesson: false,
+                    vocabularyToReview: '', generalRemarks: '', homeworkStatus: ''
+                };
+            }
+        });
+        setStudentScores(newScores);
+        setInitialLoadedStudentIds(newInitialLoadedIds);
+        console.log("[KiemTraPage] Student scores and initial loaded IDs updated from existing data. New scores:", newScores, "New loaded IDs:", newInitialLoadedIds);
 
-    studentsInSelectedClass.forEach(student => {
-      const scoreRecord = existingScoresData.find(sr => sr.studentId === student.id);
-      if (scoreRecord) {
-        const masteryDetails = calculateMasteryDetails(scoreRecord.testFormat, scoreRecord.score);
-        newScores[student.id] = {
-          score: (scoreRecord.score !== undefined && scoreRecord.score !== null) ? String(scoreRecord.score) : '',
-          testFormat: scoreRecord.testFormat || "",
-          masteredLesson: masteryDetails.isMastered,
-          vocabularyToReview: scoreRecord.vocabularyToReview || '',
-          generalRemarks: scoreRecord.generalRemarks || '',
-          homeworkStatus: scoreRecord.homeworkStatus || '',
-        };
-        if (!isScoreEntryEmpty(newScores[student.id])) {
-          newInitialLoadedIds.add(student.id);
+        // If a student was being edited but their data from DB is empty (or they no longer exist), reset editing state.
+        if (editingStudentId && (!newScores[editingStudentId] || isScoreEntryEmpty(newScores[editingStudentId]))) {
+            const studentStillExists = studentsInSelectedClass.find(s => s.id === editingStudentId);
+            if (!studentStillExists || isScoreEntryEmpty(newScores[editingStudentId])) {
+                 console.log(`[KiemTraPage] Resetting editingStudentId ${editingStudentId} as their loaded data is now empty or student removed.`);
+                 // setEditingStudentId(null); // This line might be causing issues if it triggers another effect too quickly
+            }
         }
-      } else {
-        // Always initialize with an empty structure if no existing record
-        newScores[student.id] = {
-          score: '', testFormat: "", masteredLesson: false,
-          vocabularyToReview: '', generalRemarks: '', homeworkStatus: ''
-        };
-      }
-    });
-    setStudentScores(newScores); // Directly set, overwriting previous state for this class/date
-    setInitialLoadedStudentIds(newInitialLoadedIds);
-  }
-}, [existingScoresData, studentsInSelectedClass, isLoadingExistingScoresAndStudents, isClient]);
+    } else if (isClient && !isLoadingExistingScores && studentsInSelectedClass && existingScoresData === undefined) {
+        // This case handles when the query successfully runs but returns undefined (e.g. error in service before throwing)
+        console.log("[KiemTraPage] Existing scores query returned undefined. Resetting local scores.");
+        setStudentScores({});
+        setInitialLoadedStudentIds(new Set());
+        // setEditingStudentId(null); // Also reset editing state if data source becomes undefined
+    }
+  }, [existingScoresData, studentsInSelectedClass, isLoadingExistingScores, isClient]);
+  // Removed editingStudentId from dependency array to prevent loops
 
 
   const handleScoreInputChange = (studentId: string, field: keyof StudentScoreInput, value: any) => {
@@ -191,6 +199,8 @@ useEffect(() => {
         }
         return { ...prev, [studentId]: updatedEntry };
     });
+    // If user starts typing for a student who was in history, set them as editing
+    // This logic was moved to handleEditScore to be more explicit
   };
 
   const saveScoresMutation = useMutation({
@@ -201,9 +211,10 @@ useEffect(() => {
         description: "Điểm kiểm tra đã được ghi nhận.",
       });
       if (selectedClassId && selectedDate) {
-        queryClient.invalidateQueries({ queryKey: ['existingTestScores', selectedClassId, formattedDateForQueryKey] });
+        queryClient.invalidateQueries({ queryKey: ['existingTestScores', selectedClassId, memoizedFormattedSelectedDateKey] });
       }
-      setEditingStudentId(null); 
+      setEditingStudentId(null); // Clear editing state after successful save
+      console.log("[KiemTraPage] saveScoresMutation onSuccess, invalidated existingTestScores, reset editingStudentId.");
     },
     onError: (error: Error) => {
       toast({
@@ -226,61 +237,73 @@ useEffect(() => {
     }
 
     const recordsToSave: TestScoreRecord[] = [];
-    
+    console.log("[KiemTraPage] Preparing to save scores. Current studentScores:", studentScores);
+
     Object.keys(studentScores).forEach(studentId => {
         const student = studentsInSelectedClass.find(s => s.id === studentId);
-        if (!student) return; 
+        if (!student) {
+          console.warn(`[KiemTraPage] Student with ID ${studentId} not found in studentsInSelectedClass. Skipping.`);
+          return;
+        }
 
         const currentScoreInput = studentScores[studentId];
         
-        if (isScoreEntryEmpty(currentScoreInput) && !initialLoadedStudentIds.has(studentId) && editingStudentId !== studentId) {
-           return;
+        // Only save if the entry is not empty OR if it was an initially loaded record (meaning it might have been cleared) OR it's the student being edited
+        if (!isScoreEntryEmpty(currentScoreInput) || initialLoadedStudentIds.has(studentId) || editingStudentId === studentId) {
+            const scoreValue = (currentScoreInput?.score !== undefined && currentScoreInput?.score !== null && String(currentScoreInput?.score).trim() !== '' && !isNaN(Number(currentScoreInput.score)))
+              ? Number(currentScoreInput.score)
+              : null; 
+
+            const masteryDetails = calculateMasteryDetails(currentScoreInput?.testFormat, scoreValue);
+
+            recordsToSave.push({
+              studentId: student.id,
+              studentName: student.hoTen,
+              classId: selectedClassId,
+              className: selectedClass.tenLop,
+              testDate: memoizedFormattedSelectedDateKey,
+              testFormat: currentScoreInput?.testFormat || "",
+              score: scoreValue, 
+              masteredLesson: masteryDetails.isMastered,
+              vocabularyToReview: currentScoreInput?.vocabularyToReview || '',
+              generalRemarks: currentScoreInput?.generalRemarks || '',
+              homeworkStatus: currentScoreInput?.homeworkStatus || '',
+            });
         }
-         
-        const scoreValue = (currentScoreInput?.score !== undefined && currentScoreInput?.score !== null && String(currentScoreInput?.score).trim() !== '' && !isNaN(Number(currentScoreInput.score)))
-          ? Number(currentScoreInput.score)
-          : null;
-
-        const masteryDetails = calculateMasteryDetails(currentScoreInput?.testFormat, scoreValue);
-
-        recordsToSave.push({
-          studentId: student.id,
-          studentName: student.hoTen,
-          classId: selectedClassId,
-          className: selectedClass.tenLop,
-          testDate: formattedDateForQueryKey, 
-          testFormat: currentScoreInput?.testFormat || "",
-          score: scoreValue, 
-          masteredLesson: masteryDetails.isMastered,
-          vocabularyToReview: currentScoreInput?.vocabularyToReview || '',
-          generalRemarks: currentScoreInput?.generalRemarks || '',
-          homeworkStatus: currentScoreInput?.homeworkStatus || '',
-        });
     });
-
     console.log("[KiemTraPage] Records to save:", recordsToSave);
+
     if (recordsToSave.length === 0) {
       toast({ title: "Không có dữ liệu mới hoặc thay đổi để lưu", description: "Vui lòng nhập điểm hoặc thực hiện thay đổi.", variant: "default" });
       return;
     }
     saveScoresMutation.mutate(recordsToSave);
   };
-
+  
   const handleEditScore = (studentIdToEdit: string) => {
     console.log(`[KiemTraPage] handleEditScore called for studentId: ${studentIdToEdit}`);
     setEditingStudentId(studentIdToEdit);
     setActiveTab("nhap-diem");
+    // Programmatically click the tab trigger for "nhap-diem"
     requestAnimationFrame(() => {
         const entryTabTrigger = document.querySelector<HTMLButtonElement>('button[role="tab"][data-state="inactive"][value="nhap-diem"]');
         if (entryTabTrigger) {
+            console.log("[KiemTraPage] Found inactive 'nhap-diem' tab trigger, clicking.");
             entryTabTrigger.click();
+        } else {
+            const activeEntryTabTrigger = document.querySelector<HTMLButtonElement>('button[role="tab"][data-state="active"][value="nhap-diem"]');
+            if (!activeEntryTabTrigger) {
+                console.warn("[KiemTraPage] Could not find 'nhap-diem' tab trigger to programmatically switch for editing.");
+            } else {
+                console.log("[KiemTraPage] 'nhap-diem' tab is already active or was just activated.");
+            }
         }
     });
   };
 
   const handleDeleteScoreEntry = (studentIdToDelete: string) => {
     console.log(`[KiemTraPage] handleDeleteScoreEntry for studentId: ${studentIdToDelete}`);
-    const masteryDetailsForEmpty = calculateMasteryDetails("", null); 
+    const masteryDetailsForEmpty = calculateMasteryDetails("", null); // Assuming "" is a valid empty TestFormat
     setStudentScores(prev => ({
         ...prev,
         [studentIdToDelete]: {
@@ -292,33 +315,32 @@ useEffect(() => {
             homeworkStatus: '',
         }
     }));
-    setEditingStudentId(studentIdToDelete); 
-    setActiveTab("nhap-diem");
+    // The student will move to "Nhập điểm" tab due to empty score.
+    // User needs to click "Lưu Tất Cả Điểm" to persist this deletion (empty state) to DB.
     toast({ title: "Đã xoá dữ liệu điểm cục bộ", description: `Dữ liệu điểm của học sinh đã được xoá khỏi form. Nhấn "Lưu" để cập nhật thay đổi này vào cơ sở dữ liệu.` });
   };
 
 
   const studentsForHistoryTab = useMemo(() => {
-    if (isLoadingStudents || isLoadingExistingScoresAndStudents || !studentsInSelectedClass) return [];
+    if (isLoadingStudents || !studentsInSelectedClass || isLoadingExistingScores) return [];
     return studentsInSelectedClass.filter(student =>
-        initialLoadedStudentIds.has(student.id) && 
-        student.id !== editingStudentId && 
-        studentScores[student.id] && // Ensure score entry exists
-        !isScoreEntryEmpty(studentScores[student.id]) 
+        initialLoadedStudentIds.has(student.id) &&
+        student.id !== editingStudentId && // Exclude student currently being edited
+        studentScores[student.id] &&
+        !isScoreEntryEmpty(studentScores[student.id])
     );
-  }, [studentsInSelectedClass, studentScores, initialLoadedStudentIds, editingStudentId, isLoadingStudents, isLoadingExistingScoresAndStudents]);
+  }, [studentsInSelectedClass, studentScores, initialLoadedStudentIds, editingStudentId, isLoadingStudents, isLoadingExistingScores]);
 
 
   const studentsForEntryTab = useMemo(() => {
-    if (isLoadingStudents || isLoadingExistingScoresAndStudents || !studentsInSelectedClass) return [];
-    
+    if (isLoadingStudents || !studentsInSelectedClass || isLoadingExistingScores) return [];
     if (editingStudentId) {
         const studentBeingEdited = studentsInSelectedClass.find(s => s.id === editingStudentId);
         return studentBeingEdited ? [studentBeingEdited] : [];
     }
     const historyStudentIds = new Set(studentsForHistoryTab.map(s => s.id));
     return studentsInSelectedClass.filter(student => !historyStudentIds.has(student.id));
-  }, [studentsInSelectedClass, studentsForHistoryTab, editingStudentId, isLoadingStudents, isLoadingExistingScoresAndStudents]);
+  }, [studentsInSelectedClass, studentsForHistoryTab, editingStudentId, isLoadingStudents, isLoadingExistingScores]);
 
 
   const StarRating = ({ count }: { count: number }) => (
@@ -339,23 +361,23 @@ useEffect(() => {
     }
     let scoreTextColor = "text-foreground"; let starCount = 0;
     if (numScore >= 9 && numScore <= 10) { scoreTextColor = "text-red-600 dark:text-red-400"; starCount = 5; }
-    else if (numScore >= 7 && numScore <=8.9) { scoreTextColor = "text-blue-600 dark:text-blue-400"; starCount = 4; } 
-    else if (numScore >= 5 && numScore <=6.9) { scoreTextColor = "text-violet-600 dark:text-violet-400"; starCount = 3; } 
+    else if (numScore >= 7 && numScore < 9) { scoreTextColor = "text-blue-600 dark:text-blue-400"; starCount = 4; } // Adjusted range for 7-8.9
+    else if (numScore >= 5 && numScore < 7) { scoreTextColor = "text-violet-600 dark:text-violet-400"; starCount = 3; } // Adjusted range for 5-6.9
     else if (numScore > 0) { scoreTextColor = "text-foreground"; starCount = numScore >= 3 ? 2 : (numScore > 0 ? 1 : 0); }
     else { scoreTextColor = "text-muted-foreground"; }
     return (<><span className={cn("font-semibold text-lg", scoreTextColor)}>{numScore}</span>{starCount > 0 && <StarRating count={starCount} />}</>);
   };
-  
+
   const handlePrepareGradeSlipData = (studentId: string): ReportData | null => {
     if (!selectedClassId || !selectedDate) return null;
     const student = studentsInSelectedClass.find(s => s.id === studentId);
     const studentData = studentScores[studentId];
     const selectedClass = activeClasses.find(c => c.id === selectedClassId);
-    if (!student || !selectedClass || !studentData) return null; 
+    if (!student || !selectedClass || !studentData) return null;
 
     const masteryDetails = calculateMasteryDetails(studentData.testFormat, studentData.score);
     const masteryText = masteryDetails.text;
-    const isActuallyMastered = masteryDetails.isMastered; 
+    const isActuallyMastered = masteryDetails.isMastered;
     const masteryColor = isActuallyMastered ? "text-blue-600 dark:text-blue-400" : "text-red-600 dark:text-red-400";
 
     let homeworkText = "Không có bài tập về nhà";
@@ -399,24 +421,27 @@ useEffect(() => {
         toast({ title: "Lỗi", description: "Không có dữ liệu phiếu điểm để xuất.", variant: "destructive" });
         return;
     }
-    
-    if (typeof html2canvas === 'undefined') {
-       toast({ title: "Lỗi", description: "Thư viện html2canvas chưa sẵn sàng. Vui lòng thử lại sau hoặc cài đặt 'html2canvas'.", variant: "destructive"});
-       console.error("html2canvas is not defined. Ensure it's imported and the package is installed.");
-       return;
-    }
+
+    // Temporarily disabling html2canvas for debugging the blank page issue
+    // if (typeof html2canvas === 'undefined') {
+    //    toast({ title: "Lỗi Xuất Ảnh", description: "Vui lòng cài đặt 'html2canvas' và khởi động lại server để sử dụng tính năng này. (Hiện đang tắt để debug)", variant: "destructive"});
+    //    console.error("html2canvas is not defined. Ensure it's imported and the package is installed.");
+    //    return;
+    // }
 
     try {
-        toast({ title: "Đang xử lý...", description: "Phiếu điểm đang được tạo, vui lòng đợi."});
-        const canvas = await html2canvas(gradeSlipDialogContentRef.current, { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: true });
-        const image = canvas.toDataURL('image/png', 1.0);
-        const link = document.createElement('a');
-        link.href = image;
-        link.download = `PhieuLienLac_${gradeSlipData.studentName.replace(/\s+/g, '_')}_${gradeSlipData.testDate.replace(/\//g, '-')}.png`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        toast({ title: "Xuất thành công!", description: "Phiếu liên lạc đã được tải xuống." });
+        // toast({ title: "Đang xử lý...", description: "Phiếu điểm đang được tạo, vui lòng đợi."});
+        // const canvas = await html2canvas(gradeSlipDialogContentRef.current, { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: true });
+        // const image = canvas.toDataURL('image/png', 1.0);
+        // const link = document.createElement('a');
+        // link.href = image;
+        // link.download = `PhieuLienLac_${gradeSlipData.studentName.replace(/\s+/g, '_')}_${gradeSlipData.testDate.replace(/\//g, '-')}.png`;
+        // document.body.appendChild(link);
+        // link.click();
+        // document.body.removeChild(link);
+        // toast({ title: "Xuất thành công! (Tạm thời tắt)", description: "Phiếu liên lạc đã được tải xuống." });
+         toast({ title: "Xuất Ảnh (Tạm thời tắt)", description: "Chức năng xuất ảnh đang được tạm tắt để gỡ lỗi trang trắng. Vui lòng cài đặt 'html2canvas' và thử lại sau khi tính năng được kích hoạt.", variant: "default"});
+
     } catch (error) {
         console.error("Error exporting grade slip to image:", error);
         toast({ title: "Lỗi khi xuất file", description: (error as Error).message || "Đã có lỗi xảy ra.", variant: "destructive" });
@@ -424,32 +449,33 @@ useEffect(() => {
   };
 
 
-  const isLoadingData = isLoadingClasses || isLoadingStudents || isLoadingExistingScoresAndStudents;
-  
-  const canSaveChanges = useMemo(() => {
-    if (saveScoresMutation.isPending) return false;
-    if (editingStudentId && studentScores[editingStudentId] && !isScoreEntryEmpty(studentScores[editingStudentId])) {
-      const originalRecord = existingScoresData?.find(s => s.id === editingStudentId);
-      if (originalRecord) {
-        const currentData = studentScores[editingStudentId];
-        if (String(originalRecord.score ?? '') !== String(currentData.score ?? '') || 
-            (originalRecord.testFormat || "") !== (currentData.testFormat || "") ||
-            (originalRecord.homeworkStatus || "") !== (currentData.homeworkStatus || "") ||
-            (originalRecord.vocabularyToReview || "") !== (currentData.vocabularyToReview || "") ||
-            (originalRecord.generalRemarks || "") !== (currentData.generalRemarks || "")
-        ) return true;
-      } else { 
-        return true; 
-      }
-    }
-    return studentsInSelectedClass.some(student => 
-      !initialLoadedStudentIds.has(student.id) && 
-      studentScores[student.id] && 
-      !isScoreEntryEmpty(studentScores[student.id])
-    );
-  }, [studentScores, existingScoresData, editingStudentId, studentsInSelectedClass, initialLoadedStudentIds, saveScoresMutation.isPending]);
+  const isLoadingData = isLoadingClasses || isLoadingStudents || isLoadingExistingScores;
 
   const saveButtonText = (activeTab === 'lich-su' && editingStudentId) ? "Lưu Thay Đổi Lịch Sử" : "Lưu Tất Cả Điểm";
+
+  const canSaveChanges = useMemo(() => {
+    if (saveScoresMutation.isPending) return false;
+    if (editingStudentId) return true; // Always allow saving if editing
+
+    // Check for new, non-empty entries in the entry tab that are not the editing student
+    const hasNewEntries = studentsForEntryTab.some(student =>
+      student.id !== editingStudentId &&
+      studentScores[student.id] &&
+      !isScoreEntryEmpty(studentScores[student.id])
+    );
+    if (hasNewEntries) return true;
+
+    // Check if any loaded record has been "deleted" (score set to null)
+    const hasDeletions = initialLoadedStudentIds.size > 0 && // Only if there were loaded records
+                         Object.entries(studentScores).some(([id, scoreData]) => 
+                            initialLoadedStudentIds.has(id) && // Was it an initially loaded record?
+                            scoreData.score === null && // Is it now marked as deleted?
+                            (existingScoresData?.find(ex => ex.studentId === id)?.score !== null) // And it wasn't null originally?
+                         );
+    if (hasDeletions) return true;
+
+    return false;
+  }, [studentScores, existingScoresData, editingStudentId, studentsForEntryTab, initialLoadedStudentIds, saveScoresMutation.isPending]);
 
 
   return (
@@ -469,11 +495,11 @@ useEffect(() => {
           <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="class-select">Chọn Lớp</Label>
-              <Select 
-                value={selectedClassId || undefined} 
+              <Select
+                value={selectedClassId || undefined}
                 onValueChange={(value) => {
                   setSelectedClassId(value);
-                }} 
+                }}
                 disabled={isLoadingClasses}
               >
                 <SelectTrigger id="class-select" className="w-full"><SelectValue placeholder={isLoadingClasses ? "Đang tải lớp..." : "Chọn một lớp"} /></SelectTrigger>
@@ -491,7 +517,7 @@ useEffect(() => {
                     <CalendarIcon className="mr-2 h-4 w-4" />{selectedDate ? format(selectedDate, "dd/MM/yyyy", { locale: vi }) : <span>Chọn ngày</span>}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={selectedDate} onSelect={(date) => { if(date) setSelectedDate(date);}} initialFocus locale={vi} /></PopoverContent>
+                <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={selectedDate} onSelect={(date) => { if(date) setSelectedDate(date); }} initialFocus locale={vi} /></PopoverContent>
               </Popover>
             </div>
           </CardContent>
@@ -504,7 +530,7 @@ useEffect(() => {
               <CardDescription>Lớp: {activeClasses.find(c => c.id === selectedClassId)?.tenLop || 'N/A'} - Ngày: {format(selectedDate, "dd/MM/yyyy", { locale: vi })}</CardDescription>
             </CardHeader>
             <CardContent>
-              {(isErrorExistingScoresOrStudents || isErrorStudents) && (<div className="text-destructive p-4 border border-destructive/50 bg-destructive/10 rounded-md flex items-center mb-4"><AlertCircle className="mr-2 h-5 w-5" /> Lỗi tải dữ liệu: { (errorExistingScoresOrStudents || useQuery({ queryKey: ['studentsInClass', selectedClassId] }).error)?.message || "Không thể tải dữ liệu."}<p className="text-xs ml-2">(Kiểm tra Firestore Index/Security Rules hoặc console server Next.js.)</p></div>)}
+              {(isErrorExistingScores || isErrorStudents) && (<div className="text-destructive p-4 border border-destructive/50 bg-destructive/10 rounded-md flex items-center mb-4"><AlertCircle className="mr-2 h-5 w-5" /> Lỗi tải dữ liệu: { (errorExistingScores || useQuery({ queryKey: ['studentsInClass', selectedClassId] }).error)?.message || "Không thể tải dữ liệu."}<p className="text-xs ml-2">(Kiểm tra Firestore Index/Security Rules hoặc console server Next.js.)</p></div>)}
               <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                 <TabsList className="grid w-full grid-cols-2 mb-4 bg-primary/10 p-1 rounded-lg">
                   <TabsTrigger value="nhap-diem" id="tab-trigger-nhap-diem" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-primary/20 hover:text-primary focus-visible:ring-primary/50"><Edit3 className="mr-2 h-4 w-4" /> Nhập điểm ({studentsForEntryTab.length})</TabsTrigger>
@@ -512,8 +538,8 @@ useEffect(() => {
                 </TabsList>
                 <TabsContent value="nhap-diem">
                   {isLoadingData && (<div className="space-y-2">{[...Array(3)].map((_, i) => <Skeleton key={`skel-entry-${i}`} className="h-20 w-full" />)}</div>)}
-                  {!isLoadingData && !isErrorExistingScoresOrStudents && !isErrorStudents && studentsForEntryTab.length === 0 && (<p className="text-muted-foreground text-center py-4">{studentsInSelectedClass.length > 0 ? "Tất cả học sinh đã có điểm (hoặc đang được sửa ở đây). Chuyển sang tab 'Lịch sử nhập' để xem." : "Lớp này chưa có học sinh."}</p>)}
-                  {!isLoadingData && !isErrorExistingScoresOrStudents && !isErrorStudents && studentsForEntryTab.length > 0 && (
+                  {!isLoadingData && !isErrorExistingScores && !isErrorStudents && studentsForEntryTab.length === 0 && (<p className="text-muted-foreground text-center py-4">{studentsInSelectedClass.length > 0 ? "Tất cả học sinh đã có điểm hoặc đã được xử lý. Chuyển sang tab 'Lịch sử nhập' để xem." : "Lớp này chưa có học sinh."}</p>)}
+                  {!isLoadingData && !isErrorExistingScores && !isErrorStudents && studentsForEntryTab.length > 0 && (
                     <div className="overflow-x-auto">
                       <Table>
                         <TableHeader>
@@ -530,7 +556,7 @@ useEffect(() => {
                         </TableHeader>
                         <TableBody>
                           {studentsForEntryTab.map((student, index) => {
-                            const scoreEntry = studentScores[student.id] || {}; 
+                            const scoreEntry = studentScores[student.id] || { score: '', testFormat: "", masteredLesson: false, vocabularyToReview: '', generalRemarks: '', homeworkStatus: '' };
                             const masteryDetails = calculateMasteryDetails(scoreEntry.testFormat, scoreEntry.score);
                             return (
                               <TableRow key={student.id}>
@@ -564,8 +590,8 @@ useEffect(() => {
                 </TabsContent>
                 <TabsContent value="lich-su">
                   {isLoadingData && (<div className="space-y-2">{[...Array(3)].map((_, i) => <Skeleton key={`skel-hist-${i}`} className="h-20 w-full" />)}</div>)}
-                   {!isLoadingData && !isErrorExistingScoresOrStudents && !isErrorStudents && studentsForHistoryTab.length === 0 && (<p className="text-muted-foreground text-center py-4">Chưa có điểm nào được lưu hoặc tải cho lựa chọn này. Hãy nhập điểm ở tab 'Nhập điểm'.</p>)}
-                  {!isLoadingData && !isErrorExistingScoresOrStudents && !isErrorStudents && studentsForHistoryTab.length > 0 && (
+                   {!isLoadingData && !isErrorExistingScores && !isErrorStudents && studentsForHistoryTab.length === 0 && (<p className="text-muted-foreground text-center py-4">Chưa có điểm nào được lưu hoặc tải cho lựa chọn này.</p>)}
+                  {!isLoadingData && !isErrorExistingScores && !isErrorStudents && studentsForHistoryTab.length > 0 && (
                     <div className="overflow-x-auto">
                       <Table>
                         <TableHeader>
@@ -583,7 +609,7 @@ useEffect(() => {
                         </TableHeader>
                         <TableBody>
                           {studentsForHistoryTab.map((student, index) => {
-                            const scores = studentScores[student.id] || {}; 
+                            const scores = studentScores[student.id] || {};
                             const masteryDetails = calculateMasteryDetails(scores.testFormat, scores.score);
                             return (
                               <TableRow key={student.id}>
@@ -610,10 +636,10 @@ useEffect(() => {
                 </TabsContent>
               </Tabs>
             </CardContent>
-            {(activeTab === 'nhap-diem' || (activeTab === 'lich-su' && canSaveChanges)) && selectedClassId && selectedDate && (studentsInSelectedClass.length > 0 || editingStudentId) && (
+             {selectedClassId && selectedDate && (studentsInSelectedClass.length > 0 || editingStudentId) && (
                 <CardFooter className="justify-end border-t pt-6">
                     <Button onClick={handleSaveAllScores} disabled={saveScoresMutation.isPending || !canSaveChanges}>
-                        {saveScoresMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />} 
+                        {saveScoresMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                         {saveButtonText}
                     </Button>
                 </CardFooter>
@@ -624,29 +650,27 @@ useEffect(() => {
 
       {isGradeSlipModalOpen && gradeSlipData && (
         <Dialog open={isGradeSlipModalOpen} onOpenChange={setIsGradeSlipModalOpen}>
-          <DialogContent className="sm:max-w-lg p-0 font-sans"> 
-            <div ref={gradeSlipDialogContentRef} className="p-6 bg-card font-sans leading-normal"> {/* Added font-sans and leading-normal */}
+          <DialogContent className="sm:max-w-lg p-0 font-sans">
+            <div ref={gradeSlipDialogContentRef} className="p-6 bg-card font-sans leading-normal">
               <DialogHeader className="text-center mb-4"><ShadDialogTitle className="text-xl font-bold text-primary uppercase tracking-wider">PHIẾU LIÊN LẠC</ShadDialogTitle><ShadDialogDescription className="text-sm text-muted-foreground mt-1">Kết quả kiểm tra ngày: {gradeSlipData.testDate}</ShadDialogDescription></DialogHeader>
-              <div className="space-y-1 text-sm"> 
+              <div className="space-y-1.5 text-sm">
                 <p><span className="font-semibold">Họ và tên:</span> {gradeSlipData.studentName}</p>
                 <p><span className="font-semibold">Mã HS:</span> {gradeSlipData.studentId}</p>
                 <p><span className="font-semibold">Lớp:</span> {gradeSlipData.className}</p>
                 {gradeSlipData.testFormat && <p><span className="font-semibold">Hình thức KT:</span> {gradeSlipData.testFormat}</p>}
                 <div><span className="font-semibold">Điểm số: </span>{renderScoreDisplay(gradeSlipData.score)}</div>
-                
                 <p><span className="font-semibold">Thuộc bài:</span> <span className={cn("font-bold", gradeSlipData.masteryColor)}>{gradeSlipData.masteryText}</span></p>
-                
                 <div className="mt-2"><p className="font-semibold">Bài tập về nhà:</p><p className={cn("pl-2", gradeSlipData.homeworkColor, (!gradeSlipData.homeworkStatusValue || gradeSlipData.homeworkStatusValue === "") && "italic text-muted-foreground")}>{gradeSlipData.homeworkStatusValue && gradeSlipData.homeworkStatusValue !== "" ? gradeSlipData.homeworkText : "Không có bài tập về nhà"}</p></div>
                 <div className="mt-2"><p className="font-semibold">Nhận xét:</p><p className="pl-2 whitespace-pre-line">{gradeSlipData.remarks}</p></div>
                 <div className="mt-2"><p className="font-semibold">Từ vựng cần học lại:</p><p className="pl-2 whitespace-pre-line">{gradeSlipData.vocabularyToReview}</p></div>
-                
-                <div className="pt-3 mt-4 border-t"><p className="whitespace-pre-line text-lg text-foreground leading-relaxed">{gradeSlipData.footer}</p></div>
+                <div className="pt-3 mt-4 border-t"><p className="whitespace-pre-line text-base text-foreground leading-relaxed font-sans">{gradeSlipData.footer}</p></div>
               </div>
             </div>
             <DialogFooter className="p-4 border-t bg-muted/50 sm:justify-between">
-              <Button type="button" onClick={handleExportGradeSlipImage} disabled={saveScoresMutation.isPending || (typeof html2canvas === 'undefined')}>
-                <Download className="mr-2 h-4 w-4" /> 
-                {typeof html2canvas === 'undefined' ? "Đang tải html2canvas..." : "Xuất file ảnh"}
+              <Button type="button" onClick={handleExportGradeSlipImage} disabled={saveScoresMutation.isPending /*|| (typeof html2canvas === 'undefined')*/}>
+                <Download className="mr-2 h-4 w-4" />
+                {/* {typeof html2canvas === 'undefined' ? "Đang tải html2canvas..." : "Xuất file ảnh"} */}
+                Xuất file ảnh (Tạm tắt)
               </Button>
               <DialogClose asChild><Button type="button" variant="outline">Đóng</Button></DialogClose>
             </DialogFooter>
@@ -673,5 +697,3 @@ interface ReportData {
   homeworkColor: string;
   footer: string;
 }
-
-```
