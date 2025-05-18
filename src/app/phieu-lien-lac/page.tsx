@@ -35,7 +35,9 @@ const CardHeader = ShadCardHeaderOriginal;
 
 
 const isSlipInputEmpty = (entry: StudentSlipInput | undefined): boolean => {
+  // console.log("[PLLPage] isSlipInputEmpty called with entry:", entry);
   if (!entry) {
+    // console.log("[PLLPage] isSlipInputEmpty: entry is undefined, returning true");
     return true;
   }
   const scoreIsEmpty = entry.score === undefined || entry.score === null || String(entry.score).trim() === '';
@@ -45,9 +47,10 @@ const isSlipInputEmpty = (entry: StudentSlipInput | undefined): boolean => {
     (entry.homeworkStatus === undefined || entry.homeworkStatus === null || entry.homeworkStatus === "") &&
     (entry.vocabularyToReview === undefined || String(entry.vocabularyToReview).trim() === '') &&
     (entry.remarks === undefined || String(entry.remarks).trim() === '') &&
-    (entry.homeworkAssignmentVocabulary === undefined || String(entry.homeworkAssignmentVocabulary).trim() === '') &&
-    (entry.homeworkAssignmentTasks === undefined || String(entry.homeworkAssignmentTasks).trim() === '')
+    (entry.homeworkAssignmentVocabulary === undefined || String(entry.homeworkAssignmentVocabulary).trim() === '') && // Check new common homework fields
+    (entry.homeworkAssignmentTasks === undefined || String(entry.homeworkAssignmentTasks).trim() === '')      // Check new common homework fields
   );
+  // console.log(`[PLLPage] isSlipInputEmpty: TestFormat: '${entry.testFormat}', Score: '${entry.score}' (IsEmpty: ${scoreIsEmpty}), HWStatus: '${entry.homeworkStatus}', Vocab: '${entry.vocabularyToReview}', Remarks: '${entry.remarks}', CommonVocab: '${entry.homeworkAssignmentVocabulary}', CommonTasks: '${entry.homeworkAssignmentTasks}'. Result: ${result}`);
   return result;
 };
 
@@ -82,6 +85,7 @@ export default function PhieuLienLacPage() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   
   const [studentSlipInputs, setStudentSlipInputs] = useState<Record<string, StudentSlipInput>>({});
+  
   const [initialLoadedStudentSlipIds, setInitialLoadedStudentSlipIds] = useState<Set<string>>(new Set());
   const [editingStudentId, setEditingStudentId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'nhap-diem' | 'lich-su'>('nhap-diem');
@@ -107,7 +111,7 @@ export default function PhieuLienLacPage() {
   const { data: classes = [], isLoading: isLoadingClasses, isError: isErrorClasses } = useQuery<LopHoc[], Error>({
     queryKey: ['classes'],
     queryFn: getClasses,
-    staleTime: 60000 * 5, // 5 minutes
+    staleTime: 60000 * 1, // 1 minute
   });
 
   const { data: studentsInSelectedClass = [], isLoading: isLoadingStudents, isError: isErrorStudents, refetch: refetchStudentsInClass } = useQuery<HocSinh[], Error>({
@@ -125,7 +129,7 @@ export default function PhieuLienLacPage() {
     queryKey: ['existingPhieuLienLac', selectedClassId, memoizedFormattedSelectedDateKey],
     queryFn: () => getPhieuLienLacRecordsForClassOnDate(selectedClassId, selectedDate),
     enabled: !!selectedClassId && !!selectedDate && isClient && !isLoadingClasses && !isLoadingStudents,
-    staleTime: 60000 * 1, // 1 minute, refetch on focus/reconnect
+    staleTime: 60000 * 1,
   });
   
   useEffect(() => {
@@ -134,7 +138,7 @@ export default function PhieuLienLacPage() {
       console.log(`[PLLPage] Main useEffect: Skipping state update due to loading/missing data or not client.`);
       return;
     }
-    console.log("[PLLPage] Main useEffect: Processing existingSlipsData (size:", existingSlipsData?.length, ") and studentsInSelectedClass (size:", studentsInSelectedClass?.length,")");
+    console.log("[PLLPage] Main useEffect: Processing existingSlipsData (size:", existingSlipsData?.length, ") and studentsInSelectedClass (size:", studentsInSelectedClass?.length, ")");
     
     const newInputsFromEffect: Record<string, StudentSlipInput> = {};
     const newInitialLoadedIdsFromEffect = new Set<string>();
@@ -213,7 +217,7 @@ export default function PhieuLienLacPage() {
         console.log("[PLLPage] Main useEffect: Setting common homework from loaded slip:", { loadedCommonVocab, loadedCommonTasks });
         setCommonHomeworkVocabulary(loadedCommonVocab);
         setCommonHomeworkTasks(loadedCommonTasks);
-    } else if (existingSlipsData?.length === 0 && studentsInSelectedClass.length > 0) { // No slips, but students exist
+    } else if (existingSlipsData?.length === 0 && studentsInSelectedClass.length > 0) { 
         console.log("[PLLPage] Main useEffect: No existing slips, resetting common homework fields.");
         setCommonHomeworkVocabulary("");
         setCommonHomeworkTasks("");
@@ -228,7 +232,7 @@ export default function PhieuLienLacPage() {
     setStudentSlipInputs({});
     setInitialLoadedStudentSlipIds(new Set());
     setEditingStudentId(null); 
-    setCommonHomeworkVocabulary(""); // Reset common homework when class/date changes
+    setCommonHomeworkVocabulary(""); 
     setCommonHomeworkTasks("");
     setActiveTab('nhap-diem');
     
@@ -238,7 +242,7 @@ export default function PhieuLienLacPage() {
     if (selectedClassId) { 
         refetchStudentsInClass(); 
     }
-  }, [memoizedFormattedSelectedDateKey, selectedClassId, isClient, queryClient, refetchStudentsInClass]); 
+  }, [memoizedFormattedSelectedDateKey, selectedClassId, isClient]); 
 
   const handleSlipInputChange = useCallback((studentId: string, field: keyof StudentSlipInput, value: any) => {
     setStudentSlipInputs(prev => {
@@ -253,14 +257,13 @@ export default function PhieuLienLacPage() {
         updatedEntry.lessonMasteryText = masteryDetails.text;
       }
       
-      // Logic for moving to edit mode if a loaded slip is modified
       if (initialLoadedStudentSlipIds.has(studentId) && studentId !== editingStudentId) {
          console.log(`[PLLPage] handleSlipInputChange: Student ${studentId} was loaded and is now being modified. Setting as editingStudentId.`);
          setEditingStudentId(studentId);
       }
       return { ...prev, [studentId]: updatedEntry };
     });
-  }, []); // Removed initialLoadedStudentSlipIds, editingStudentId
+  }, []); 
 
   const studentsForHistoryTab = useMemo(() => {
     console.log(`[PLLPage] studentsForHistoryTab useMemo. InitialLoadedIDs:`, initialLoadedStudentSlipIds, `EditingStudentId: ${editingStudentId} studentSlipInputs:`, studentSlipInputs);
@@ -301,7 +304,6 @@ export default function PhieuLienLacPage() {
       toast({ title: "Thành công!", description: `Phiếu liên lạc đã được lưu cho ${variables.length} học sinh.` });
       queryClient.invalidateQueries({ queryKey: ['existingPhieuLienLac', selectedClassId, memoizedFormattedSelectedDateKey] });
       setEditingStudentId(null);
-      // setActiveTab('lich-su'); // Removed auto-switching to history tab
     },
     onError: (error: Error) => {
       console.error("[PLLPage] saveSlipsMutation error:", error);
@@ -327,7 +329,7 @@ export default function PhieuLienLacPage() {
     }
 
     const recordsToSave: Array<Omit<PhieuLienLacRecord, 'id' | 'createdAt' | 'updatedAt'>> = [];
-    let studentsToProcessForSave: HocSinh[] = studentsInSelectedClass; // Process all students
+    let studentsToProcessForSave: HocSinh[] = studentsInSelectedClass; 
     
     console.log("[PLLPage] handleSaveAllSlips: Students to process for saving:", studentsToProcessForSave.map(s => ({id: s.id, name: s.hoTen})));
 
@@ -355,8 +357,8 @@ export default function PhieuLienLacPage() {
           homeworkStatus: input.homeworkStatus || undefined,
           vocabularyToReview: input.vocabularyToReview || '',
           remarks: input.remarks || '',
-          homeworkAssignmentVocabulary: commonHomeworkVocabulary, // Add common homework
-          homeworkAssignmentTasks: commonHomeworkTasks,        // Add common homework
+          homeworkAssignmentVocabulary: commonHomeworkVocabulary, 
+          homeworkAssignmentTasks: commonHomeworkTasks,        
         };
         recordsToSave.push(recordPayload);
       }
@@ -393,8 +395,8 @@ export default function PhieuLienLacPage() {
       [studentId]: {
         testFormat: undefined, score: null, lessonMasteryText: masteryDetailsForEmpty.text,
         homeworkStatus: undefined, vocabularyToReview: '', remarks: '',
-        homeworkAssignmentVocabulary: commonHomeworkVocabulary, // Keep common homework
-        homeworkAssignmentTasks: commonHomeworkTasks,          // Keep common homework
+        homeworkAssignmentVocabulary: commonHomeworkVocabulary, 
+        homeworkAssignmentTasks: commonHomeworkTasks,          
       }
     }));
     setEditingStudentId(studentId); 
@@ -933,7 +935,7 @@ export default function PhieuLienLacPage() {
                         PHIẾU LIÊN LẠC
                     </ShadDialogTitle>
                     {currentSlipData?.date && (
-                        <ShadDialogDescription className="text-sm text-center text-center">
+                        <ShadDialogDescription className="text-sm text-center">
                         Ngày: {format(parse(currentSlipData.date, 'yyyy-MM-dd', new Date()), "dd/MM/yyyy", { locale: vi })}
                         </ShadDialogDescription>
                     )}
@@ -968,7 +970,7 @@ export default function PhieuLienLacPage() {
                         <SlipDetailItem label="Nhận xét"><span className="font-medium">{currentSlipData.remarks || "Không có nhận xét."}</span></SlipDetailItem>
                         
                         <Separator className="my-3"/>
-                        <h3 className="text-md font-semibold text-foreground mt-3 mb-1">Hướng dẫn Bài tập về nhà:</h3>
+                        <h3 className="text-md font-semibold text-red-600 dark:text-red-400 mt-3 mb-1">Hướng dẫn Bài tập về nhà:</h3>
                         <SlipDetailItem label="Từ vựng cần học"><span className="font-medium">{currentSlipData.homeworkAssignmentVocabulary || "Không có"}</span></SlipDetailItem>
                         <SlipDetailItem label="Bài tập làm tại nhà"><span className="font-medium">{currentSlipData.homeworkAssignmentTasks || "Không có"}</span></SlipDetailItem>
                         
@@ -1017,7 +1019,7 @@ export default function PhieuLienLacPage() {
                         <ShadDialogTitle className="text-2xl font-bold uppercase text-primary text-center">
                             PHIẾU LIÊN LẠC CHU KỲ
                         </ShadDialogTitle>
-                        <ShadDialogDescription className="text-sm text-center text-center">
+                        <ShadDialogDescription className="text-sm text-center">
                             Ngày xuất: {format(new Date(), "dd/MM/yyyy", { locale: vi })}
                         </ShadDialogDescription>
                     </ShadDialogHeader>
