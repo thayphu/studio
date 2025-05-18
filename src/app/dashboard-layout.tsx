@@ -29,7 +29,7 @@ import {
 } from '@/components/ui/sidebar';
 import { NAV_LINKS, PARENT_PORTAL_LINK, TEXTS_VI } from '@/lib/constants';
 import { cn } from '@/lib/utils';
-import React from 'react';
+import React, { useEffect } from 'react'; 
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -39,6 +39,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const pathname = usePathname();
   const router = useRouter();
 
+  useEffect(() => {
+    // console.log("DashboardLayout mounted or updated - " + new Date().toLocaleTimeString()); 
+  }, []); 
+
+
   const handleLogout = React.useCallback(() => {
     router.push('/login');
   }, [router]);
@@ -46,14 +51,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const handleParentPortalClick = React.useCallback(() => {
     window.open(PARENT_PORTAL_LINK.href, '_blank');
   }, []);
-
-  const parentPortalTooltipContent = React.useMemo(() => ({
-    children: PARENT_PORTAL_LINK.label,
-    side: "right",
-    align: "center",
-  } as const), [PARENT_PORTAL_LINK.label]);
-
-
+  
   return (
     <SidebarProvider defaultOpen>
       <div className="flex min-h-screen bg-background">
@@ -63,56 +61,48 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-8 h-8 text-primary">
                 <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
               </svg>
-              <h1 className="text-xl font-semibold text-primary group-data-[collapsible=icon]:hidden">
+              <h1 className="text-xl font-semibold text-primary">
                 {TEXTS_VI.appName}
               </h1>
             </Link>
           </SidebarHeader>
           <SidebarContent className="p-2">
             <SidebarMenu>
-              {NAV_LINKS.map((link) => {
-                 const tooltipContent = React.useMemo(() => ({
-                    children: link.label,
-                    side: "right",
-                    align: "center",
-                  } as const), [link.label]);
-
-                return (
-                  <SidebarMenuItem key={link.href}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={pathname.startsWith(link.href)}
-                      className={cn(
-                        pathname.startsWith(link.href) ? "bg-primary/10 text-primary hover:bg-primary/20" : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                      )}
-                      tooltip={link.label} // Pass string directly
-                    >
-                      <Link href={link.href}>
-                        <link.icon className="h-5 w-5" />
-                        <span>{link.label}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
+              {NAV_LINKS.map((link) => (
+                <SidebarMenuItem key={link.href}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={pathname.startsWith(link.href)}
+                    className={cn(
+                      pathname.startsWith(link.href) ? "bg-primary/10 text-primary hover:bg-primary/20" : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                    )}
+                    tooltip={link.label} 
+                  >
+                    <Link href={link.href}>
+                      <link.icon className="h-5 w-5" />
+                      <span>{link.label}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
             </SidebarMenu>
           </SidebarContent>
           <SidebarFooter className="p-2 mt-auto border-t">
-             <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    asChild
-                    tooltip={PARENT_PORTAL_LINK.label} // Pass string directly
-                    className="cursor-pointer hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                    onClick={handleParentPortalClick} 
-                  >
-                    <a> {/* Use <a> for onClick to work properly with window.open */}
-                      <PARENT_PORTAL_LINK.icon className="h-5 w-5" />
-                      <span>{PARENT_PORTAL_LINK.label}</span>
-                    </a>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              </SidebarMenu>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  tooltip={PARENT_PORTAL_LINK.label} 
+                  className="cursor-pointer hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                  onClick={handleParentPortalClick}
+                >
+                  <a> 
+                    <PARENT_PORTAL_LINK.icon className="h-5 w-5" />
+                    <span>{PARENT_PORTAL_LINK.label}</span>
+                  </a>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
           </SidebarFooter>
         </Sidebar>
 
@@ -125,7 +115,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                   <Avatar className="h-9 w-9">
-                    <AvatarImage src="https://placehold.co/100x100.png" alt="Admin Avatar" data-ai-hint="user avatar"/>
+                    <AvatarImage src="https://placehold.co/100x100.png" alt="Admin Avatar" />
                     <AvatarFallback>DP</AvatarFallback>
                   </Avatar>
                 </Button>
