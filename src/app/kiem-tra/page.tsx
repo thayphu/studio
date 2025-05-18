@@ -89,7 +89,7 @@ export default function KiemTraPage() {
   });
   
   // Effect to reset scores and saved IDs when class or date changes
-  useEffect(() => {
+ useEffect(() => {
     if (selectedClassId && selectedDate) {
       console.log("[KiemTraPage] Class or Date changed. Resetting studentScores and savedStudentIdsForSession.");
       setStudentScores({});
@@ -110,6 +110,7 @@ export default function KiemTraPage() {
     queryKey: ['existingTestScores', selectedClassId, formattedTestDateForQuery],
     queryFn: () => {
       if (!selectedClassId || !selectedDate) {
+        console.log("[KiemTraPage] Skipping fetch: No class or date selected for existing scores.");
         return Promise.resolve([]);
       }
       console.log(`[KiemTraPage] Fetching existing scores for class ${selectedClassId} on ${formattedTestDateForQuery}`);
@@ -126,16 +127,21 @@ export default function KiemTraPage() {
       const newSavedIds = new Set<string>();
       existingScoresData.forEach(scoreRecord => {
         newScores[scoreRecord.studentId] = {
-          score: scoreRecord.score !== undefined ? String(scoreRecord.score) : '', // score can be undefined
+          score: scoreRecord.score !== undefined ? String(scoreRecord.score) : '',
           masteredLesson: scoreRecord.masteredLesson || false,
           vocabularyToReview: scoreRecord.vocabularyToReview || '',
           generalRemarks: scoreRecord.generalRemarks || '',
           homeworkStatus: scoreRecord.homeworkStatus || '',
         };
-        newSavedIds.add(scoreRecord.studentId);
+        if (!isScoreEntryEmpty(newScores[scoreRecord.studentId])) { // Only add to saved if it's not empty
+            newSavedIds.add(scoreRecord.studentId);
+        }
       });
-      setStudentScores(prev => ({ ...prev, ...newScores }));
+      setStudentScores(prev => ({ ...prev, ...newScores })); // Merge to preserve any ongoing edits
       setSavedStudentIdsForSession(prev => new Set([...Array.from(prev), ...Array.from(newSavedIds)]));
+      console.log("[KiemTraPage] After populating with existing scores, studentScores:", newScores, "savedStudentIdsForSession:", newSavedIds);
+    } else if (existingScoresData && existingScoresData.length === 0) {
+        console.log("[KiemTraPage] No existing scores found for the selected class/date. StudentScores and saved IDs remain as they are (or reset if class/date changed).");
     }
   }, [existingScoresData]);
 
@@ -172,7 +178,7 @@ export default function KiemTraPage() {
     },
   });
 
-  const handleSaveAllScores = () => {
+ const handleSaveAllScores = () => {
     if (!selectedClassId || !selectedDate) {
       toast({
         title: "Thông tin chưa đầy đủ",
@@ -226,7 +232,7 @@ export default function KiemTraPage() {
       return;
     }
     const student = studentsInSelectedClass.find(s => s.id === studentId);
-    const studentData = studentScores[studentId]; // This now reflects either saved or unsaved data
+    const studentData = studentScores[studentId]; 
     const selectedClass = activeClasses.find(c => c.id === selectedClassId);
 
     if (!student || !selectedClass) {
@@ -297,7 +303,7 @@ export default function KiemTraPage() {
   const StarRating = ({ count, starClassName }: { count: number, starClassName?: string }) => (
     <div className="inline-flex items-center ml-2">
       {[...Array(count)].map((_, i) => (
-        <Star key={i} className={cn("h-4 w-4", starClassName)} fill="currentColor" />
+        <Star key={i} className={cn("h-4 w-4 text-green-500 dark:text-green-400", starClassName)} fill="currentColor" />
       ))}
     </div>
   );
@@ -311,23 +317,29 @@ export default function KiemTraPage() {
       return <span className="font-bold text-lg text-muted-foreground">{String(score)}</span>;
     }
 
+    let scoreTextColor = "text-foreground"; // Default color
+    if (numScore >= 9) scoreTextColor = "text-red-600 dark:text-red-400";
+    else if (numScore >= 7) scoreTextColor = "text-blue-600 dark:text-blue-400";
+    else if (numScore >= 5) scoreTextColor = "text-violet-600 dark:text-violet-400";
+
+
     if (numScore >= 9 && numScore <= 10) {
       return <>
-        <span className="font-bold text-lg text-red-600 dark:text-red-400">{numScore}</span>
-        <StarRating count={5} starClassName="text-red-500 dark:text-red-400" />
+        <span className={cn("font-bold text-lg", scoreTextColor)}>{numScore}</span>
+        <StarRating count={5} />
       </>;
     } else if (numScore >= 7) { 
       return <>
-        <span className="font-bold text-lg text-blue-600 dark:text-blue-400">{numScore}</span>
-        <StarRating count={4} starClassName="text-blue-500 dark:text-blue-400" />
+        <span className={cn("font-bold text-lg", scoreTextColor)}>{numScore}</span>
+        <StarRating count={4} />
       </>;
     } else if (numScore >= 5) { 
       return <>
-        <span className="font-bold text-lg text-violet-600 dark:text-violet-400">{numScore}</span>
-        <StarRating count={3} starClassName="text-violet-500 dark:text-violet-400" />
+        <span className={cn("font-bold text-lg", scoreTextColor)}>{numScore}</span>
+        <StarRating count={3} />
       </>;
     }
-    return <span className="font-bold text-lg">{numScore}</span>; 
+    return <span className={cn("font-bold text-lg", scoreTextColor)}>{numScore}</span>; 
   };
 
 
@@ -649,3 +661,6 @@ export default function KiemTraPage() {
     </DashboardLayout>
   );
 }
+
+
+    
