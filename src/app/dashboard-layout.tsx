@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/sidebar';
 import { NAV_LINKS, PARENT_PORTAL_LINK, TEXTS_VI } from '@/lib/constants';
 import { cn } from '@/lib/utils';
+import React from 'react'; // Import React for useMemo
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -60,24 +61,30 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           </SidebarHeader>
           <SidebarContent className="p-2">
             <SidebarMenu>
-              {NAV_LINKS.map((link) => (
-                <SidebarMenuItem key={link.href}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={pathname.startsWith(link.href)}
-                    tooltip={{children: link.label}}
-                    className={cn(
-                      "justify-start",
-                      pathname.startsWith(link.href) && "bg-primary/10 text-primary hover:bg-primary/20"
-                    )}
-                  >
-                    <Link href={link.href}>
-                      <link.icon className="h-5 w-5" />
-                      <span>{link.label}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              {NAV_LINKS.map((link) => {
+                const tooltipProps = React.useMemo(() => ({
+                  children: link.label
+                }), [link.label]);
+
+                return (
+                  <SidebarMenuItem key={link.href}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={pathname.startsWith(link.href)}
+                      tooltip={tooltipProps}
+                      className={cn(
+                        "justify-start",
+                        pathname.startsWith(link.href) && "bg-primary/10 text-primary hover:bg-primary/20"
+                      )}
+                    >
+                      <Link href={link.href}>
+                        <link.icon className="h-5 w-5" />
+                        <span>{link.label}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarContent>
           <SidebarFooter className="p-2 mt-auto border-t">
