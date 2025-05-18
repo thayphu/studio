@@ -62,7 +62,7 @@ export default function KiemTraPage() {
       ...prev,
       [studentId]: {
         ...(prev[studentId] || { masteredLesson: false, score: undefined, vocabularyToReview: '', generalRemarks: '', homeworkStatus: '' }),
-        [field as keyof StudentScoreInput]: value, // Cast to keyof StudentScoreInput for TypeScript
+        [field as keyof StudentScoreInput]: value, 
       },
     }));
   };
@@ -283,7 +283,7 @@ export default function KiemTraPage() {
                           <TableCell className="font-medium">{student.hoTen}</TableCell>
                           <TableCell>
                             <Input
-                              type="text" // Use text to allow flexible input, validation will handle if it's a number
+                              type="text" 
                               placeholder="Điểm"
                               value={studentScores[student.id]?.score ?? ''}
                               onChange={(e) => handleScoreInputChange(student.id, 'score', e.target.value)}
@@ -325,7 +325,7 @@ export default function KiemTraPage() {
                                 <SelectValue placeholder="Chọn trạng thái" />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="">(Để trống)</SelectItem>
+                                {/* <SelectItem value="">(Để trống)</SelectItem> */}
                                 {ALL_HOMEWORK_STATUSES.map(status => (
                                   <SelectItem key={status} value={status}>{status}</SelectItem>
                                 ))}
@@ -366,3 +366,4 @@ export default function KiemTraPage() {
     </DashboardLayout>
   );
 }
+
