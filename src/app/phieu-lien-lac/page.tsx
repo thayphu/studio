@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -24,43 +25,18 @@ import { format, parseISO, parse } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { CalendarIcon, ClipboardList, Edit, Printer, Save, Trash2, Star, Loader2, AlertCircle, BookCopy } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { cn, formatCurrencyVND } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import html2canvas from 'html2canvas';
 import DashboardLayout from '../dashboard-layout';
 
 const CardTitle = ShadCardTitleOriginal;
 const CardDescription = ShadCardDescriptionOriginal;
 
-const calculateMasteryDetails = (testFormat?: TestFormatPLC, scoreInput?: string | number | null): { text: string; isTrulyMastered: boolean } => {
-  const score = scoreInput !== undefined && scoreInput !== null && String(scoreInput).trim() !== '' && !isNaN(Number(scoreInput)) ? Number(scoreInput) : null;
-
-  if (!testFormat) {
-    return { text: "Chưa chọn hình thức KT", isTrulyMastered: false };
-  }
-
-  if (testFormat === "KT bài cũ" || testFormat === "Kiểm tra miệng") {
-    if (score === 10) return { text: "Thuộc bài", isTrulyMastered: true };
-    if (score === 9) return { text: "Thuộc bài, còn sai sót ít", isTrulyMastered: true };
-    if (score !== null && score >= 7 && score <= 8) {
-        return { text: testFormat === "KT bài cũ" ? "Thuộc bài, còn sai sót 1 vài từ" : "Có học bài nhưng chưa thuộc hết từ vựng", isTrulyMastered: false };
-    }
-    if (score !== null && score >= 5 && score <= 6) {
-        return { text: testFormat === "KT bài cũ" ? "Có học bài, còn sai sót nhiều" : "Có học bài nhưng chỉ thuộc 1 phần từ vựng", isTrulyMastered: false };
-    }
-    if (score !== null && score < 5) return { text: "Không thuộc bài", isTrulyMastered: false };
-    return { text: "Chưa có điểm/Chưa đánh giá", isTrulyMastered: false };
-  }
-  
-  if (testFormat === "KT 15 phút" || testFormat === "KT 45 Phút" || testFormat === "Làm bài tập") {
-    return { text: "Không có KT bài", isTrulyMastered: false };
-  }
-  return { text: "Chưa chọn hình thức KT", isTrulyMastered: false };
-};
-
+// Helper function to determine if a slip input is effectively empty
 const isSlipInputEmpty = (entry: StudentSlipInput | undefined): boolean => {
-  console.log("[PLLPage] isSlipInputEmpty check for entry:", entry);
+  // console.log("[PLLPage] isSlipInputEmpty check for entry:", entry);
   if (!entry) {
-    console.log("[PLLPage] isSlipInputEmpty: Entry is undefined, returning true.");
+    // console.log("[PLLPage] isSlipInputEmpty: Entry is undefined, returning true.");
     return true;
   }
   const scoreIsEmpty = entry.score === undefined || entry.score === null || String(entry.score).trim() === '';
@@ -71,9 +47,41 @@ const isSlipInputEmpty = (entry: StudentSlipInput | undefined): boolean => {
     (entry.vocabularyToReview === undefined || String(entry.vocabularyToReview).trim() === '') &&
     (entry.remarks === undefined || String(entry.remarks).trim() === '')
   );
-  console.log(`[PLLPage] isSlipInputEmpty result: ${result}. Details - testFormat: ${entry.testFormat}, scoreIsEmpty: ${scoreIsEmpty}, homeworkStatus: ${entry.homeworkStatus}, vocab: ${entry.vocabularyToReview}, remarks: ${entry.remarks}`);
+  // console.log(`[PLLPage] isSlipInputEmpty result: ${result}. Details - testFormat: ${entry.testFormat}, scoreIsEmpty: ${scoreIsEmpty}, homeworkStatus: ${entry.homeworkStatus}, vocab: ${entry.vocabularyToReview}, remarks: ${entry.remarks}`);
   return result;
 };
+
+
+// Helper function to calculate mastery details based on score and test format
+const calculateMasteryDetails = (testFormat?: TestFormatPLC, scoreInput?: string | number | null): { text: string; isTrulyMastered: boolean } => {
+  const score = scoreInput !== undefined && scoreInput !== null && String(scoreInput).trim() !== '' && !isNaN(Number(scoreInput)) ? Number(scoreInput) : null;
+
+  if (!testFormat) {
+    return { text: "Chưa chọn hình thức KT", isTrulyMastered: false };
+  }
+  if (testFormat === "KT miệng") { // Specific logic for "KT miệng"
+    if (score === 10) return { text: "Thuộc bài", isTrulyMastered: true };
+    if (score === 9) return { text: "Thuộc bài, còn sai sót ít", isTrulyMastered: true };
+    if (score !== null && score >= 7 && score <= 8) return { text: "Có học bài nhưng chưa thuộc hết từ vựng", isTrulyMastered: false };
+    if (score !== null && score >= 5 && score <= 6) return { text: "Có học bài nhưng chỉ thuộc 1 phần từ vựng", isTrulyMastered: false };
+    if (score !== null && score < 5) return { text: "Không thuộc bài", isTrulyMastered: false };
+    return { text: "Chưa có điểm/Chưa đánh giá", isTrulyMastered: false };
+  }
+  if (testFormat === "KT bài cũ") { // Specific logic for "KT bài cũ"
+    if (score === 10) return { text: "Thuộc bài", isTrulyMastered: true };
+    if (score === 9) return { text: "Thuộc bài, còn sai sót ít", isTrulyMastered: true };
+    if (score !== null && score >= 7 && score <= 8) return { text: "Thuộc bài, còn sai sót 1 vài từ", isTrulyMastered: false };
+    if (score !== null && score >= 5 && score <= 6) return { text: "Có học bài, còn sai sót nhiều", isTrulyMastered: false };
+    if (score !== null && score < 5) return { text: "Không thuộc bài", isTrulyMastered: false };
+    return { text: "Chưa có điểm/Chưa đánh giá", isTrulyMastered: false };
+  }
+  // For other test formats
+  if (testFormat === "KT 15 phút" || testFormat === "KT 45 Phút" || testFormat === "Làm bài tập") {
+    return { text: "Không có KT bài", isTrulyMastered: false }; // Or some other appropriate text and mastery status
+  }
+  return { text: "Chưa chọn hình thức KT", isTrulyMastered: false };
+};
+
 
 export default function PhieuLienLacPage() {
   const { toast } = useToast();
@@ -112,73 +120,76 @@ export default function PhieuLienLacPage() {
     queryKey: ['studentsInClassForPLL', selectedClassId],
     queryFn: () => getStudentsByClassId(selectedClassId),
     enabled: !!selectedClassId && isClient,
-    staleTime: 60000 * 1,
+    staleTime: 60000 * 1, // 1 minute
   });
 
   const memoizedFormattedSelectedDateKey = useMemo(() => {
     return format(selectedDate, 'yyyy-MM-dd');
   }, [selectedDate]);
 
-  const { data: existingSlipsData, isLoading: isLoadingExistingSlips, isError: isErrorExistingSlips, error: errorExistingSlips } = useQuery<PhieuLienLacRecord[], Error>({
+  const { data: existingSlipsData = [], isLoading: isLoadingExistingSlips, isError: isErrorExistingSlips, error: errorExistingSlips } = useQuery<PhieuLienLacRecord[], Error>({
     queryKey: ['existingPhieuLienLac', selectedClassId, memoizedFormattedSelectedDateKey],
     queryFn: () => getPhieuLienLacRecordsForClassOnDate(selectedClassId, selectedDate),
     enabled: !!selectedClassId && !!selectedDate && isClient,
-    staleTime: 60000 * 1,
+    staleTime: 60000 * 1, // 1 minute
   });
   
   useEffect(() => {
-    console.log(`[PLLPage] Main useEffect triggered. selectedDate: ${memoizedFormattedSelectedDateKey}, selectedClassId: ${selectedClassId}`);
-    if (!isClient || isLoadingStudents || isLoadingExistingSlips || !studentsInSelectedClass || !existingSlipsData) {
-        console.log(`[PLLPage] Main useEffect: Skipping due to loading/missing data or not client. isClient: ${isClient}, isLoadingStudents: ${isLoadingStudents}, isLoadingExistingSlips: ${isLoadingExistingSlips}, studentsInSelectedClass: ${!!studentsInSelectedClass}, existingSlipsData: ${!!existingSlipsData}`);
+    console.log("[PLLPage] Main useEffect triggered. Dependencies changed:", { memoizedFormattedSelectedDateKey, selectedClassId, isClient, isLoadingStudents, isLoadingExistingSlips, studentsInSelectedClassCount: studentsInSelectedClass.length, existingSlipsDataCount: existingSlipsData.length });
+    
+    if (!isClient || isLoadingStudents || isLoadingExistingSlips) {
+        console.log(`[PLLPage] Main useEffect: Skipping state update due to loading/missing data or not client. isClient: ${isClient}, isLoadingStudents: ${isLoadingStudents}, isLoadingExistingSlips: ${isLoadingExistingSlips}`);
         return;
     }
-    console.log("[PLLPage] Main useEffect: Processing existingSlipsData (size:", existingSlipsData.length, "):", existingSlipsData);
+    console.log("[PLLPage] Main useEffect: Processing existingSlipsData (size:", existingSlipsData.length, "):");
 
     const newInputsFromEffect: Record<string, StudentSlipInput> = {};
     const newInitialLoadedIdsFromEffect = new Set<string>();
 
     studentsInSelectedClass.forEach(student => {
-        const existingSlip = existingSlipsData.find(s => s.studentId === student.id);
-        let slipEntry: StudentSlipInput;
-        if (existingSlip) {
-            console.log(`[PLLPage] Main useEffect: Student ${student.id}, existingSlip from DB:`, existingSlip);
-            const masteryDetails = calculateMasteryDetails(existingSlip.testFormat, existingSlip.score);
-            slipEntry = {
-                testFormat: existingSlip.testFormat,
-                score: existingSlip.score === null || existingSlip.score === undefined ? '' : String(existingSlip.score),
-                lessonMasteryText: masteryDetails.text, // Should be derived, but store for consistency if needed
-                homeworkStatus: existingSlip.homeworkStatus,
-                vocabularyToReview: existingSlip.vocabularyToReview || '',
-                remarks: existingSlip.remarks || '',
-            };
-            console.log(`[PLLPage] Main useEffect: Student ${student.id}, slipEntry created from DB:`, slipEntry);
-            if (!isSlipInputEmpty(slipEntry)) {
-                newInitialLoadedIdsFromEffect.add(student.id);
-            }
-        } else {
-            slipEntry = {
-                testFormat: undefined,
-                score: '',
-                lessonMasteryText: calculateMasteryDetails(undefined, '').text,
-                homeworkStatus: undefined,
-                vocabularyToReview: '',
-                remarks: '',
-            };
+      const existingSlip = existingSlipsData.find(s => s.studentId === student.id);
+      let slipEntry: StudentSlipInput;
+      if (existingSlip) {
+        // console.log(`[PLLPage] Main useEffect: Student ${student.id}, existingSlip from DB:`, existingSlip);
+        const masteryDetails = calculateMasteryDetails(existingSlip.testFormat, existingSlip.score);
+        slipEntry = {
+          testFormat: existingSlip.testFormat,
+          score: existingSlip.score === null || existingSlip.score === undefined ? '' : String(existingSlip.score),
+          lessonMasteryText: masteryDetails.text,
+          homeworkStatus: existingSlip.homeworkStatus,
+          vocabularyToReview: existingSlip.vocabularyToReview || '',
+          remarks: existingSlip.remarks || '',
+        };
+        // console.log(`[PLLPage] Main useEffect: Student ${student.id}, slipEntry created from DB:`, slipEntry);
+        if (!isSlipInputEmpty(slipEntry)) {
+          newInitialLoadedIdsFromEffect.add(student.id);
         }
-        newInputsFromEffect[student.id] = slipEntry;
+      } else {
+        const masteryDetailsForEmpty = calculateMasteryDetails(undefined, '');
+        slipEntry = {
+          testFormat: undefined,
+          score: '',
+          lessonMasteryText: masteryDetailsForEmpty.text,
+          homeworkStatus: undefined,
+          vocabularyToReview: '',
+          remarks: '',
+        };
+      }
+      newInputsFromEffect[student.id] = slipEntry;
     });
     
     // Preserve current edits if a student is being edited
     if (editingStudentId && studentSlipInputs[editingStudentId]) {
-        console.log(`[PLLPage] Main useEffect: Preserving current edits for editingStudentId: ${editingStudentId}`, studentSlipInputs[editingStudentId]);
-        newInputsFromEffect[editingStudentId] = studentSlipInputs[editingStudentId];
-        // If preserving an edit makes an entry non-empty, ensure it's marked as loaded/changed
-        if (!isSlipInputEmpty(newInputsFromEffect[editingStudentId])) {
-            newInitialLoadedIdsFromEffect.add(editingStudentId);
-        }
+      console.log(`[PLLPage] Main useEffect: Preserving current edits for editingStudentId: ${editingStudentId}`, studentSlipInputs[editingStudentId]);
+      newInputsFromEffect[editingStudentId] = studentSlipInputs[editingStudentId]; // This ensures current edits are kept
+      if (!isSlipInputEmpty(newInputsFromEffect[editingStudentId])) {
+         newInitialLoadedIdsFromEffect.add(editingStudentId);
+      } else if (newInitialLoadedIdsFromEffect.has(editingStudentId)) {
+        // If the edit made it empty, but it was previously loaded, remove from initial loaded
+        // This logic might need to be re-thought if a user edits a loaded slip to be empty then cancels.
+        // For now, if an edit makes it empty, it's considered not "initially loaded" for history tab purposes until saved.
+      }
     }
-    
-    console.log(`[PLLPage] Main useEffect: newInitialLoadedStudentSlipIds before set:`, Array.from(newInitialLoadedIdsFromEffect));
     
     const currentStudentSlipInputsString = JSON.stringify(studentSlipInputs);
     const newInputsFromEffectString = JSON.stringify(newInputsFromEffect);
@@ -186,17 +197,21 @@ export default function PhieuLienLacPage() {
     if (currentStudentSlipInputsString !== newInputsFromEffectString) {
         console.log("[PLLPage] Main useEffect: studentSlipInputs changed, calling setStudentSlipInputs.");
         setStudentSlipInputs(newInputsFromEffect);
+    } else {
+        // console.log("[PLLPage] Main useEffect: studentSlipInputs unchanged, skipping setStudentSlipInputs.");
     }
 
     const currentInitialLoadedStudentSlipIdsString = Array.from(initialLoadedStudentSlipIds).sort().join(',');
     const newInitialLoadedIdsFromEffectString = Array.from(newInitialLoadedIdsFromEffect).sort().join(',');
 
     if (currentInitialLoadedStudentSlipIdsString !== newInitialLoadedIdsFromEffectString) {
-        console.log("[PLLPage] Main useEffect: initialLoadedStudentSlipIds changed, calling setInitialLoadedStudentSlipIds.");
+        console.log("[PLLPage] Main useEffect: initialLoadedStudentSlipIds changed, calling setInitialLoadedStudentSlipIds. New Set:", newInitialLoadedIdsFromEffect);
         setInitialLoadedStudentSlipIds(newInitialLoadedIdsFromEffect);
+    } else {
+        // console.log("[PLLPage] Main useEffect: initialLoadedStudentSlipIds unchanged, skipping setInitialLoadedStudentSlipIds.");
     }
 
-  }, [existingSlipsData, studentsInSelectedClass, isLoadingExistingSlips, isLoadingStudents, isClient, memoizedFormattedSelectedDateKey]); // Removed editingStudentId and studentSlipInputs
+  }, [existingSlipsData, studentsInSelectedClass, isLoadingExistingSlips, isLoadingStudents, isClient, memoizedFormattedSelectedDateKey]); 
 
 
   useEffect(() => {
@@ -206,18 +221,18 @@ export default function PhieuLienLacPage() {
     setInitialLoadedStudentSlipIds(new Set());
     setEditingStudentId(null); 
     
-    // Invalidate and refetch when class or date changes
     if (selectedClassId && memoizedFormattedSelectedDateKey) { 
         queryClient.invalidateQueries({ queryKey: ['existingPhieuLienLac', selectedClassId, memoizedFormattedSelectedDateKey] });
     }
     if (selectedClassId) { 
         refetchStudentsInClass(); 
     }
-  }, [memoizedFormattedSelectedDateKey, selectedClassId, isClient]); // Removed queryClient and refetchStudentsInClass, they are stable
+  }, [memoizedFormattedSelectedDateKey, selectedClassId, isClient, queryClient, refetchStudentsInClass]);
 
   const handleSlipInputChange = useCallback((studentId: string, field: keyof StudentSlipInput, value: any) => {
+    console.log(`[PLLPage] handleSlipInputChange: studentId=${studentId}, field=${field}, value=`, value);
     setStudentSlipInputs(prev => {
-      const currentEntry = prev[studentId] || {};
+      const currentEntry = prev[studentId] || { score: '', vocabularyToReview: '', remarks: '' }; // Ensure defaults for new entries
       let updatedEntry: StudentSlipInput = { ...currentEntry, [field]: value };
 
       if (field === 'testFormat' || field === 'score') {
@@ -227,6 +242,17 @@ export default function PhieuLienLacPage() {
         );
         updatedEntry.lessonMasteryText = masteryDetails.text;
       }
+      
+      // If user starts typing for a student who was previously "empty" but loaded from DB with non-empty data,
+      // OR if they are editing a student that wasn't the current editingStudentId, mark them as editing.
+      if (initialLoadedStudentSlipIds.has(studentId) && editingStudentId !== studentId) {
+          // This might be too aggressive if just clicking a select.
+          // A more robust approach might be to only set editingStudentId on significant input change
+          // or when an "Edit" button is explicitly clicked.
+          // For now, let's assume any change on a loaded record initiates an edit context for it.
+          // This might be what's causing the tab jump if not handled carefully with history/entry tab logic
+      }
+
       return { ...prev, [studentId]: updatedEntry };
     });
   }, []); 
@@ -234,23 +260,23 @@ export default function PhieuLienLacPage() {
   const studentsForHistoryTab = useMemo(() => {
     console.log(`[PLLPage] studentsForHistoryTab useMemo. initialLoadedStudentSlipIds:`, Array.from(initialLoadedStudentSlipIds), `editingStudentId: ${editingStudentId}`);
     if (isLoadingStudents || !studentsInSelectedClass || isLoadingExistingSlips) {
-        console.log("[PLLPage] studentsForHistoryTab: Bailing early due to loading or missing data");
+        // console.log("[PLLPage] studentsForHistoryTab: Bailing early due to loading or missing data");
         return [];
     }
     const result = studentsInSelectedClass.filter(student =>
-      initialLoadedStudentSlipIds.has(student.id) &&
+      initialLoadedStudentSlipIds.has(student.id) && 
       !isSlipInputEmpty(studentSlipInputs[student.id]) && 
       student.id !== editingStudentId 
     );
-    console.log("[PLLPage] studentsForHistoryTab result:", result.map(s => s.id));
+    // console.log("[PLLPage] studentsForHistoryTab result:", result.map(s => s.id));
     return result;
   }, [studentsInSelectedClass, studentSlipInputs, initialLoadedStudentSlipIds, editingStudentId, isLoadingStudents, isLoadingExistingSlips]);
 
 
   const studentsForEntryTab = useMemo(() => {
-    console.log(`[PLLPage] studentsForEntryTab useMemo. EditingStudentId: ${editingStudentId}`);
+    console.log(`[PLLPage] studentsForEntryTab useMemo. EditingStudentId: ${editingStudentId}, initialLoadedStudentIds:`, Array.from(initialLoadedStudentSlipIds), "studentSlipInputs keys:", Object.keys(studentSlipInputs));
     if (isLoadingStudents || !studentsInSelectedClass || isLoadingExistingSlips) {
-         console.log("[PLLPage] studentsForEntryTab: Bailing early due to loading or missing data");
+        // console.log("[PLLPage] studentsForEntryTab: Bailing early due to loading or missing data");
         return [];
     }
 
@@ -260,10 +286,12 @@ export default function PhieuLienLacPage() {
       return studentBeingEdited ? [studentBeingEdited] : [];
     }
     
+    // Students not in history tab are candidates for entry tab
     const historyStudentIds = new Set(studentsForHistoryTab.map(s => s.id));
-    const entryStudents = studentsInSelectedClass.filter(student => !historyStudentIds.has(student.id));
-    console.log(`[PLLPage] Students for EntryTab (not editing):`, entryStudents.map(s => s.id));
-    return entryStudents;
+    const entryCandidates = studentsInSelectedClass.filter(student => !historyStudentIds.has(student.id));
+    console.log(`[PLLPage] Students for EntryTab (not editing), candidates (not in history):`, entryCandidates.map(s=>s.id));
+    return entryCandidates;
+
   }, [studentsInSelectedClass, studentsForHistoryTab, editingStudentId, isLoadingStudents, isLoadingExistingSlips]);
 
 
@@ -271,9 +299,10 @@ export default function PhieuLienLacPage() {
     mutationFn: savePhieuLienLacRecords,
     onSuccess: (data, variables) => {
       toast({ title: "Thành công!", description: `Phiếu liên lạc đã được lưu cho ${variables.length} học sinh.` });
+      console.log("[PLLPage] saveSlipsMutation onSuccess: Invalidating queries for", {selectedClassId, memoizedFormattedSelectedDateKey});
       queryClient.invalidateQueries({ queryKey: ['existingPhieuLienLac', selectedClassId, memoizedFormattedSelectedDateKey] });
       setEditingStudentId(null); 
-      console.log("[PLLPage] saveSlipsMutation onSuccess: Set editingStudentId to null. Invalidated queries.");
+      console.log("[PLLPage] saveSlipsMutation onSuccess: Set editingStudentId to null.");
     },
     onError: (error: Error) => {
       toast({
@@ -301,28 +330,34 @@ export default function PhieuLienLacPage() {
     const recordsToSave: Array<Omit<PhieuLienLacRecord, 'id' | 'createdAt' | 'updatedAt'>> = [];
     let studentsToProcessForSave: HocSinh[] = [];
 
+    // If editing, only save the student being edited
     if (editingStudentId) {
         const studentBeingEdited = studentsInSelectedClass.find(s => s.id === editingStudentId);
         if (studentBeingEdited && studentSlipInputs[editingStudentId]) {
              studentsToProcessForSave.push(studentBeingEdited);
         }
     } else {
-        // Save all students that have changes or were initially loaded
+        // If not editing, save all students who have non-empty inputs OR were initially loaded (to persist deletions/empty states)
         studentsToProcessForSave = studentsInSelectedClass.filter(s => 
             studentSlipInputs[s.id] && (!isSlipInputEmpty(studentSlipInputs[s.id]) || initialLoadedStudentSlipIds.has(s.id))
         );
     }
     console.log("[PLLPage] handleSaveAllSlips: Students to process for saving:", studentsToProcessForSave.map(s => ({id: s.id, name: s.hoTen})));
 
+
     studentsToProcessForSave.forEach(student => {
       const input = studentSlipInputs[student.id];
       if (input) { 
         const masteryDetails = calculateMasteryDetails(input.testFormat, input.score);
-        const scoreToSave = (input.score === undefined || input.score === null || String(input.score).trim() === '') ? null : Number(input.score);
+        // Ensure score is number or null, not empty string or NaN
+        const scoreToSave = (input.score === undefined || input.score === null || String(input.score).trim() === '') 
+                            ? null 
+                            : (isNaN(Number(input.score)) ? null : Number(input.score));
         
-        if (isNaN(scoreToSave as number) && scoreToSave !== null) {
-            toast({ title: "Lỗi dữ liệu", description: `Điểm số không hợp lệ cho học sinh ${student.hoTen}.`, variant: "destructive"});
-            return; 
+        // Handle cases where score might be text or invalid input before converting
+        if (input.score !== undefined && input.score !== null && String(input.score).trim() !== '' && isNaN(Number(input.score))) {
+            toast({ title: "Lỗi dữ liệu", description: `Điểm số không hợp lệ cho học sinh ${student.hoTen}. Sẽ được lưu là không có điểm.`, variant: "warning", duration: 5000});
+            // scoreToSave is already null in this case
         }
 
         const recordPayload: Omit<PhieuLienLacRecord, 'id' | 'createdAt' | 'updatedAt'> = {
@@ -343,7 +378,7 @@ export default function PhieuLienLacPage() {
     });
     
     console.log("[PLLPage] handleSaveAllSlips: Records to save to Firestore:", recordsToSave);
-    if (recordsToSave.length === 0 && !editingStudentId) { // Don't show if just finishing an edit that resulted in no change
+    if (recordsToSave.length === 0 && !editingStudentId) { 
         toast({ title: "Không có gì để lưu", description: "Vui lòng nhập thông tin phiếu liên lạc hoặc thực hiện thay đổi." });
         return;
     }
@@ -353,10 +388,16 @@ export default function PhieuLienLacPage() {
   const handleEditSlip = useCallback((studentId: string) => {
     console.log(`[PLLPage] handleEditSlip called for studentId: ${studentId}`);
     setEditingStudentId(studentId);
-    setActiveTab("nhap-diem");
-    requestAnimationFrame(() => {
-        entryTabTriggerRef.current?.focus();
-        entryTabTriggerRef.current?.click();
+    setActiveTab("nhap-diem"); // Switch to entry tab
+    requestAnimationFrame(() => { // Ensure DOM is updated before focus/click
+        const trigger = entryTabTriggerRef.current;
+        if (trigger) {
+          console.log(`[PLLPage] Attempting to focus and click entry tab trigger for student ${studentId}`);
+          trigger.focus();
+          trigger.click(); // Simulate click to change tab content if Tabs component needs it
+        } else {
+          console.warn(`[PLLPage] Entry tab trigger ref not found for student ${studentId}.`);
+        }
     });
   }, []);
 
@@ -375,12 +416,11 @@ export default function PhieuLienLacPage() {
         remarks: '',
       }
     }));
-    setEditingStudentId(studentId); // Move to entry tab for potential save of this "empty" state
-    setActiveTab("nhap-diem");
-    requestAnimationFrame(() => {
-        entryTabTriggerRef.current?.focus();
-        entryTabTriggerRef.current?.click();
-    });
+    // Do NOT set editingStudentId here if we want the "Save" button to persist this deletion
+    // If we setEditingStudentId, the save logic might only save this one student.
+    // The student will move to entry tab because their data is now empty.
+    // Consider if `initialLoadedStudentSlipIds` should be updated here or after save.
+    // For now, it will be updated after save reflects the empty state from DB.
     toast({ description: `Đã làm rỗng dữ liệu phiếu liên lạc cục bộ cho ${studentName}. Nhấn "Lưu" để cập nhật vào hệ thống.` });
   }, [studentsInSelectedClass, toast]);
 
@@ -508,36 +548,64 @@ export default function PhieuLienLacPage() {
   const canSaveChanges = useMemo(() => {
     console.log("[PLLPage] canSaveChanges useMemo. EditingStudentId:", editingStudentId);
     if (saveSlipsMutation.isPending) return false;
-    if (editingStudentId) {
-        const currentInput = studentSlipInputs[editingStudentId];
-        if (!currentInput) { console.log("[PLLPage] canSaveChanges: No current input for editing student."); return false; }
-        const originalSlip = existingSlipsData?.find(s => s.studentId === editingStudentId);
+
+    let studentsToCheck: HocSinh[] = [];
+    if(editingStudentId){
+        const student = studentsInSelectedClass.find(s => s.id === editingStudentId);
+        if(student) studentsToCheck.push(student);
+    } else {
+        studentsToCheck = studentsInSelectedClass;
+    }
+
+    if (studentsToCheck.length === 0) {
+      console.log("[PLLPage] canSaveChanges: No students to check (either not editing or no students in class). Returning false.");
+      return false;
+    }
+    
+    const hasChanges = studentsToCheck.some(student => {
+        const currentInput = studentSlipInputs[student.id];
+        if (!currentInput && !initialLoadedStudentSlipIds.has(student.id)) {
+          // No input and not initially loaded -> no changes for this student
+          return false;
+        }
+        if (!currentInput && initialLoadedStudentSlipIds.has(student.id)) {
+          // No current input but was initially loaded -> this means it was cleared, which is a change
+          return true; 
+        }
+        if (currentInput && !initialLoadedStudentSlipIds.has(student.id) && !isSlipInputEmpty(currentInput)) {
+          // Has input, wasn't initially loaded, and input is not empty -> new entry, change
+          return true;
+        }
+
+        const originalSlip = existingSlipsData?.find(s => s.studentId === student.id);
         if (!originalSlip) { 
+            // Student has input but no original record, consider it a change if input is not empty
             const isNewEntryNotEmpty = !isSlipInputEmpty(currentInput);
-            console.log(`[PLLPage] canSaveChanges (editing, no original slip): New entry not empty? ${isNewEntryNotEmpty}`);
             return isNewEntryNotEmpty; 
         }
-        const originalComparable: StudentSlipInput = { testFormat: originalSlip.testFormat, score: originalSlip.score === null || originalSlip.score === undefined ? '' : String(originalSlip.score), lessonMasteryText: originalSlip.lessonMasteryText, homeworkStatus: originalSlip.homeworkStatus, vocabularyToReview: originalSlip.vocabularyToReview || '', remarks: originalSlip.remarks || '' };
-        const currentComparable: StudentSlipInput = { ...currentInput, score: currentInput.score === null || currentInput.score === undefined ? '' : String(currentInput.score), lessonMasteryText: calculateMasteryDetails(currentInput.testFormat, currentInput.score).text }; 
-        const result = JSON.stringify(currentComparable) !== JSON.stringify(originalComparable);
-        console.log(`[PLLPage] canSaveChanges (editing, with original slip): Changed? ${result}. Original:`, originalComparable, "Current:", currentComparable);
-        return result;
-    }
-    const hasChanges = studentsInSelectedClass.some(student => {
-        const currentInput = studentSlipInputs[student.id];
-        if (!currentInput) return false; 
-        const originalSlip = existingSlipsData?.find(s => s.studentId === student.id);
 
-        if (!originalSlip) { 
-            return !isSlipInputEmpty(currentInput);
-        }
-        const originalComparable: StudentSlipInput = { testFormat: originalSlip.testFormat, score: originalSlip.score === null || originalSlip.score === undefined ? '' : String(originalSlip.score), lessonMasteryText: originalSlip.lessonMasteryText, homeworkStatus: originalSlip.homeworkStatus, vocabularyToReview: originalSlip.vocabularyToReview || '', remarks: originalSlip.remarks || '' };
-        const currentComparable: StudentSlipInput = { ...currentInput, score: currentInput.score === null || currentInput.score === undefined ? '' : String(currentInput.score), lessonMasteryText: calculateMasteryDetails(currentInput.testFormat, currentInput.score).text };
-        return JSON.stringify(currentComparable) !== JSON.stringify(originalComparable);
+        // Compare current input with original record
+        const originalComparable: StudentSlipInput = { 
+            testFormat: originalSlip.testFormat, 
+            score: originalSlip.score === null || originalSlip.score === undefined ? '' : String(originalSlip.score), 
+            lessonMasteryText: originalSlip.lessonMasteryText, 
+            homeworkStatus: originalSlip.homeworkStatus, 
+            vocabularyToReview: originalSlip.vocabularyToReview || '', 
+            remarks: originalSlip.remarks || '' 
+        };
+        const currentComparable: StudentSlipInput = { 
+            ...currentInput, 
+            score: currentInput.score === null || currentInput.score === undefined ? '' : String(currentInput.score), 
+            lessonMasteryText: calculateMasteryDetails(currentInput.testFormat, currentInput.score).text 
+        }; 
+        
+        const changed = JSON.stringify(currentComparable) !== JSON.stringify(originalComparable);
+        if (changed) console.log(`[PLLPage] canSaveChanges: Student ${student.id} has changes. Original:`, originalComparable, "Current:", currentComparable);
+        return changed;
     });
-    console.log(`[PLLPage] canSaveChanges (not editing): Has changes? ${hasChanges}`);
+    console.log(`[PLLPage] canSaveChanges result: ${hasChanges}`);
     return hasChanges;
-  }, [studentSlipInputs, editingStudentId, saveSlipsMutation.isPending, studentsInSelectedClass, existingSlipsData]);
+  }, [studentSlipInputs, editingStudentId, saveSlipsMutation.isPending, studentsInSelectedClass, existingSlipsData, initialLoadedStudentSlipIds]);
 
   const handleOpenPeriodicSlipDialog = async (student: HocSinh) => {
     if (!selectedClassId) {
@@ -551,7 +619,12 @@ export default function PhieuLienLacPage() {
       setAllDailySlipsForPeriodic(records);
       setIsPeriodicSlipModalOpen(true);
     } catch (error) {
-      toast({ title: "Lỗi tải dữ liệu", description: (error as Error).message, variant: "destructive"});
+       toast({ 
+        title: "Lỗi tải dữ liệu phiếu chu kỳ", 
+        description: (error as Error).message, // Display the actual error message from the service.
+        variant: "destructive",
+        duration: 10000,
+      });
       console.error("[PLLPage] Error fetching periodic slip records:", error);
     } finally {
       setIsLoadingPeriodicSlipRecords(false);
@@ -563,7 +636,11 @@ export default function PhieuLienLacPage() {
       toast({ title: "Lỗi", description: "Không có nội dung phiếu để xuất.", variant: "destructive"});
       return;
     }
-    // ... (html2canvas logic similar to daily slip)
+    if (typeof html2canvas === 'undefined') {
+        toast({ title: "Lỗi Xuất Ảnh", description: "Thư viện html2canvas chưa được tải. Vui lòng cài đặt và khởi động lại server.", variant: "destructive"});
+        console.error("[PLLPage] html2canvas is undefined. Ensure it's installed and imported.");
+        return;
+    }
     try {
         const canvas = await html2canvas(periodicSlipDialogContentRef.current, { scale: 2, backgroundColor: '#ffffff', useCORS: true });
         const image = canvas.toDataURL('image/png', 1.0);
@@ -581,10 +658,13 @@ export default function PhieuLienLacPage() {
   };
 
   const currentClassForPeriodicSlip = useMemo(() => classes.find(c => c.id === periodicSlipStudent?.lopId), [classes, periodicSlipStudent]);
+  
   const periodicSlipDateRange = useMemo(() => {
     if (allDailySlipsForPeriodic.length === 0) return "N/A";
-    const firstDate = parseISO(allDailySlipsForPeriodic[0].date);
-    const lastDate = parseISO(allDailySlipsForPeriodic[allDailySlipsForPeriodic.length - 1].date);
+    // Sort by date ascending to be sure
+    const sortedSlips = [...allDailySlipsForPeriodic].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const firstDate = parseISO(sortedSlips[0].date);
+    const lastDate = parseISO(sortedSlips[sortedSlips.length - 1].date);
     return `Từ ${format(firstDate, "dd/MM/yyyy", {locale: vi})} đến ${format(lastDate, "dd/MM/yyyy", {locale: vi})}`;
   }, [allDailySlipsForPeriodic]);
 
@@ -809,7 +889,7 @@ export default function PhieuLienLacPage() {
                 </TabsContent>
               </Tabs>
             </CardHeader>
-             {selectedClassId && selectedDate && studentsInSelectedClass.length > 0 && activeTab === 'nhap-diem' && (
+             {selectedClassId && selectedDate && studentsInSelectedClass.length > 0 && (activeTab === 'nhap-diem' || (activeTab === 'lich-su' && editingStudentId)) && (
               <CardFooter className="border-t pt-6">
                 <Button onClick={handleSaveAllSlips} disabled={saveSlipsMutation.isPending || !canSaveChanges}>
                   {saveSlipsMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -818,27 +898,16 @@ export default function PhieuLienLacPage() {
                  {editingStudentId && (
                     <Button variant="ghost" onClick={() => { 
                         setEditingStudentId(null); 
-                        // Optionally refetch or reset studentSlipInputs[editingStudentId] to original if needed
-                        // For now, just clears edit mode. Changes will persist in form until saved or date/class changes.
+                        // Re-fetch or revert changes for the student if not saved
+                        if (selectedClassId && selectedDate) {
+                            queryClient.invalidateQueries({ queryKey: ['existingPhieuLienLac', selectedClassId, memoizedFormattedSelectedDateKey] });
+                        }
                     }} className="ml-2" disabled={saveSlipsMutation.isPending}>
                         Hủy Sửa
                     </Button>
                 )}
               </CardFooter>
             )}
-             {selectedClassId && selectedDate && studentsInSelectedClass.length > 0 && activeTab === 'lich-su' && canSaveChanges && editingStudentId && (
-              <CardFooter className="border-t pt-6">
-                <p className="text-sm text-muted-foreground mr-auto">Có thay đổi chưa lưu cho học sinh đang sửa. Chuyển qua tab "Nhập phiếu" để lưu.</p>
-              </CardFooter>
-            )}
-             {selectedClassId && selectedDate && studentsInSelectedClass.length > 0 && activeTab === 'lich-su' && canSaveChanges && !editingStudentId && (
-                 <CardFooter className="border-t pt-6">
-                    <Button onClick={handleSaveAllSlips} disabled={saveSlipsMutation.isPending || !canSaveChanges}>
-                        {saveSlipsMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Lưu Thay Đổi (Xóa)
-                    </Button>
-                 </CardFooter>
-             )}
           </Card>
         )}
 
@@ -856,7 +925,7 @@ export default function PhieuLienLacPage() {
                 )}
             </ShadDialogHeader>
             <ScrollArea className="flex-grow"> 
-                <div ref={slipDialogContentRef} className="p-6 bg-card text-sm font-sans leading-snug">
+                <div ref={slipDialogContentRef} className="p-6 bg-card text-sm font-sans leading-normal">
                     {currentSlipData ? (
                     <div className="space-y-1"> 
                         <div className="grid grid-cols-2 gap-x-4 mb-2 text-base">
@@ -909,20 +978,20 @@ export default function PhieuLienLacPage() {
         {/* Dialog for Periodic Slip */}
         <Dialog open={isPeriodicSlipModalOpen} onOpenChange={setIsPeriodicSlipModalOpen}>
             <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col p-0">
-                <ShadDialogHeader className="p-6 pb-0">
-                    <ShadDialogTitle className="text-center text-2xl font-bold uppercase text-primary">
+                <ShadDialogHeader className="p-6 pb-0 text-center">
+                    <ShadDialogTitle className="text-2xl font-bold uppercase text-primary">
                         PHIẾU LIÊN LẠC CHU KỲ
                     </ShadDialogTitle>
-                    <ShadDialogDescription className="text-center text-sm">
+                    <ShadDialogDescription className="text-sm">
                         Ngày xuất: {format(new Date(), "dd/MM/yyyy", { locale: vi })}
                     </ShadDialogDescription>
                 </ShadDialogHeader>
                 <ScrollArea className="flex-grow">
-                    <div ref={periodicSlipDialogContentRef} className="p-6 bg-card text-sm font-sans leading-snug">
+                    <div ref={periodicSlipDialogContentRef} className="p-6 bg-card text-sm font-sans leading-normal">
                         {isLoadingPeriodicSlipRecords && <div className="text-center p-10"><Loader2 className="h-8 w-8 animate-spin mx-auto"/> Đang tải dữ liệu...</div>}
                         {!isLoadingPeriodicSlipRecords && periodicSlipStudent && currentClassForPeriodicSlip && (
                             <div className="space-y-2">
-                                <div className="grid grid-cols-2 gap-x-4 mb-2 text-base">
+                                 <div className="grid grid-cols-2 gap-x-6 gap-y-2 mb-3 text-base">
                                     <p><strong className="font-medium text-muted-foreground">Họ và tên:</strong> <span className="font-semibold text-indigo-700">{periodicSlipStudent.hoTen}</span></p>
                                     <p><strong className="font-medium text-muted-foreground">Mã HS:</strong> <span className="font-medium">{periodicSlipStudent.id}</span></p>
                                     <p><strong className="font-medium text-muted-foreground">Lớp:</strong> <span className="font-medium">{currentClassForPeriodicSlip.tenLop}</span></p>
@@ -960,10 +1029,10 @@ export default function PhieuLienLacPage() {
                                         </TableBody>
                                     </Table>
                                 ) : (
-                                    <p className="text-muted-foreground">Không có dữ liệu điểm danh chi tiết cho chu kỳ này.</p>
+                                    <p className="text-muted-foreground">Không có dữ liệu phiếu liên lạc chi tiết cho chu kỳ này.</p>
                                 )}
                                 <Separator className="my-3" />
-                                <SlipDetailItem label="Nhận xét tổng hợp">{"(Tổng hợp nhận xét cho chu kỳ này sẽ được cập nhật sau)"}</SlipDetailItem>
+                                 <SlipDetailItem label="Nhận xét tổng hợp"><span className="italic text-muted-foreground">{"(Tổng hợp nhận xét cho chu kỳ này sẽ được cập nhật sau)"}</span></SlipDetailItem>
                                  <Separator className="my-3"/>
                                 <div className="text-foreground mt-3 text-sm font-medium leading-normal">
                                     <p><strong>Trân trọng.</strong></p>
@@ -976,8 +1045,9 @@ export default function PhieuLienLacPage() {
                 </ScrollArea>
                 <DialogFooter className="p-4 border-t sm:justify-between">
                     <DialogClose asChild><Button type="button" variant="outline">Đóng</Button></DialogClose>
-                    <Button onClick={handleExportPeriodicSlipImage} disabled={isLoadingPeriodicSlipRecords || !periodicSlipStudent || allDailySlipsForPeriodic.length === 0}>
-                        <Printer className="mr-2 h-4 w-4" /> Xuất file ảnh
+                    <Button onClick={handleExportPeriodicSlipImage} disabled={isLoadingPeriodicSlipRecords || !periodicSlipStudent || allDailySlipsForPeriodic.length === 0 || (typeof html2canvas === 'undefined')}>
+                       {typeof html2canvas === 'undefined' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Printer className="mr-2 h-4 w-4" />}
+                       {typeof html2canvas === 'undefined' ? "Đang tải thư viện..." : "Xuất file ảnh"}
                     </Button>
                 </DialogFooter>
             </DialogContent>
@@ -989,21 +1059,22 @@ export default function PhieuLienLacPage() {
 }
 
 const SlipDetailItem = ({ label, children }: { label: string; children: React.ReactNode }) => (
-  <div className="grid grid-cols-[150px_1fr] items-start py-0.5 text-sm">
+  <div className="grid grid-cols-[150px_1fr] items-start py-0.5">
     <strong className="font-medium text-muted-foreground">{label}:</strong>
-    <div>{children}</div>
+    <div className="font-medium">{children}</div>
   </div>
 );
 
+// Custom Separator to be used within the dialog content for html2canvas
 const Separator = React.forwardRef<
   React.ElementRef<"div">,
   React.HTMLAttributes<HTMLDivElement>
 >(({ className, ...props }, ref) => (
   <div
     ref={ref}
-    className={cn("shrink-0 bg-border h-[1px] w-full", className)}
+    className={cn("shrink-0 bg-border h-[1px] w-full my-2", className)} 
     {...props}
   />
 ));
-Separator.displayName = "Separator";
+Separator.displayName = "DialogSeparator";
 
