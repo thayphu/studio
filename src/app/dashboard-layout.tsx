@@ -47,11 +47,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     window.open(PARENT_PORTAL_LINK.href, '_blank');
   }, []); 
 
-  // const parentPortalTooltipProps = React.useMemo(() => ({ // Temporarily removed for debugging
-  //   children: PARENT_PORTAL_LINK.label,
-  //   side: "right" as const,
-  //   align: "center" as const,
-  // }), []);
+  const parentPortalTooltipProps = React.useMemo(() => ({
+    children: PARENT_PORTAL_LINK.label,
+    side: "right" as const,
+    align: "center" as const,
+  }), []);
 
 
   return (
@@ -72,18 +72,18 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           <SidebarContent className="p-2">
             <SidebarMenu>
               {NAV_LINKS.map((link) => {
-                // const navLinkTooltipProps = React.useMemo(() => ({ // Temporarily removed for debugging
-                //   children: link.label,
-                //   side: "right" as const,
-                //   align: "center" as const,
-                // }), [link.label]);
+                const navLinkTooltipProps = React.useMemo(() => ({
+                  children: link.label,
+                  side: "right" as const,
+                  align: "center" as const,
+                }), [link.label]);
 
                 return (
                   <SidebarMenuItem key={link.href}>
                     <SidebarMenuButton
                       asChild
                       isActive={pathname.startsWith(link.href)}
-                      // tooltip={navLinkTooltipProps} // Temporarily removed for debugging
+                      tooltip={navLinkTooltipProps}
                       className={cn(
                         "justify-start",
                         pathname.startsWith(link.href) && "bg-primary/10 text-primary hover:bg-primary/20"
@@ -104,7 +104,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     asChild
-                    // tooltip={parentPortalTooltipProps} // Temporarily removed for debugging
+                    tooltip={parentPortalTooltipProps}
                     className="justify-start"
                     onClick={handleParentPortalClick} 
                   >
@@ -158,4 +158,3 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     </SidebarProvider>
   );
 }
-
