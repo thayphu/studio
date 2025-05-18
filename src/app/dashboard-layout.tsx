@@ -45,7 +45,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
   const handleParentPortalClick = React.useCallback(() => {
     window.open(PARENT_PORTAL_LINK.href, '_blank');
-  }, []); 
+  }, []);
 
   const parentPortalTooltipProps = React.useMemo(() => ({
     children: PARENT_PORTAL_LINK.label,
@@ -106,7 +106,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                     asChild
                     tooltip={parentPortalTooltipProps}
                     className="justify-start"
-                    onClick={handleParentPortalClick} 
+                    onClick={handleParentPortalClick}
                   >
                     <a> {/* Use <a> for onClick to work properly with window.open */}
                       <PARENT_PORTAL_LINK.icon className="h-5 w-5" />
