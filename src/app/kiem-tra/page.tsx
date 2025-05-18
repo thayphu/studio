@@ -14,14 +14,15 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription as ShadDialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getClasses } from '@/services/lopHocService';
 import { getStudentsByClassId } from '@/services/hocSinhService';
-import { saveTestScores } from '@/services/testScoreService'; // getTestScoresForClassOnDate is still a placeholder
+import { saveTestScores } from '@/services/testScoreService';
 import type { LopHoc, HocSinh, TestScoreRecord, StudentScoreInput, HomeworkStatus } from '@/lib/types';
 import { ALL_HOMEWORK_STATUSES } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
-import { CalendarIcon, FileText, Save, Printer, AlertCircle, Download, Info } from 'lucide-react';
+import { CalendarIcon, FileText, Save, Printer, AlertCircle, Download, Info, ListChecks, Edit3 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -41,6 +42,17 @@ interface ReportData {
   homeworkColor: string;
   footer: string;
 }
+
+const isScoreEntryEmpty = (entry: StudentScoreInput | undefined): boolean => {
+  if (!entry) return true;
+  return (
+    (entry.score === undefined || entry.score === '') &&
+    entry.masteredLesson === false &&
+    (entry.vocabularyToReview === undefined || entry.vocabularyToReview === '') &&
+    (entry.generalRemarks === undefined || entry.generalRemarks === '') &&
+    (entry.homeworkStatus === undefined || entry.homeworkStatus === '')
+  );
+};
 
 
 export default function KiemTraPage() {
@@ -72,38 +84,21 @@ export default function KiemTraPage() {
     queryFn: () => selectedClassId ? getStudentsByClassId(selectedClassId) : Promise.resolve([]),
     enabled: !!selectedClassId,
   });
-
-  // This useEffect was causing data loss for studentScores.
-  // It's removed to preserve input during the current session for a selected class/date.
-  // The "TODO" to fetch existing scores for a new class/date selection should be implemented later.
-  /*
-  useEffect(() => {
-    // setStudentScores({}); // REMOVED: This was resetting scores on class/date change.
-    // TODO: Fetch existing scores for this class/date and populate studentScores
-  }, [selectedClassId, selectedDate]);
-  */
-
-  // Effect to refetch students if the classId changes.
-  // Scores are not cleared here to preserve data if user toggles class/date quickly.
-  // Ideal long-term solution: load scores for the new class/date.
+  
   useEffect(() => {
     if (selectedClassId) {
         console.log("[KiemTraPage] Class ID changed to:", selectedClassId, "- refetching students.");
         refetchStudentsInClass();
-        // If you want to clear scores when class changes, uncomment below:
-        // setStudentScores({});
     }
   }, [selectedClassId, refetchStudentsInClass]);
   
-  // Effect to clear scores if the date changes (and a class is selected).
-  // This is a common expectation: changing the date means starting fresh for that new date.
   useEffect(() => {
-    if (selectedClassId && selectedDate) { // Only clear if a class is also selected
+    if (selectedClassId && selectedDate) { 
         console.log("[KiemTraPage] Date changed to:", selectedDate, "- clearing scores for new date.");
         setStudentScores({});
         // TODO: Fetch existing scores for this new selectedClassId/selectedDate combination
     }
-  }, [selectedDate, selectedClassId]); // React to changes in selectedDate, but also consider selectedClassId
+  }, [selectedDate, selectedClassId]); 
 
   const handleScoreInputChange = (studentId: string, field: keyof StudentScoreInput | 'homeworkStatus', value: any) => {
     setStudentScores(prev => ({
@@ -152,21 +147,31 @@ export default function KiemTraPage() {
         return;
     }
 
-    const recordsToSave: TestScoreRecord[] = studentsInSelectedClass.map(student => ({
-      studentId: student.id,
-      studentName: student.hoTen,
-      classId: selectedClassId,
-      className: selectedClass.tenLop,
-      testDate: format(selectedDate, 'yyyy-MM-dd'),
-      score: studentScores[student.id]?.score !== undefined && studentScores[student.id]?.score !== null && studentScores[student.id]?.score !== '' && !isNaN(Number(studentScores[student.id]?.score)) ? Number(studentScores[student.id]?.score) : undefined,
-      masteredLesson: studentScores[student.id]?.masteredLesson || false,
-      vocabularyToReview: studentScores[student.id]?.vocabularyToReview || '',
-      generalRemarks: studentScores[student.id]?.generalRemarks || '',
-      homeworkStatus: studentScores[student.id]?.homeworkStatus || '',
-    }));
+    const recordsToSave: TestScoreRecord[] = studentsInSelectedClass
+    .map(student => {
+        const currentScoreInput = studentScores[student.id];
+        // Only include students for whom some score data has been entered or modified
+        if (!currentScoreInput || isScoreEntryEmpty(currentScoreInput)) {
+            return null; 
+        }
+        return {
+            studentId: student.id,
+            studentName: student.hoTen,
+            classId: selectedClassId,
+            className: selectedClass.tenLop,
+            testDate: format(selectedDate, 'yyyy-MM-dd'),
+            score: currentScoreInput.score !== undefined && currentScoreInput.score !== null && currentScoreInput.score !== '' && !isNaN(Number(currentScoreInput.score)) ? Number(currentScoreInput.score) : undefined,
+            masteredLesson: currentScoreInput.masteredLesson || false,
+            vocabularyToReview: currentScoreInput.vocabularyToReview || '',
+            generalRemarks: currentScoreInput.generalRemarks || '',
+            homeworkStatus: currentScoreInput.homeworkStatus || '',
+        };
+    })
+    .filter(record => record !== null) as TestScoreRecord[];
+
 
     if (recordsToSave.length === 0) {
-        toast({ title: "Không có học sinh", description: "Không có học sinh nào trong lớp được chọn để lưu điểm.", variant: "warning" });
+        toast({ title: "Không có dữ liệu mới", description: "Không có điểm mới hoặc thay đổi nào để lưu.", variant: "default" });
         return;
     }
     console.log("[KiemTraPage] Data to save for test scores:", recordsToSave);
@@ -227,6 +232,16 @@ export default function KiemTraPage() {
     setGradeSlipData(reportDataToSet);
     setIsGradeSlipModalOpen(true);
   };
+
+  const studentsToEnterScores = useMemo(() => {
+    if (isLoadingStudents || !studentsInSelectedClass) return [];
+    return studentsInSelectedClass.filter(student => isScoreEntryEmpty(studentScores[student.id]));
+  }, [studentsInSelectedClass, studentScores, isLoadingStudents]);
+
+  const studentsWithEnteredScores = useMemo(() => {
+    if (isLoadingStudents || !studentsInSelectedClass) return [];
+    return studentsInSelectedClass.filter(student => !isScoreEntryEmpty(studentScores[student.id]));
+  }, [studentsInSelectedClass, studentScores, isLoadingStudents]);
 
 
   return (
@@ -297,118 +312,175 @@ export default function KiemTraPage() {
         {selectedClassId && (
           <Card className="shadow-md">
             <CardHeader>
-              <CardTitle>Nhập điểm cho học sinh</CardTitle>
+              <CardTitle>Danh sách học sinh</CardTitle>
               <CardDescription>
                 Lớp: {activeClasses.find(c => c.id === selectedClassId)?.tenLop || 'N/A'} -
                 Ngày: {selectedDate ? format(selectedDate, "dd/MM/yyyy", { locale: vi }) : 'N/A'}
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {isLoadingStudents && (
-                <div className="space-y-2">
-                  <Skeleton className="h-10 w-full" />
-                  <Skeleton className="h-10 w-full" />
-                  <Skeleton className="h-10 w-full" />
-                </div>
-              )}
-              {isErrorStudents && (
-                <div className="text-destructive p-4 border border-destructive/50 bg-destructive/10 rounded-md flex items-center">
-                  <AlertCircle className="mr-2 h-5 w-5" /> Lỗi tải danh sách học sinh của lớp này.
-                </div>
-              )}
-              {!isLoadingStudents && !isErrorStudents && studentsInSelectedClass.length === 0 && (
-                <p className="text-muted-foreground text-center py-4">
-                  {selectedClassId ? "Lớp này chưa có học sinh." : "Vui lòng chọn lớp để hiển thị danh sách học sinh."}
-                </p>
-              )}
-              {!isLoadingStudents && !isErrorStudents && studentsInSelectedClass.length > 0 && (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-[50px]">STT</TableHead>
-                        <TableHead>Họ và Tên</TableHead>
-                        <TableHead className="w-[100px]">Điểm số</TableHead>
-                        <TableHead className="w-[150px] text-center">Thuộc bài</TableHead>
-                        <TableHead>Từ vựng cần học lại</TableHead>
-                        <TableHead>Nhận xét</TableHead>
-                        <TableHead className="min-w-[200px]">Bài tập về nhà?</TableHead>
-                        <TableHead className="w-[100px] text-center">Hành động</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {studentsInSelectedClass.map((student, index) => (
-                        <TableRow key={student.id}>
-                          <TableCell>{index + 1}</TableCell>
-                          <TableCell className="font-medium">{student.hoTen}</TableCell>
-                          <TableCell>
-                            <Input
-                              type="text" // Use text to allow flexible input, validation handles numeric conversion
-                              placeholder="Điểm"
-                              value={studentScores[student.id]?.score ?? ''}
-                              onChange={(e) => handleScoreInputChange(student.id, 'score', e.target.value)}
-                              className="w-full"
-                            />
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <div className="flex items-center justify-center space-x-2">
-                              <Switch
-                                id={`mastered-${student.id}`}
-                                checked={studentScores[student.id]?.masteredLesson || false}
-                                onCheckedChange={(checked) => handleScoreInputChange(student.id, 'masteredLesson', checked)}
-                              />
-                              <Label htmlFor={`mastered-${student.id}`} className="sr-only">Thuộc bài</Label>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Textarea
-                              placeholder="Liệt kê từ vựng..."
-                              value={studentScores[student.id]?.vocabularyToReview || ''}
-                              onChange={(e) => handleScoreInputChange(student.id, 'vocabularyToReview', e.target.value)}
-                              rows={1}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Textarea
-                              placeholder="Nhận xét khác..."
-                              value={studentScores[student.id]?.generalRemarks || ''}
-                              onChange={(e) => handleScoreInputChange(student.id, 'generalRemarks', e.target.value)}
-                              rows={1}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Select
-                              value={studentScores[student.id]?.homeworkStatus || ''}
-                              onValueChange={(value) => handleScoreInputChange(student.id, 'homeworkStatus', value as HomeworkStatus)}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Chọn trạng thái" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {ALL_HOMEWORK_STATUSES.map(status => (
-                                  <SelectItem key={status} value={status}>{status}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              onClick={() => handleExportStudentReport(student.id)}
-                              aria-label={`Xuất phiếu điểm cho ${student.hoTen}`}
-                            >
-                              <Printer className="h-4 w-4" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
+              <Tabs defaultValue="nhap-diem" className="w-full">
+                <TabsList className="grid w-full grid-cols-2 mb-4 bg-primary/10 p-1 rounded-lg">
+                  <TabsTrigger value="nhap-diem" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-primary/20 hover:text-primary focus-visible:ring-primary/50">
+                    <Edit3 className="mr-2 h-4 w-4" /> Nhập điểm ({studentsToEnterScores.length})
+                  </TabsTrigger>
+                  <TabsTrigger value="lich-su" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-primary/20 hover:text-primary focus-visible:ring-primary/50">
+                    <ListChecks className="mr-2 h-4 w-4" /> Lịch sử nhập điểm ({studentsWithEnteredScores.length})
+                  </TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="nhap-diem">
+                  {isLoadingStudents && (
+                    <div className="space-y-2">
+                      <Skeleton className="h-10 w-full" /> <Skeleton className="h-10 w-full" />
+                    </div>
+                  )}
+                  {isErrorStudents && (
+                    <div className="text-destructive p-4 border border-destructive/50 bg-destructive/10 rounded-md flex items-center">
+                      <AlertCircle className="mr-2 h-5 w-5" /> Lỗi tải danh sách học sinh của lớp này.
+                    </div>
+                  )}
+                  {!isLoadingStudents && !isErrorStudents && studentsToEnterScores.length === 0 && studentsInSelectedClass.length > 0 && (
+                     <p className="text-muted-foreground text-center py-4">Tất cả học sinh đã có thông tin điểm cho ngày này (trong phiên làm việc).</p>
+                  )}
+                   {!isLoadingStudents && !isErrorStudents && studentsToEnterScores.length === 0 && studentsInSelectedClass.length === 0 && (
+                     <p className="text-muted-foreground text-center py-4">Lớp này chưa có học sinh.</p>
+                  )}
+                  {!isLoadingStudents && !isErrorStudents && studentsToEnterScores.length > 0 && (
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-[50px]">STT</TableHead>
+                            <TableHead>Họ và Tên</TableHead>
+                            <TableHead className="w-[100px]">Điểm số</TableHead>
+                            <TableHead className="w-[120px] text-center">Thuộc bài</TableHead>
+                            <TableHead className="min-w-[180px]">Từ vựng cần học lại</TableHead>
+                            <TableHead className="min-w-[180px]">Nhận xét</TableHead>
+                            <TableHead className="min-w-[200px]">Bài tập về nhà?</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {studentsToEnterScores.map((student, index) => (
+                            <TableRow key={student.id}>
+                              <TableCell>{index + 1}</TableCell>
+                              <TableCell className="font-medium">{student.hoTen}</TableCell>
+                              <TableCell>
+                                <Input
+                                  type="text"
+                                  placeholder="Điểm"
+                                  value={studentScores[student.id]?.score ?? ''}
+                                  onChange={(e) => handleScoreInputChange(student.id, 'score', e.target.value)}
+                                  className="w-full"
+                                />
+                              </TableCell>
+                              <TableCell className="text-center">
+                                <div className="flex items-center justify-center space-x-2">
+                                  <Switch
+                                    id={`mastered-${student.id}`}
+                                    checked={studentScores[student.id]?.masteredLesson || false}
+                                    onCheckedChange={(checked) => handleScoreInputChange(student.id, 'masteredLesson', checked)}
+                                  />
+                                  <Label htmlFor={`mastered-${student.id}`} className="sr-only">Thuộc bài</Label>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <Textarea
+                                  placeholder="Liệt kê từ vựng..."
+                                  value={studentScores[student.id]?.vocabularyToReview || ''}
+                                  onChange={(e) => handleScoreInputChange(student.id, 'vocabularyToReview', e.target.value)}
+                                  rows={1}
+                                />
+                              </TableCell>
+                              <TableCell>
+                                <Textarea
+                                  placeholder="Nhận xét khác..."
+                                  value={studentScores[student.id]?.generalRemarks || ''}
+                                  onChange={(e) => handleScoreInputChange(student.id, 'generalRemarks', e.target.value)}
+                                  rows={1}
+                                />
+                              </TableCell>
+                              <TableCell>
+                                <Select
+                                  value={studentScores[student.id]?.homeworkStatus || ''}
+                                  onValueChange={(value) => handleScoreInputChange(student.id, 'homeworkStatus', value as HomeworkStatus)}
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Chọn trạng thái" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {ALL_HOMEWORK_STATUSES.map(status => (
+                                      <SelectItem key={status} value={status}>{status}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                </TabsContent>
+
+                <TabsContent value="lich-su">
+                   {isLoadingStudents && (
+                    <div className="space-y-2">
+                      <Skeleton className="h-10 w-full" /> <Skeleton className="h-10 w-full" />
+                    </div>
+                  )}
+                  {isErrorStudents && (
+                    <div className="text-destructive p-4 border border-destructive/50 bg-destructive/10 rounded-md flex items-center">
+                      <AlertCircle className="mr-2 h-5 w-5" /> Lỗi tải danh sách học sinh của lớp này.
+                    </div>
+                  )}
+                  {!isLoadingStudents && !isErrorStudents && studentsWithEnteredScores.length === 0 && (
+                     <p className="text-muted-foreground text-center py-4">Chưa có học sinh nào được nhập điểm trong phiên làm việc này.</p>
+                  )}
+                  {!isLoadingStudents && !isErrorStudents && studentsWithEnteredScores.length > 0 && (
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-[50px]">STT</TableHead>
+                            <TableHead>Họ và Tên</TableHead>
+                            <TableHead className="w-[100px]">Điểm số</TableHead>
+                            <TableHead className="w-[120px]">Thuộc bài</TableHead>
+                            <TableHead>Bài tập về nhà?</TableHead>
+                            <TableHead className="w-[100px] text-center">Hành động</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {studentsWithEnteredScores.map((student, index) => {
+                            const scores = studentScores[student.id] || {};
+                            return (
+                              <TableRow key={student.id}>
+                                <TableCell>{index + 1}</TableCell>
+                                <TableCell className="font-medium">{student.hoTen}</TableCell>
+                                <TableCell>{scores.score ?? 'N/A'}</TableCell>
+                                <TableCell>{scores.masteredLesson ? 'Đã thuộc' : 'Chưa thuộc'}</TableCell>
+                                <TableCell>{scores.homeworkStatus || 'N/A'}</TableCell>
+                                <TableCell className="text-center">
+                                  <Button
+                                    variant="outline"
+                                    size="icon"
+                                    onClick={() => handleExportStudentReport(student.id)}
+                                    aria-label={`Xuất phiếu điểm cho ${student.hoTen}`}
+                                  >
+                                    <Printer className="h-4 w-4" />
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                </TabsContent>
+              </Tabs>
             </CardContent>
-            {studentsInSelectedClass.length > 0 && (
+            {(studentsInSelectedClass.length > 0 || studentsToEnterScores.length > 0) && (
               <CardFooter className="justify-end border-t pt-6">
                 <Button
                   onClick={handleSaveAllScores}
@@ -458,7 +530,6 @@ export default function KiemTraPage() {
                 </Button>
               </DialogClose>
               <Button type="button" onClick={() => {
-                // Placeholder for actual image export functionality
                 toast({ title: "Chức năng đang phát triển", description: "Việc xuất file ảnh/PDF sẽ được bổ sung sau."});
               }}>
                 <Download className="mr-2 h-4 w-4" /> Xuất file
