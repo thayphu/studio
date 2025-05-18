@@ -29,7 +29,7 @@ import {
 } from '@/components/ui/sidebar';
 import { NAV_LINKS, PARENT_PORTAL_LINK, TEXTS_VI } from '@/lib/constants';
 import { cn } from '@/lib/utils';
-import React, { useEffect, useMemo, useCallback } from 'react'; // Added useMemo and useCallback
+import React, { useEffect, useCallback } from 'react'; 
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -40,7 +40,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const router = useRouter();
 
   useEffect(() => {
-    console.log("DashboardLayout mounted or updated - " + new Date().toLocaleTimeString()); 
+    // console.log("DashboardLayout mounted or updated - " + new Date().toLocaleTimeString()); 
   }, []); 
 
 
