@@ -13,18 +13,35 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription as ShadDialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getClasses } from '@/services/lopHocService';
 import { getStudentsByClassId } from '@/services/hocSinhService';
-import { saveTestScores } from '@/services/testScoreService'; 
+import { saveTestScores } from '@/services/testScoreService';
 import type { LopHoc, HocSinh, TestScoreRecord, StudentScoreInput, HomeworkStatus } from '@/lib/types';
 import { ALL_HOMEWORK_STATUSES } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
-import { CalendarIcon, FileText, Save, Printer, AlertCircle, Download } from 'lucide-react';
+import { CalendarIcon, FileText, Save, Printer, AlertCircle, Download, Info } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+
+interface ReportData {
+  studentName: string;
+  studentId: string;
+  className: string;
+  testDate: string;
+  score?: number | string;
+  mastery: string;
+  masteryColor: string;
+  vocabularyToReview?: string;
+  remarks?: string;
+  homework: string;
+  homeworkColor: string;
+  footer: string;
+}
+
 
 export default function KiemTraPage() {
   const { toast } = useToast();
@@ -33,6 +50,10 @@ export default function KiemTraPage() {
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [studentScores, setStudentScores] = useState<Record<string, StudentScoreInput>>({});
+
+  const [isGradeSlipModalOpen, setIsGradeSlipModalOpen] = useState(false);
+  const [gradeSlipData, setGradeSlipData] = useState<ReportData | null>(null);
+
 
   const { data: classes = [], isLoading: isLoadingClasses, isError: isErrorClasses } = useQuery<LopHoc[], Error>({
     queryKey: ['classes'],
@@ -62,11 +83,11 @@ export default function KiemTraPage() {
       ...prev,
       [studentId]: {
         ...(prev[studentId] || { masteredLesson: false, score: undefined, vocabularyToReview: '', generalRemarks: '', homeworkStatus: '' }),
-        [field as keyof StudentScoreInput]: value, 
+        [field as keyof StudentScoreInput]: value,
       },
     }));
   };
-  
+
 
   const saveScoresMutation = useMutation({
     mutationFn: (records: TestScoreRecord[]) => saveTestScores(records),
@@ -96,7 +117,7 @@ export default function KiemTraPage() {
       return;
     }
 
-    const selectedClass = classes.find(c => c.id === selectedClassId);
+    const selectedClass = activeClasses.find(c => c.id === selectedClassId);
     if (!selectedClass) {
         toast({ title: "Lỗi", description: "Không tìm thấy thông tin lớp đã chọn.", variant: "destructive" });
         return;
@@ -138,34 +159,44 @@ export default function KiemTraPage() {
     }
 
     const masteryText = studentData?.masteredLesson ? "Đã thuộc bài" : "Chưa thuộc bài";
+    const masteryColor = studentData?.masteredLesson ? "text-blue-600 dark:text-blue-400" : "text-red-600 dark:text-red-400";
+
     let homeworkText = "";
+    let homeworkColor = "text-foreground";
     switch (studentData?.homeworkStatus) {
-        case 'Có làm đầy đủ': homeworkText = "Đã làm bài tập về nhà: Có làm đầy đủ"; break;
-        case 'Chỉ làm 1 phần': homeworkText = "Đã làm bài tập về nhà: Chỉ làm 1 phần"; break;
-        case 'Không có làm': homeworkText = "Đã làm bài tập về nhà: Không có làm"; break;
+        case 'Có làm đầy đủ':
+            homeworkText = "Đã làm bài tập về nhà: Có làm đầy đủ";
+            homeworkColor = "text-blue-600 dark:text-blue-400";
+            break;
+        case 'Chỉ làm 1 phần':
+            homeworkText = "Đã làm bài tập về nhà: Chỉ làm 1 phần";
+            homeworkColor = "text-orange-500 dark:text-orange-400";
+            break;
+        case 'Không có làm':
+            homeworkText = "Đã làm bài tập về nhà: Không có làm";
+            homeworkColor = "text-red-600 dark:text-red-400";
+            break;
         default: homeworkText = "Đã làm bài tập về nhà: (chưa có thông tin)";
     }
 
-    const reportData = {
+    const reportDataToSet: ReportData = {
       studentName: student.hoTen,
       studentId: student.id,
       className: selectedClass.tenLop,
       testDate: format(selectedDate, 'dd/MM/yyyy'),
       score: studentData?.score,
       mastery: masteryText,
-      vocabularyToReview: studentData?.vocabularyToReview,
-      remarks: studentData?.generalRemarks,
+      masteryColor: masteryColor,
+      vocabularyToReview: studentData?.vocabularyToReview || "Không có",
+      remarks: studentData?.generalRemarks || "Không có",
       homework: homeworkText,
+      homeworkColor: homeworkColor,
       footer: "Quý Phụ huynh nhắc nhở các em viết lại những từ vựng chưa thuộc.\nTrân trọng"
     };
 
-    console.log(`[KiemTraPage] Report data for student ${student.hoTen} (ID: ${studentId}) on ${reportData.testDate}:`, reportData);
-    toast({
-      title: "Đang chuẩn bị phiếu điểm",
-      description: `Phiếu điểm cho ${student.hoTen} (ngày ${reportData.testDate}) sẽ được xuất. Chức năng tạo file đang được phát triển.`,
-      duration: 5000,
-    });
-    // TODO: Implement actual file generation (e.g., PDF) here
+    console.log(`[KiemTraPage] Report data for student ${student.hoTen} (ID: ${studentId}) on ${reportDataToSet.testDate}:`, reportDataToSet);
+    setGradeSlipData(reportDataToSet);
+    setIsGradeSlipModalOpen(true);
   };
 
 
@@ -273,7 +304,7 @@ export default function KiemTraPage() {
                         <TableHead>Từ vựng cần học lại</TableHead>
                         <TableHead>Nhận xét</TableHead>
                         <TableHead className="min-w-[200px]">Bài tập về nhà?</TableHead>
-                        <TableHead className="w-[100px] text-center">Hành động</TableHead> 
+                        <TableHead className="w-[100px] text-center">Hành động</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -283,7 +314,7 @@ export default function KiemTraPage() {
                           <TableCell className="font-medium">{student.hoTen}</TableCell>
                           <TableCell>
                             <Input
-                              type="text" 
+                              type="text"
                               placeholder="Điểm"
                               value={studentScores[student.id]?.score ?? ''}
                               onChange={(e) => handleScoreInputChange(student.id, 'score', e.target.value)}
@@ -362,6 +393,51 @@ export default function KiemTraPage() {
           </Card>
         )}
       </div>
+
+      {isGradeSlipModalOpen && gradeSlipData && (
+        <Dialog open={isGradeSlipModalOpen} onOpenChange={setIsGradeSlipModalOpen}>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="text-center text-xl font-bold text-primary">PHIẾU LIÊN LẠC</DialogTitle>
+              <ShadDialogDescription className="text-center text-sm text-muted-foreground">
+                Kết quả kiểm tra ngày: {gradeSlipData.testDate}
+              </ShadDialogDescription>
+            </DialogHeader>
+            <div className="space-y-3 py-4 text-sm">
+              <p><span className="font-semibold">Họ và tên:</span> {gradeSlipData.studentName}</p>
+              <p><span className="font-semibold">Mã HS:</span> {gradeSlipData.studentId}</p>
+              <p><span className="font-semibold">Lớp:</span> {gradeSlipData.className}</p>
+              {gradeSlipData.score !== undefined && gradeSlipData.score !== '' && <p><span className="font-semibold">Điểm số:</span> <span className="font-bold text-lg">{gradeSlipData.score}</span></p>}
+              <p><span className="font-semibold">Thuộc bài:</span> <span className={cn("font-bold", gradeSlipData.masteryColor)}>{gradeSlipData.mastery}</span></p>
+              <div>
+                <p className="font-semibold">Từ vựng cần học lại:</p>
+                <p className="pl-2 whitespace-pre-line">{gradeSlipData.vocabularyToReview || "Không có"}</p>
+              </div>
+              <div>
+                <p className="font-semibold">Nhận xét:</p>
+                <p className="pl-2 whitespace-pre-line">{gradeSlipData.remarks || "Không có"}</p>
+              </div>
+              <p><span className="font-semibold">Bài tập về nhà:</span> <span className={cn("font-semibold", gradeSlipData.homeworkColor)}>{gradeSlipData.homework}</span></p>
+              <div className="pt-3 mt-3 border-t">
+                <p className="whitespace-pre-line text-muted-foreground italic">{gradeSlipData.footer}</p>
+              </div>
+            </div>
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button type="button" variant="outline">
+                  Đóng
+                </Button>
+              </DialogClose>
+              <Button type="button" onClick={() => {
+                // Placeholder for actual image export functionality
+                toast({ title: "Chức năng đang phát triển", description: "Việc xuất file ảnh/PDF sẽ được bổ sung sau."});
+              }}>
+                <Download className="mr-2 h-4 w-4" /> Xuất file
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </DashboardLayout>
   );
 }
