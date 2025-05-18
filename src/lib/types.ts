@@ -86,9 +86,9 @@ export interface GiaoVienVangRecord {
   createdAt: string; // ISO Date string
 }
 
-// Types for PhieuLienLac
-export type TestFormatPLC = "KT bài cũ" | "KT 15 phút" | "KT 45 Phút" | "Làm bài tập";
-export const ALL_TEST_FORMATS_PLC: TestFormatPLC[] = ["KT bài cũ", "KT 15 phút", "KT 45 Phút", "Làm bài tập"];
+// Types for PhieuLienLac (PLC)
+export type TestFormatPLC = "KT bài cũ" | "KT 15 phút" | "KT 45 Phút" | "Làm bài tập" | "KT miệng";
+export const ALL_TEST_FORMATS_PLC: TestFormatPLC[] = ["KT bài cũ", "KT miệng", "KT 15 phút", "KT 45 Phút", "Làm bài tập"];
 
 export type HomeworkStatusPLC = "Đã làm bài đầy đủ" | "Chỉ làm bài 1 phần" | "Chỉ làm 2/3 bài" | "Không làm bài";
 export const ALL_HOMEWORK_STATUSES_PLC: HomeworkStatusPLC[] = ["Đã làm bài đầy đủ", "Chỉ làm bài 1 phần", "Chỉ làm 2/3 bài", "Không làm bài"];
@@ -106,6 +106,8 @@ export interface PhieuLienLacRecord {
   homeworkStatus?: HomeworkStatusPLC;
   vocabularyToReview?: string;
   remarks?: string;
+  homeworkAssignmentVocabulary?: string; // Common homework vocab for the class/date
+  homeworkAssignmentTasks?: string;    // Common homework tasks for the class/date
   createdAt?: string; // ISO string, Firestore server timestamp
   updatedAt?: string; // ISO string, Firestore server timestamp
 }
@@ -117,4 +119,6 @@ export interface StudentSlipInput {
   homeworkStatus?: HomeworkStatusPLC;
   vocabularyToReview?: string;
   remarks?: string;
+  homeworkAssignmentVocabulary?: string;
+  homeworkAssignmentTasks?: string;
 }
