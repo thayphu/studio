@@ -27,20 +27,26 @@ export const saveTestScores = async (records: TestScoreRecord[]): Promise<void> 
     // Ensure numeric fields are numbers or undefined
     const finalScore = typeof record.score === 'number' && !isNaN(record.score) ? record.score : undefined;
 
-    const recordToSave = {
+    // Firestore does not support 'undefined' values.
+    // We'll build the object and only include 'score' if it's defined.
+    const recordToSave: Omit<TestScoreRecord, 'id' | 'score'> & { score?: number; createdAt: any; updatedAt: any } = {
       studentId: record.studentId,
-      studentName: record.studentName || "", // Ensure string
+      studentName: record.studentName || "", 
       classId: record.classId,
-      className: record.className || "", // Ensure string
+      className: record.className || "", 
       testDate: record.testDate,
-      score: finalScore,
       masteredLesson: record.masteredLesson,
-      vocabularyToReview: record.vocabularyToReview || "", // Ensure string
-      generalRemarks: record.generalRemarks || "", // Ensure string
-      homeworkStatus: record.homeworkStatus || "", // Ensure string or empty
+      vocabularyToReview: record.vocabularyToReview || "", 
+      generalRemarks: record.generalRemarks || "", 
+      homeworkStatus: record.homeworkStatus || "", 
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     };
+
+    if (finalScore !== undefined) {
+      (recordToSave as TestScoreRecord).score = finalScore;
+    }
+
     console.log("[testScoreService] Record to save in batch:", recordToSave);
     batch.set(newRecordRef, recordToSave);
   }
@@ -58,7 +64,7 @@ export const saveTestScores = async (records: TestScoreRecord[]): Promise<void> 
  * Fetches test scores for a given class on a specific date.
  * (Placeholder for future implementation)
  * @param classId The ID of the class.
- * @param date The date for which to fetch scores (YYYY-MM-DD format).
+ *   @param date The date for which to fetch scores (YYYY-MM-DD format).
  * @returns A promise that resolves to an array of TestScoreRecord objects.
  */
 export const getTestScoresForClassOnDate = async (classId: string, date: string): Promise<TestScoreRecord[]> => {
@@ -77,3 +83,4 @@ export const getTestScoresForClassOnDate = async (classId: string, date: string)
 };
 
 // Other functions like getTestScoresForStudentInRange etc. can be added later for reporting.
+
