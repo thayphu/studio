@@ -10,9 +10,6 @@ const TEST_SCORES_COLLECTION = "testScores";
 
 /**
  * Saves multiple test score records to Firestore.
- * This function will either create new records or update existing ones
- * based on studentId, classId, testDate, and testName.
- * (For now, it's simplified to always add new records for demonstration)
  * @param records An array of TestScoreRecord objects to save.
  */
 export const saveTestScores = async (records: TestScoreRecord[]): Promise<void> => {
@@ -25,20 +22,26 @@ export const saveTestScores = async (records: TestScoreRecord[]): Promise<void> 
   const batch = writeBatch(db);
 
   for (const record of records) {
-    // In a real scenario, you might want to check if a record for this student, class, date, and test name already exists.
-    // If it exists, you might update it. If not, create a new one.
-    // For simplicity in this initial implementation, we'll just add new records.
-    // This could lead to duplicate entries if not handled carefully later.
-
     const newRecordRef = doc(collection(db, TEST_SCORES_COLLECTION));
+
+    // Ensure numeric fields are numbers or undefined
+    const finalScore = typeof record.score === 'number' && !isNaN(record.score) ? record.score : undefined;
+
     const recordToSave = {
-      ...record,
-      // Ensure studentName and className are present, even if empty, to avoid Firestore 'undefined' issues if needed later.
-      studentName: record.studentName || "",
-      className: record.className || "",
-      createdAt: serverTimestamp(), // Firestore server-side timestamp
+      studentId: record.studentId,
+      studentName: record.studentName || "", // Ensure string
+      classId: record.classId,
+      className: record.className || "", // Ensure string
+      testDate: record.testDate,
+      score: finalScore,
+      masteredLesson: record.masteredLesson,
+      vocabularyToReview: record.vocabularyToReview || "", // Ensure string
+      generalRemarks: record.generalRemarks || "", // Ensure string
+      homeworkStatus: record.homeworkStatus || "", // Ensure string or empty
+      createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     };
+    console.log("[testScoreService] Record to save in batch:", recordToSave);
     batch.set(newRecordRef, recordToSave);
   }
 
@@ -74,4 +77,3 @@ export const getTestScoresForClassOnDate = async (classId: string, date: string)
 };
 
 // Other functions like getTestScoresForStudentInRange etc. can be added later for reporting.
-

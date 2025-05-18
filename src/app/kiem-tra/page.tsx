@@ -17,7 +17,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getClasses } from '@/services/lopHocService';
 import { getStudentsByClassId } from '@/services/hocSinhService';
 import { saveTestScores } from '@/services/testScoreService'; 
-import type { LopHoc, HocSinh, TestScoreRecord, StudentScoreInput } from '@/lib/types';
+import type { LopHoc, HocSinh, TestScoreRecord, StudentScoreInput, HomeworkStatus } from '@/lib/types';
+import { ALL_HOMEWORK_STATUSES } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CalendarIcon, FileText, Save, Printer, AlertCircle, Download } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -56,15 +57,16 @@ export default function KiemTraPage() {
     // TODO: Fetch existing scores for this class/date and populate studentScores
   }, [selectedClassId, selectedDate]);
 
-  const handleScoreInputChange = (studentId: string, field: keyof StudentScoreInput, value: any) => {
+  const handleScoreInputChange = (studentId: string, field: keyof StudentScoreInput | 'homeworkStatus', value: any) => {
     setStudentScores(prev => ({
       ...prev,
       [studentId]: {
-        ...(prev[studentId] || { masteredLesson: false }),
-        [field]: value,
+        ...(prev[studentId] || { masteredLesson: false, score: undefined, vocabularyToReview: '', generalRemarks: '', homeworkStatus: '' }),
+        [field as keyof StudentScoreInput]: value, // Cast to keyof StudentScoreInput for TypeScript
       },
     }));
   };
+  
 
   const saveScoresMutation = useMutation({
     mutationFn: (records: TestScoreRecord[]) => saveTestScores(records),
@@ -106,11 +108,11 @@ export default function KiemTraPage() {
       classId: selectedClassId,
       className: selectedClass.tenLop,
       testDate: format(selectedDate, 'yyyy-MM-dd'),
-      score: studentScores[student.id]?.score !== undefined && studentScores[student.id]?.score !== null && !isNaN(Number(studentScores[student.id]?.score)) ? Number(studentScores[student.id]?.score) : undefined,
-      maxScore: studentScores[student.id]?.maxScore !== undefined && studentScores[student.id]?.maxScore !== null && !isNaN(Number(studentScores[student.id]?.maxScore)) ? Number(studentScores[student.id]?.maxScore) : undefined,
+      score: studentScores[student.id]?.score !== undefined && studentScores[student.id]?.score !== null && studentScores[student.id]?.score !== '' && !isNaN(Number(studentScores[student.id]?.score)) ? Number(studentScores[student.id]?.score) : undefined,
       masteredLesson: studentScores[student.id]?.masteredLesson || false,
       vocabularyToReview: studentScores[student.id]?.vocabularyToReview || '',
       generalRemarks: studentScores[student.id]?.generalRemarks || '',
+      homeworkStatus: studentScores[student.id]?.homeworkStatus || '',
     }));
 
     if (recordsToSave.length === 0) {
@@ -135,21 +137,33 @@ export default function KiemTraPage() {
       return;
     }
 
+    const masteryText = studentData?.masteredLesson ? "Đã thuộc bài" : "Chưa thuộc bài";
+    let homeworkText = "";
+    switch (studentData?.homeworkStatus) {
+        case 'Có làm đầy đủ': homeworkText = "Đã làm bài tập về nhà: Có làm đầy đủ"; break;
+        case 'Chỉ làm 1 phần': homeworkText = "Đã làm bài tập về nhà: Chỉ làm 1 phần"; break;
+        case 'Không có làm': homeworkText = "Đã làm bài tập về nhà: Không có làm"; break;
+        default: homeworkText = "Đã làm bài tập về nhà: (chưa có thông tin)";
+    }
+
     const reportData = {
       studentName: student.hoTen,
+      studentId: student.id,
       className: selectedClass.tenLop,
       testDate: format(selectedDate, 'dd/MM/yyyy'),
       score: studentData?.score,
-      maxScore: studentData?.maxScore,
-      masteredLesson: studentData?.masteredLesson,
+      mastery: masteryText,
       vocabularyToReview: studentData?.vocabularyToReview,
-      generalRemarks: studentData?.generalRemarks,
+      remarks: studentData?.generalRemarks,
+      homework: homeworkText,
+      footer: "Quý Phụ huynh nhắc nhở các em viết lại những từ vựng chưa thuộc.\nTrân trọng"
     };
 
     console.log(`[KiemTraPage] Report data for student ${student.hoTen} (ID: ${studentId}) on ${reportData.testDate}:`, reportData);
     toast({
       title: "Đang chuẩn bị phiếu điểm",
       description: `Phiếu điểm cho ${student.hoTen} (ngày ${reportData.testDate}) sẽ được xuất. Chức năng tạo file đang được phát triển.`,
+      duration: 5000,
     });
     // TODO: Implement actual file generation (e.g., PDF) here
   };
@@ -162,7 +176,6 @@ export default function KiemTraPage() {
           <h1 className="text-3xl font-bold text-foreground flex items-center">
             <FileText className="mr-3 h-8 w-8" /> Ghi Điểm Kiểm Tra
           </h1>
-          {/* General export button removed */}
         </div>
 
         <Card className="mb-8 shadow-md">
@@ -256,10 +269,10 @@ export default function KiemTraPage() {
                         <TableHead className="w-[50px]">STT</TableHead>
                         <TableHead>Họ và Tên</TableHead>
                         <TableHead className="w-[100px]">Điểm số</TableHead>
-                        <TableHead className="w-[100px]">Thang điểm</TableHead>
                         <TableHead className="w-[150px] text-center">Đã thuộc bài?</TableHead>
                         <TableHead>Từ vựng cần học lại</TableHead>
-                        <TableHead>Ghi chú chung</TableHead>
+                        <TableHead>Nhận xét</TableHead>
+                        <TableHead className="min-w-[200px]">Đã làm bài tập về nhà</TableHead>
                         <TableHead className="w-[100px] text-center">Hành động</TableHead> 
                       </TableRow>
                     </TableHeader>
@@ -270,19 +283,10 @@ export default function KiemTraPage() {
                           <TableCell className="font-medium">{student.hoTen}</TableCell>
                           <TableCell>
                             <Input
-                              type="number"
+                              type="text" // Use text to allow flexible input, validation will handle if it's a number
                               placeholder="Điểm"
                               value={studentScores[student.id]?.score ?? ''}
-                              onChange={(e) => handleScoreInputChange(student.id, 'score', e.target.valueAsNumber)}
-                              className="w-full"
-                            />
-                          </TableCell>
-                           <TableCell>
-                            <Input
-                              type="number"
-                              placeholder="VD: 10"
-                              value={studentScores[student.id]?.maxScore ?? ''}
-                              onChange={(e) => handleScoreInputChange(student.id, 'maxScore', e.target.valueAsNumber)}
+                              onChange={(e) => handleScoreInputChange(student.id, 'score', e.target.value)}
                               className="w-full"
                             />
                           </TableCell>
@@ -311,6 +315,22 @@ export default function KiemTraPage() {
                               onChange={(e) => handleScoreInputChange(student.id, 'generalRemarks', e.target.value)}
                               rows={1}
                             />
+                          </TableCell>
+                          <TableCell>
+                            <Select
+                              value={studentScores[student.id]?.homeworkStatus || ''}
+                              onValueChange={(value) => handleScoreInputChange(student.id, 'homeworkStatus', value as HomeworkStatus)}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Chọn trạng thái" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="">(Để trống)</SelectItem>
+                                {ALL_HOMEWORK_STATUSES.map(status => (
+                                  <SelectItem key={status} value={status}>{status}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                           </TableCell>
                           <TableCell className="text-center">
                             <Button
