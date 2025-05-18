@@ -93,7 +93,7 @@ export interface TestScoreRecord {
   classId: string;
   className?: string; // Denormalized
   testDate: string; // ISO Date string (e.g., YYYY-MM-DD)
-  testName: string;
+  testName?: string; // Made optional
   score?: number;
   maxScore?: number;
   masteredLesson: boolean; // "Đã thuộc bài" (true) or "Không thuộc bài" (false)

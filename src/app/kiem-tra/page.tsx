@@ -16,7 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getClasses } from '@/services/lopHocService';
 import { getStudentsByClassId } from '@/services/hocSinhService';
-import { saveTestScores } from '@/services/testScoreService'; // To be created
+import { saveTestScores } from '@/services/testScoreService'; 
 import type { LopHoc, HocSinh, TestScoreRecord, StudentScoreInput } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CalendarIcon, FileText, Save, Printer, AlertCircle, Search } from 'lucide-react';
@@ -31,7 +31,6 @@ export default function KiemTraPage() {
 
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
-  const [testName, setTestName] = useState<string>('');
   const [studentScores, setStudentScores] = useState<Record<string, StudentScoreInput>>({});
 
   const { data: classes = [], isLoading: isLoadingClasses, isError: isErrorClasses } = useQuery<LopHoc[], Error>({
@@ -88,10 +87,10 @@ export default function KiemTraPage() {
   });
 
   const handleSaveAllScores = () => {
-    if (!selectedClassId || !selectedDate || !testName.trim()) {
+    if (!selectedClassId || !selectedDate) {
       toast({
         title: "Thông tin chưa đầy đủ",
-        description: "Vui lòng chọn lớp, ngày kiểm tra và nhập tên bài kiểm tra.",
+        description: "Vui lòng chọn lớp và ngày kiểm tra.",
         variant: "destructive",
       });
       return;
@@ -109,7 +108,7 @@ export default function KiemTraPage() {
       classId: selectedClassId,
       className: selectedClass.tenLop,
       testDate: format(selectedDate, 'yyyy-MM-dd'),
-      testName: testName.trim(),
+      // testName field removed
       score: studentScores[student.id]?.score !== undefined && studentScores[student.id]?.score !== null ? Number(studentScores[student.id]?.score) : undefined,
       maxScore: studentScores[student.id]?.maxScore !== undefined && studentScores[student.id]?.maxScore !== null ? Number(studentScores[student.id]?.maxScore) : undefined,
       masteredLesson: studentScores[student.id]?.masteredLesson || false,
@@ -148,9 +147,9 @@ export default function KiemTraPage() {
         <Card className="mb-8 shadow-md">
           <CardHeader>
             <CardTitle>Thông tin chung bài kiểm tra</CardTitle>
-            <CardDescription>Chọn lớp, ngày và nhập tên bài kiểm tra để bắt đầu.</CardDescription>
+            <CardDescription>Chọn lớp và ngày để bắt đầu ghi điểm.</CardDescription>
           </CardHeader>
-          <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="class-select">Chọn Lớp</Label>
               <Select
@@ -197,16 +196,6 @@ export default function KiemTraPage() {
                   />
                 </PopoverContent>
               </Popover>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="test-name">Tên Bài Kiểm Tra</Label>
-              <Input
-                id="test-name"
-                placeholder="Ví dụ: Kiểm tra 15 phút Unit 1"
-                value={testName}
-                onChange={(e) => setTestName(e.target.value)}
-              />
             </div>
           </CardContent>
         </Card>
@@ -325,4 +314,3 @@ export default function KiemTraPage() {
     </DashboardLayout>
   );
 }
-
