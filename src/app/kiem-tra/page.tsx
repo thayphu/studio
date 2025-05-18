@@ -11,7 +11,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch'; // For "Đã thuộc bài"
+import { Switch } from '@/components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getClasses } from '@/services/lopHocService';
@@ -19,7 +19,7 @@ import { getStudentsByClassId } from '@/services/hocSinhService';
 import { saveTestScores } from '@/services/testScoreService'; 
 import type { LopHoc, HocSinh, TestScoreRecord, StudentScoreInput } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
-import { CalendarIcon, FileText, Save, Printer, AlertCircle, Search } from 'lucide-react';
+import { CalendarIcon, FileText, Save, Printer, AlertCircle, Download } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -48,20 +48,19 @@ export default function KiemTraPage() {
   } = useQuery<HocSinh[], Error>({
     queryKey: ['studentsInClass', selectedClassId],
     queryFn: () => selectedClassId ? getStudentsByClassId(selectedClassId) : Promise.resolve([]),
-    enabled: !!selectedClassId, // Only run if selectedClassId is truthy
+    enabled: !!selectedClassId,
   });
 
-  // Effect to reset studentScores when class or date changes
   useEffect(() => {
     setStudentScores({});
-    // TODO: In the future, fetch existing scores for this class/date and populate studentScores
+    // TODO: Fetch existing scores for this class/date and populate studentScores
   }, [selectedClassId, selectedDate]);
 
   const handleScoreInputChange = (studentId: string, field: keyof StudentScoreInput, value: any) => {
     setStudentScores(prev => ({
       ...prev,
       [studentId]: {
-        ...(prev[studentId] || { masteredLesson: false }), // Default masteredLesson to false
+        ...(prev[studentId] || { masteredLesson: false }),
         [field]: value,
       },
     }));
@@ -74,15 +73,14 @@ export default function KiemTraPage() {
         title: "Lưu điểm thành công!",
         description: "Điểm kiểm tra đã được ghi nhận.",
       });
-      // TODO: Invalidate queries for test scores if we fetch them later
-      // queryClient.invalidateQueries({ queryKey: ['testScores', selectedClassId, format(selectedDate!, 'yyyy-MM-dd')] });
     },
     onError: (error: Error) => {
       toast({
         title: "Lỗi khi lưu điểm",
-        description: error.message || "Đã có lỗi xảy ra. Vui lòng thử lại.",
+        description: `${error.message}. Vui lòng kiểm tra console server để biết thêm chi tiết.`,
         variant: "destructive",
       });
+      console.error("[KiemTraPage] Error saving scores:", error);
     },
   });
 
@@ -108,9 +106,8 @@ export default function KiemTraPage() {
       classId: selectedClassId,
       className: selectedClass.tenLop,
       testDate: format(selectedDate, 'yyyy-MM-dd'),
-      // testName field removed
-      score: studentScores[student.id]?.score !== undefined && studentScores[student.id]?.score !== null ? Number(studentScores[student.id]?.score) : undefined,
-      maxScore: studentScores[student.id]?.maxScore !== undefined && studentScores[student.id]?.maxScore !== null ? Number(studentScores[student.id]?.maxScore) : undefined,
+      score: studentScores[student.id]?.score !== undefined && studentScores[student.id]?.score !== null && !isNaN(Number(studentScores[student.id]?.score)) ? Number(studentScores[student.id]?.score) : undefined,
+      maxScore: studentScores[student.id]?.maxScore !== undefined && studentScores[student.id]?.maxScore !== null && !isNaN(Number(studentScores[student.id]?.maxScore)) ? Number(studentScores[student.id]?.maxScore) : undefined,
       masteredLesson: studentScores[student.id]?.masteredLesson || false,
       vocabularyToReview: studentScores[student.id]?.vocabularyToReview || '',
       generalRemarks: studentScores[student.id]?.generalRemarks || '',
@@ -120,15 +117,41 @@ export default function KiemTraPage() {
         toast({ title: "Không có học sinh", description: "Không có học sinh nào trong lớp được chọn để lưu điểm.", variant: "warning" });
         return;
     }
-    console.log("Data to save:", recordsToSave);
+    console.log("[KiemTraPage] Data to save for test scores:", recordsToSave);
     saveScoresMutation.mutate(recordsToSave);
   };
 
-  const handleExportReport = () => {
+  const handleExportStudentReport = (studentId: string) => {
+    if (!selectedClassId || !selectedDate) {
+      toast({ title: "Lỗi", description: "Vui lòng chọn lớp và ngày kiểm tra để xuất phiếu điểm.", variant: "destructive" });
+      return;
+    }
+    const student = studentsInSelectedClass.find(s => s.id === studentId);
+    const studentData = studentScores[studentId];
+    const selectedClass = activeClasses.find(c => c.id === selectedClassId);
+
+    if (!student || !selectedClass) {
+      toast({ title: "Lỗi", description: "Không tìm thấy thông tin học sinh hoặc lớp để xuất phiếu điểm.", variant: "destructive" });
+      return;
+    }
+
+    const reportData = {
+      studentName: student.hoTen,
+      className: selectedClass.tenLop,
+      testDate: format(selectedDate, 'dd/MM/yyyy'),
+      score: studentData?.score,
+      maxScore: studentData?.maxScore,
+      masteredLesson: studentData?.masteredLesson,
+      vocabularyToReview: studentData?.vocabularyToReview,
+      generalRemarks: studentData?.generalRemarks,
+    };
+
+    console.log(`[KiemTraPage] Report data for student ${student.hoTen} (ID: ${studentId}) on ${reportData.testDate}:`, reportData);
     toast({
-      title: "Xuất Phiếu Điểm",
-      description: "Chức năng xuất phiếu điểm đang được phát triển.",
+      title: "Đang chuẩn bị phiếu điểm",
+      description: `Phiếu điểm cho ${student.hoTen} (ngày ${reportData.testDate}) sẽ được xuất. Chức năng tạo file đang được phát triển.`,
     });
+    // TODO: Implement actual file generation (e.g., PDF) here
   };
 
 
@@ -139,9 +162,7 @@ export default function KiemTraPage() {
           <h1 className="text-3xl font-bold text-foreground flex items-center">
             <FileText className="mr-3 h-8 w-8" /> Ghi Điểm Kiểm Tra
           </h1>
-          <Button onClick={handleExportReport} variant="outline">
-            <Printer className="mr-2 h-4 w-4" /> Xuất Phiếu Điểm (Ngày/Tháng)
-          </Button>
+          {/* General export button removed */}
         </div>
 
         <Card className="mb-8 shadow-md">
@@ -239,6 +260,7 @@ export default function KiemTraPage() {
                         <TableHead className="w-[150px] text-center">Đã thuộc bài?</TableHead>
                         <TableHead>Từ vựng cần học lại</TableHead>
                         <TableHead>Ghi chú chung</TableHead>
+                        <TableHead className="w-[100px] text-center">Hành động</TableHead> 
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -289,6 +311,16 @@ export default function KiemTraPage() {
                               onChange={(e) => handleScoreInputChange(student.id, 'generalRemarks', e.target.value)}
                               rows={1}
                             />
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              onClick={() => handleExportStudentReport(student.id)}
+                              aria-label={`Xuất phiếu điểm cho ${student.hoTen}`}
+                            >
+                              <Printer className="h-4 w-4" />
+                            </Button>
                           </TableCell>
                         </TableRow>
                       ))}
