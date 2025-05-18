@@ -18,11 +18,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getClasses } from '@/services/lopHocService';
 import { getStudentsByClassId } from '@/services/hocSinhService';
-import { saveTestScores } from '@/services/testScoreService';
+import { saveTestScores, getTestScoresForClassOnDate } from '@/services/testScoreService';
 import type { LopHoc, HocSinh, TestScoreRecord, StudentScoreInput, HomeworkStatus } from '@/lib/types';
 import { ALL_HOMEWORK_STATUSES } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
-import { CalendarIcon, FileText, Save, Printer, AlertCircle, Download, Info, ListChecks, Edit3, Star } from 'lucide-react';
+import { CalendarIcon, FileText, Save, Printer, AlertCircle, Download, Info, ListChecks, Edit3, Star, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -39,7 +39,7 @@ interface ReportData {
   vocabularyToReview?: string;
   remarks?: string;
   homework: string;
-  homeworkStatusValue?: HomeworkStatus; // To determine display for "Không có bài tập về nhà"
+  homeworkStatusValue?: HomeworkStatus; 
   homeworkColor: string;
   footer: string;
 }
@@ -51,7 +51,7 @@ const isScoreEntryEmpty = (entry: StudentScoreInput | undefined): boolean => {
     entry.masteredLesson === false &&
     (entry.vocabularyToReview === undefined || entry.vocabularyToReview === '') &&
     (entry.generalRemarks === undefined || entry.generalRemarks === '') &&
-    (entry.homeworkStatus === undefined || entry.homeworkStatus === '')
+    (entry.homeworkStatus === undefined || entry.homeworkStatus === '' || entry.homeworkStatus === null)
   );
 };
 
@@ -88,22 +88,57 @@ export default function KiemTraPage() {
     enabled: !!selectedClassId,
   });
   
+  // Effect to reset scores and saved IDs when class or date changes
   useEffect(() => {
-    if (selectedClassId) {
-        console.log("[KiemTraPage] Class ID changed to:", selectedClassId, "- refetching students and resetting scores.");
-        refetchStudentsInClass();
-        setStudentScores({});
-        setSavedStudentIdsForSession(new Set());
+    if (selectedClassId && selectedDate) {
+      console.log("[KiemTraPage] Class or Date changed. Resetting studentScores and savedStudentIdsForSession.");
+      setStudentScores({});
+      setSavedStudentIdsForSession(new Set());
+      // Trigger refetch of existing scores for the new selection
+      queryClient.invalidateQueries({ queryKey: ['existingTestScores', selectedClassId, format(selectedDate, 'yyyy-MM-dd')] });
     }
-  }, [selectedClassId, refetchStudentsInClass]);
-  
+  }, [selectedClassId, selectedDate, queryClient]);
+
+  // Query to fetch existing test scores
+  const formattedTestDateForQuery = selectedDate ? format(selectedDate, 'yyyy-MM-dd') : '';
+  const { 
+    data: existingScoresData, 
+    isLoading: isLoadingExistingScores,
+    isError: isErrorExistingScores,
+    error: errorExistingScores,
+  } = useQuery<TestScoreRecord[], Error>({
+    queryKey: ['existingTestScores', selectedClassId, formattedTestDateForQuery],
+    queryFn: () => {
+      if (!selectedClassId || !selectedDate) {
+        return Promise.resolve([]);
+      }
+      console.log(`[KiemTraPage] Fetching existing scores for class ${selectedClassId} on ${formattedTestDateForQuery}`);
+      return getTestScoresForClassOnDate(selectedClassId, selectedDate);
+    },
+    enabled: !!selectedClassId && !!selectedDate,
+  });
+
+  // Effect to populate form with existing scores
   useEffect(() => {
-    if (selectedClassId && selectedDate) { 
-        console.log("[KiemTraPage] Date changed to:", selectedDate, "- resetting scores for new date.");
-        setStudentScores({});
-        setSavedStudentIdsForSession(new Set());
+    if (existingScoresData && existingScoresData.length > 0) {
+      console.log("[KiemTraPage] Populating form with existing scores:", existingScoresData);
+      const newScores: Record<string, StudentScoreInput> = {};
+      const newSavedIds = new Set<string>();
+      existingScoresData.forEach(scoreRecord => {
+        newScores[scoreRecord.studentId] = {
+          score: scoreRecord.score !== undefined ? String(scoreRecord.score) : '', // score can be undefined
+          masteredLesson: scoreRecord.masteredLesson || false,
+          vocabularyToReview: scoreRecord.vocabularyToReview || '',
+          generalRemarks: scoreRecord.generalRemarks || '',
+          homeworkStatus: scoreRecord.homeworkStatus || '',
+        };
+        newSavedIds.add(scoreRecord.studentId);
+      });
+      setStudentScores(prev => ({ ...prev, ...newScores }));
+      setSavedStudentIdsForSession(prev => new Set([...Array.from(prev), ...Array.from(newSavedIds)]));
     }
-  }, [selectedDate]); 
+  }, [existingScoresData]);
+
 
   const handleScoreInputChange = (studentId: string, field: keyof StudentScoreInput | 'homeworkStatus', value: any) => {
     setStudentScores(prev => ({
@@ -124,7 +159,8 @@ export default function KiemTraPage() {
         description: "Điểm kiểm tra đã được ghi nhận.",
       });
       const newlySavedIds = new Set(variables.map(record => record.studentId));
-      setSavedStudentIdsForSession(prev => new Set([...prev, ...newlySavedIds]));
+      setSavedStudentIdsForSession(prev => new Set([...Array.from(prev), ...Array.from(newlySavedIds)]));
+      queryClient.invalidateQueries({ queryKey: ['existingTestScores', selectedClassId, formattedTestDateForQuery] });
     },
     onError: (error: Error) => {
       toast({
@@ -190,7 +226,7 @@ export default function KiemTraPage() {
       return;
     }
     const student = studentsInSelectedClass.find(s => s.id === studentId);
-    const studentData = studentScores[studentId];
+    const studentData = studentScores[studentId]; // This now reflects either saved or unsaved data
     const selectedClass = activeClasses.find(c => c.id === selectedClassId);
 
     if (!student || !selectedClass) {
@@ -201,8 +237,8 @@ export default function KiemTraPage() {
     const masteryText = studentData?.masteredLesson ? "Đã thuộc bài" : "Chưa thuộc bài";
     const masteryColor = studentData?.masteredLesson ? "text-blue-600 dark:text-blue-400" : "text-red-600 dark:text-red-400";
 
-    let homeworkText = "Không có bài tập về nhà"; // Default if no status
-    let homeworkColor = "text-foreground"; // Default color
+    let homeworkText = "Không có bài tập về nhà"; 
+    let homeworkColor = "text-foreground";
     const homeworkStatus = studentData?.homeworkStatus;
 
     if (homeworkStatus) {
@@ -249,14 +285,14 @@ export default function KiemTraPage() {
     return studentsInSelectedClass.filter(student =>
       !savedStudentIdsForSession.has(student.id) || isScoreEntryEmpty(studentScores[student.id])
     );
-  }, [studentsInSelectedClass, studentScores, isLoadingStudents, savedStudentIdsForSession]);
+  }, [studentsInSelectedClass, studentScores, savedStudentIdsForSession, isLoadingStudents]);
 
   const studentsForHistoryTab = useMemo(() => {
     if (isLoadingStudents || !studentsInSelectedClass) return [];
     return studentsInSelectedClass.filter(student =>
       savedStudentIdsForSession.has(student.id) && !isScoreEntryEmpty(studentScores[student.id])
     );
-  }, [studentsInSelectedClass, studentScores, isLoadingStudents, savedStudentIdsForSession]);
+  }, [studentsInSelectedClass, studentScores, savedStudentIdsForSession, isLoadingStudents]);
 
   const StarRating = ({ count, starClassName }: { count: number, starClassName?: string }) => (
     <div className="inline-flex items-center ml-2">
@@ -272,7 +308,7 @@ export default function KiemTraPage() {
     }
     const numScore = Number(score);
     if (isNaN(numScore)) {
-      return <span className="font-bold text-lg text-muted-foreground">{String(score)}</span>; // Show original string if not a number
+      return <span className="font-bold text-lg text-muted-foreground">{String(score)}</span>;
     }
 
     if (numScore >= 9 && numScore <= 10) {
@@ -280,18 +316,18 @@ export default function KiemTraPage() {
         <span className="font-bold text-lg text-red-600 dark:text-red-400">{numScore}</span>
         <StarRating count={5} starClassName="text-red-500 dark:text-red-400" />
       </>;
-    } else if (numScore >= 7) { // 7 - 8.9
+    } else if (numScore >= 7) { 
       return <>
         <span className="font-bold text-lg text-blue-600 dark:text-blue-400">{numScore}</span>
         <StarRating count={4} starClassName="text-blue-500 dark:text-blue-400" />
       </>;
-    } else if (numScore >= 5) { // 5 - 6.9
+    } else if (numScore >= 5) { 
       return <>
         <span className="font-bold text-lg text-violet-600 dark:text-violet-400">{numScore}</span>
         <StarRating count={3} starClassName="text-violet-500 dark:text-violet-400" />
       </>;
     }
-    return <span className="font-bold text-lg">{numScore}</span>; // Scores below 5
+    return <span className="font-bold text-lg">{numScore}</span>; 
   };
 
 
@@ -370,6 +406,13 @@ export default function KiemTraPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
+               {isErrorExistingScores && (
+                <div className="text-destructive p-4 border border-destructive/50 bg-destructive/10 rounded-md flex items-center mb-4">
+                  <AlertCircle className="mr-2 h-5 w-5" /> 
+                  Lỗi tải điểm đã lưu: {errorExistingScores?.message || "Không thể tải dữ liệu."}
+                  <p className="text-xs ml-2">(Có thể do thiếu Firestore Index cho collection 'testScores' trên các trường 'classId' và 'testDate'. Vui lòng kiểm tra console server Next.js.)</p>
+                </div>
+              )}
               <Tabs defaultValue="nhap-diem" className="w-full">
                 <TabsList className="grid w-full grid-cols-2 mb-4 bg-primary/10 p-1 rounded-lg">
                   <TabsTrigger value="nhap-diem" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-primary/20 hover:text-primary focus-visible:ring-primary/50">
@@ -381,23 +424,23 @@ export default function KiemTraPage() {
                 </TabsList>
                 
                 <TabsContent value="nhap-diem">
-                  {isLoadingStudents && (
+                  {(isLoadingStudents || isLoadingExistingScores) && (
                     <div className="space-y-2">
-                      <Skeleton className="h-10 w-full" /> <Skeleton className="h-10 w-full" />
+                      {[...Array(3)].map((_,i) => <Skeleton key={`skel-entry-${i}`} className="h-10 w-full" />)}
                     </div>
                   )}
-                  {isErrorStudents && (
+                  {isErrorStudents && !(isLoadingStudents || isLoadingExistingScores) && (
                     <div className="text-destructive p-4 border border-destructive/50 bg-destructive/10 rounded-md flex items-center">
                       <AlertCircle className="mr-2 h-5 w-5" /> Lỗi tải danh sách học sinh của lớp này.
                     </div>
                   )}
-                  {!isLoadingStudents && !isErrorStudents && studentsForEntryTab.length === 0 && studentsInSelectedClass.length > 0 && (
+                  {!isLoadingStudents && !isLoadingExistingScores && !isErrorStudents && studentsForEntryTab.length === 0 && studentsInSelectedClass.length > 0 && (
                      <p className="text-muted-foreground text-center py-4">Tất cả học sinh đã được nhập hoặc lưu điểm cho ngày này.</p>
                   )}
-                   {!isLoadingStudents && !isErrorStudents && studentsForEntryTab.length === 0 && studentsInSelectedClass.length === 0 && (
+                   {!isLoadingStudents && !isLoadingExistingScores && !isErrorStudents && studentsForEntryTab.length === 0 && studentsInSelectedClass.length === 0 && (
                      <p className="text-muted-foreground text-center py-4">Lớp này chưa có học sinh.</p>
                   )}
-                  {!isLoadingStudents && !isErrorStudents && studentsForEntryTab.length > 0 && (
+                  {!isLoadingStudents && !isLoadingExistingScores && !isErrorStudents && studentsForEntryTab.length > 0 && (
                     <div className="overflow-x-auto">
                       <Table>
                         <TableHeader>
@@ -418,7 +461,7 @@ export default function KiemTraPage() {
                               <TableCell className="font-medium">{student.hoTen}</TableCell>
                               <TableCell>
                                 <Input
-                                  type="text"
+                                  type="text" 
                                   placeholder="Điểm"
                                   value={studentScores[student.id]?.score ?? ''}
                                   onChange={(e) => handleScoreInputChange(student.id, 'score', e.target.value)}
@@ -475,20 +518,20 @@ export default function KiemTraPage() {
                 </TabsContent>
 
                 <TabsContent value="lich-su">
-                   {isLoadingStudents && (
-                    <div className="space-y-2">
-                      <Skeleton className="h-10 w-full" /> <Skeleton className="h-10 w-full" />
-                    </div>
+                   {(isLoadingStudents || isLoadingExistingScores) && (
+                     <div className="space-y-2">
+                        {[...Array(3)].map((_,i) => <Skeleton key={`skel-hist-${i}`} className="h-10 w-full" />)}
+                      </div>
                   )}
-                  {isErrorStudents && (
+                  {isErrorStudents && !(isLoadingStudents || isLoadingExistingScores) && (
                     <div className="text-destructive p-4 border border-destructive/50 bg-destructive/10 rounded-md flex items-center">
                       <AlertCircle className="mr-2 h-5 w-5" /> Lỗi tải danh sách học sinh của lớp này.
                     </div>
                   )}
-                  {!isLoadingStudents && !isErrorStudents && studentsForHistoryTab.length === 0 && (
-                     <p className="text-muted-foreground text-center py-4">Chưa có học sinh nào được lưu điểm trong phiên làm việc này.</p>
+                  {!isLoadingStudents && !isLoadingExistingScores && !isErrorStudents && studentsForHistoryTab.length === 0 && (
+                     <p className="text-muted-foreground text-center py-4">Chưa có học sinh nào được lưu điểm trong phiên làm việc này cho ngày này.</p>
                   )}
-                  {!isLoadingStudents && !isErrorStudents && studentsForHistoryTab.length > 0 && (
+                  {!isLoadingStudents && !isLoadingExistingScores && !isErrorStudents && studentsForHistoryTab.length > 0 && (
                     <div className="overflow-x-auto">
                       <Table>
                         <TableHeader>
@@ -531,13 +574,13 @@ export default function KiemTraPage() {
                 </TabsContent>
               </Tabs>
             </CardContent>
-            {selectedClassId && (studentsInSelectedClass.length > 0) && (
+            {selectedClassId && (studentsInSelectedClass.length > 0 || Object.keys(studentScores).length > 0) && (
               <CardFooter className="justify-end border-t pt-6">
                 <Button
                   onClick={handleSaveAllScores}
-                  disabled={saveScoresMutation.isPending || studentsForEntryTab.length === 0 && studentsForHistoryTab.every(s => isScoreEntryEmpty(studentScores[s.id]))}
+                  disabled={saveScoresMutation.isPending || (studentsForEntryTab.length === 0 && studentsForHistoryTab.every(s => isScoreEntryEmpty(studentScores[s.id])))}
                 >
-                  {saveScoresMutation.isPending && <Save className="mr-2 h-4 w-4 animate-spin" />}
+                  {saveScoresMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4"/>}
                   Lưu Tất Cả Điểm
                 </Button>
               </CardFooter>
@@ -568,17 +611,17 @@ export default function KiemTraPage() {
               <p><span className="font-semibold">Thuộc bài:</span> <span className={cn("font-bold", gradeSlipData.masteryColor)}>{gradeSlipData.mastery}</span></p>
               
               <div>
-                <p className="font-semibold">Từ vựng cần học lại:</p>
-                <p className="pl-2 whitespace-pre-line">{gradeSlipData.vocabularyToReview || "Không có"}</p>
-              </div>
-              
-              <div>
                 <p className="font-semibold">Bài tập về nhà:</p>
                 <p className={cn("font-semibold pl-2", gradeSlipData.homeworkColor)}>
                   {gradeSlipData.homeworkStatusValue ? gradeSlipData.homework : "Không có bài tập về nhà"}
                 </p>
               </div>
 
+              <div>
+                <p className="font-semibold">Từ vựng cần học lại:</p>
+                <p className="pl-2 whitespace-pre-line">{gradeSlipData.vocabularyToReview || "Không có"}</p>
+              </div>
+              
               <div>
                 <p className="font-semibold">Nhận xét:</p>
                 <p className="pl-2 whitespace-pre-line">{gradeSlipData.remarks || "Không có"}</p>
@@ -606,4 +649,3 @@ export default function KiemTraPage() {
     </DashboardLayout>
   );
 }
-
