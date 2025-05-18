@@ -118,7 +118,7 @@ export default function PhieuLienLacPage() {
     return format(selectedDate, 'yyyy-MM-dd');
   }, [selectedDate]);
 
-  const { data: existingSlipsData, isLoading: isLoadingExistingSlips, isError: isErrorExistingSlips, error: errorExistingSlips } = useQuery<PhieuLienLacRecord[], Error>({
+  const { data: existingSlipsData = [], isLoading: isLoadingExistingSlips, isError: isErrorExistingSlips, error: errorExistingSlips } = useQuery<PhieuLienLacRecord[], Error>({
     queryKey: ['existingPhieuLienLac', selectedClassId, memoizedFormattedSelectedDateKey],
     queryFn: () => getPhieuLienLacRecordsForClassOnDate(selectedClassId, selectedDate),
     enabled: !!selectedClassId && !!selectedDate && isClient && !isLoadingClasses && !isLoadingStudents,
@@ -127,7 +127,7 @@ export default function PhieuLienLacPage() {
   
   useEffect(() => {
     console.log(`[PLLPage] Main useEffect triggered. DateKey: ${memoizedFormattedSelectedDateKey}, ClassId: ${selectedClassId}, isClient: ${isClient}, isLoadingStudents: ${isLoadingStudents}, isLoadingExistingSlips: ${isLoadingExistingSlips}`);
-    if (!isClient || isLoadingStudents || isLoadingExistingSlips || !studentsInSelectedClass || !existingSlipsData) {
+    if (!isClient || isLoadingStudents || isLoadingExistingSlips || !studentsInSelectedClass ) {
       console.log(`[PLLPage] Main useEffect: Skipping state update due to loading/missing data or not client.`);
       return;
     }
@@ -137,7 +137,7 @@ export default function PhieuLienLacPage() {
     const newInitialLoadedIdsFromEffect = new Set<string>();
 
     studentsInSelectedClass.forEach(student => {
-      const existingSlip = existingSlipsData.find(s => s.studentId === student.id);
+      const existingSlip = existingSlipsData?.find(s => s.studentId === student.id);
       let slipEntry: StudentSlipInput;
 
       if (existingSlip) {
@@ -163,12 +163,11 @@ export default function PhieuLienLacPage() {
       newInputsFromEffect[student.id] = slipEntry;
     });
         
-    // Preserve current edits if editingStudentId is set and has data
     if (editingStudentId && studentSlipInputs[editingStudentId]) {
         console.log(`[PLLPage] Main useEffect: Preserving current input for editing student ${editingStudentId}:`, studentSlipInputs[editingStudentId]);
         newInputsFromEffect[editingStudentId] = studentSlipInputs[editingStudentId];
         if (!isSlipInputEmpty(newInputsFromEffect[editingStudentId])) {
-            newInitialLoadedIdsFromEffect.add(editingStudentId); // Ensure it's marked as loaded if edited
+            newInitialLoadedIdsFromEffect.add(editingStudentId); 
         }
     }
     
@@ -191,7 +190,8 @@ export default function PhieuLienLacPage() {
     } else {
         console.log("[PLLPage] Main useEffect: initialLoadedStudentSlipIds are the same, skipping update.");
     }
-  }, [existingSlipsData, studentsInSelectedClass, isLoadingExistingSlips, isLoadingStudents, isClient, memoizedFormattedSelectedDateKey]); // Removed editingStudentId and studentSlipInputs
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [existingSlipsData, studentsInSelectedClass, isLoadingExistingSlips, isLoadingStudents, isClient, memoizedFormattedSelectedDateKey]); 
 
 
   useEffect(() => {
@@ -223,17 +223,14 @@ export default function PhieuLienLacPage() {
         updatedEntry.lessonMasteryText = masteryDetails.text;
       }
       
-      // If modifying a student who was initially loaded (and thus in history tab)
-      // and we are not already editing them, set them as editing.
-      // This check ensures we only trigger edit mode once per student per "edit session"
       if (initialLoadedStudentSlipIds.has(studentId) && studentId !== editingStudentId) {
          console.log(`[PLLPage] handleSlipInputChange: Student ${studentId} was loaded and is now being modified. Setting as editingStudentId.`);
          setEditingStudentId(studentId);
-         setActiveTab("nhap-diem"); // Switch to entry tab if user starts editing from history
+         // No longer forcing tab switch here, let user control tab.
       }
       return { ...prev, [studentId]: updatedEntry };
     });
-  }, [initialLoadedStudentSlipIds, setActiveTab]); // Removed editingStudentId to prevent loop if it sets itself 
+  }, [initialLoadedStudentSlipIds, editingStudentId]); // Removed setActiveTab and queryClient
 
   const studentsForHistoryTab = useMemo(() => {
     console.log(`[PLLPage] studentsForHistoryTab useMemo. InitialLoadedIDs:`, initialLoadedStudentSlipIds, `EditingStudentId: ${editingStudentId} studentSlipInputs:`, studentSlipInputs);
@@ -273,9 +270,10 @@ export default function PhieuLienLacPage() {
       console.log("[PLLPage] saveSlipsMutation onSuccess. Variables:", variables);
       toast({ title: "Thành công!", description: `Phiếu liên lạc đã được lưu cho ${variables.length} học sinh.` });
       queryClient.invalidateQueries({ queryKey: ['existingPhieuLienLac', selectedClassId, memoizedFormattedSelectedDateKey] });
-      // After successful save, clear editing state and potentially switch to history tab
       setEditingStudentId(null); 
-      setActiveTab('lich-su');
+      if (variables.length > 0 && !isSlipInputEmpty(studentSlipInputs[variables[0].studentId])) {
+        setActiveTab('lich-su');
+      }
     },
     onError: (error: Error) => {
       console.error("[PLLPage] saveSlipsMutation error:", error);
@@ -302,12 +300,6 @@ export default function PhieuLienLacPage() {
 
     const recordsToSave: Array<Omit<PhieuLienLacRecord, 'id' | 'createdAt' | 'updatedAt'>> = [];
     let studentsToProcessForSave: HocSinh[] = [];
-
-    // Determine which students' data to save:
-    // 1. The student currently being edited, if any.
-    // 2. All students who have non-empty entries in studentSlipInputs AND are not yet in initialLoadedStudentSlipIds (new entries).
-    // 3. All students in initialLoadedStudentSlipIds whose data in studentSlipInputs differs from initial load OR has been marked for deletion (is empty).
-    // For simplicity in this iteration, we'll save all students present in studentSlipInputs who are either editing or are new, or have been explicitly touched
     
     if (editingStudentId) {
         const studentBeingEdited = studentsInSelectedClass.find(s => s.id === editingStudentId);
@@ -315,12 +307,9 @@ export default function PhieuLienLacPage() {
              studentsToProcessForSave.push(studentBeingEdited);
         }
     } else {
-        // Save all students for whom an entry exists in studentSlipInputs,
-        // regardless of whether it's empty or not IF they were loaded initially (to save "deletions")
-        // OR if they are new and not empty.
         studentsInSelectedClass.forEach(student => {
             const input = studentSlipInputs[student.id];
-            if (input) { // If there's any input (even default empty after touching)
+            if (input) { 
                 if (initialLoadedStudentSlipIds.has(student.id) || !isSlipInputEmpty(input)) {
                     studentsToProcessForSave.push(student);
                 }
@@ -360,7 +349,7 @@ export default function PhieuLienLacPage() {
     });
     
     console.log("[PLLPage] handleSaveAllSlips: Records to save to Firestore:", recordsToSave);
-    if (recordsToSave.length === 0) { 
+    if (recordsToSave.length === 0 && !editingStudentId) { 
         toast({ title: "Không có gì để lưu", description: "Vui lòng nhập thông tin phiếu liên lạc hoặc thực hiện thay đổi." });
         return;
     }
@@ -392,13 +381,10 @@ export default function PhieuLienLacPage() {
         homeworkStatus: undefined, vocabularyToReview: '', remarks: '',
       }
     }));
-    // Don't set editingStudentId here, allow save button to handle it.
-    // Keep them in history tab, but their data is now empty. Save will persist this.
-    // Or, if we want them to move to entry tab immediately on "delete" before save:
-    // setEditingStudentId(studentId); 
-    // setActiveTab("nhap-diem");
+    setEditingStudentId(studentId); 
+    setActiveTab("nhap-diem");
     toast({ description: `Đã làm rỗng dữ liệu phiếu liên lạc cục bộ cho ${studentName}. Nhấn "Lưu" để cập nhật vào hệ thống.` });
-  }, [studentsInSelectedClass, toast]);
+  }, [studentsInSelectedClass, toast, setActiveTab]);
 
   const handleOpenSlipDialog = useCallback(async (studentId: string) => {
     const student = studentsInSelectedClass.find(s => s.id === studentId);
@@ -513,34 +499,43 @@ export default function PhieuLienLacPage() {
   };
   
   const saveButtonText = useMemo(() => {
-    if (activeTab === 'lich-su' && editingStudentId) return "Lưu Thay Đổi Lịch Sử"; // This case might not be hit often if edit always switches tab
+    if (editingStudentId) return "Lưu Thay Đổi";
     return "Lưu Tất Cả";
-  }, [activeTab, editingStudentId]);
+  }, [editingStudentId]);
 
   
   const canSaveChanges = useMemo(() => {
-    // console.log("[PLLPage] canSaveChanges useMemo. EditingStudentId:", editingStudentId, "studentSlipInputs:", studentSlipInputs, "initialLoadedStudentSlipIds:", initialLoadedStudentSlipIds);
+    console.log("[PLLPage] canSaveChanges useMemo. EditingStudentId:", editingStudentId, "studentSlipInputs:", studentSlipInputs, "initialLoadedStudentSlipIds:", initialLoadedStudentSlipIds);
     if (saveSlipsMutation.isPending) return false;
 
-    if (editingStudentId) { // If actively editing a specific student, allow save
-      // console.log("[PLLPage] canSaveChanges: true (editing a student)");
-      return true;
+    if (editingStudentId) { 
+      const originalSlip = existingSlipsData?.find(s => s.studentId === editingStudentId);
+      const currentInput = studentSlipInputs[editingStudentId];
+      if (!currentInput) return false; // No input to compare
+      if (!originalSlip && !isSlipInputEmpty(currentInput)) return true; // New entry being edited
+      if (originalSlip) {
+         const originalScore = originalSlip.score === null || originalSlip.score === undefined ? '' : String(originalSlip.score);
+         if (currentInput.testFormat !== originalSlip.testFormat) return true;
+         if (currentInput.score !== originalScore) return true;
+         if (currentInput.homeworkStatus !== originalSlip.homeworkStatus) return true;
+         if (currentInput.vocabularyToReview !== (originalSlip.vocabularyToReview || '')) return true;
+         if (currentInput.remarks !== (originalSlip.remarks || '')) return true;
+         return false; // No changes detected for existing slip
+      }
     }
     
-    // Allow save if there's any student in the entry tab (meaning they are new or cleared)
-    // AND they have some non-empty input.
-    const hasNonEmptyNewEntries = studentsForEntryTab.some(student => {
+    const hasNonEmptyNewEntries = studentsInSelectedClass.some(student => {
         const input = studentSlipInputs[student.id];
-        return input && !isSlipInputEmpty(input);
+        return input && !initialLoadedStudentSlipIds.has(student.id) && !isSlipInputEmpty(input);
     });
 
     if (hasNonEmptyNewEntries) {
-      // console.log("[PLLPage] canSaveChanges: true (has non-empty new entries)");
+      console.log("[PLLPage] canSaveChanges: true (has non-empty new entries)");
       return true;
     }
-    // console.log("[PLLPage] canSaveChanges: false");
+    console.log("[PLLPage] canSaveChanges: false (no active edit with changes, no new non-empty entries)");
     return false;
-  }, [studentSlipInputs, editingStudentId, saveSlipsMutation.isPending, studentsForEntryTab]);
+  }, [studentSlipInputs, editingStudentId, saveSlipsMutation.isPending, studentsInSelectedClass, initialLoadedStudentSlipIds, existingSlipsData]);
 
   const handleOpenPeriodicSlipDialog = async (student: HocSinh) => {
     if (!selectedClassId) {
@@ -808,7 +803,7 @@ export default function PhieuLienLacPage() {
                                   <Button variant="default" size="icon" onClick={() => handleOpenSlipDialog(student.id)} aria-label="Xem/Xuất phiếu ngày" disabled={saveSlipsMutation.isPending}>
                                     <Printer className="h-4 w-4" />
                                   </Button>
-                                  <Button variant="secondary" size="icon" onClick={() => handleOpenPeriodicSlipDialog(student)} aria-label="Xuất phiếu chu kỳ" disabled={isLoadingPeriodicSlipRecords || saveSlipsMutation.isPending}>
+                                   <Button variant="secondary" size="icon" onClick={() => handleOpenPeriodicSlipDialog(student)} aria-label="Xuất phiếu chu kỳ" disabled={isLoadingPeriodicSlipRecords || saveSlipsMutation.isPending}>
                                     {isLoadingPeriodicSlipRecords && periodicSlipStudent?.id === student.id ? <Loader2 className="animate-spin h-4 w-4"/> : <BookCopy className="h-4 w-4" />}
                                   </Button>
                                 </div>
@@ -878,11 +873,11 @@ export default function PhieuLienLacPage() {
           <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col p-0"> 
             <div ref={slipDialogContentRef} className="bg-card flex-grow font-sans leading-snug">
                 <ShadDialogHeader className="p-6 pb-2 text-center">
-                    <ShadDialogTitle className="text-2xl font-bold uppercase text-primary">
+                    <ShadDialogTitle className="text-2xl font-bold uppercase text-primary text-center">
                         PHIẾU LIÊN LẠC
                     </ShadDialogTitle>
                     {currentSlipData?.date && (
-                        <ShadDialogDescription className="text-sm">
+                        <ShadDialogDescription className="text-sm text-center">
                         Ngày: {format(parse(currentSlipData.date, 'yyyy-MM-dd', new Date()), "dd/MM/yyyy", { locale: vi })}
                         </ShadDialogDescription>
                     )}
@@ -898,27 +893,27 @@ export default function PhieuLienLacPage() {
                         </div>
                         <Separator className="my-3"/>
                          <h3 className="text-md font-semibold text-foreground mt-3 mb-1">Kết quả học tập:</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6">
-                          <SlipDetailItem label="Hình thức KT"><span className="font-medium">{currentSlipData.testFormat || "N/A"}</span></SlipDetailItem>
-                          <SlipDetailItem label="Điểm số">{renderScoreDisplay(currentSlipData.score)}</SlipDetailItem>
-                          <SlipDetailItem label="Thuộc bài">
-                              <span className={cn("font-medium", getLessonMasteryTextAndColor(currentSlipData.lessonMasteryText, calculateMasteryDetailsForPLL(currentSlipData.testFormat, currentSlipData.score).isTrulyMastered).className)}>
-                                  {currentSlipData.lessonMasteryText || "Chưa đánh giá"}
-                              </span>
-                          </SlipDetailItem>
-                          <SlipDetailItem label="Bài tập về nhà">
-                              <span className={cn("font-medium", getHomeworkStatusTextAndColor(currentSlipData.homeworkStatus).className)}>
-                              {currentSlipData.homeworkStatus ? getHomeworkStatusTextAndColor(currentSlipData.homeworkStatus).text : "Không có bài tập về nhà"}
-                              </span>
-                          </SlipDetailItem>
-                        </div>
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6">
+                            <SlipDetailItem label="Hình thức KT"><span className="font-medium">{currentSlipData.testFormat || "N/A"}</span></SlipDetailItem>
+                            <SlipDetailItem label="Điểm số">{renderScoreDisplay(currentSlipData.score)}</SlipDetailItem>
+                            <SlipDetailItem label="Thuộc bài">
+                                <span className={cn("font-medium", getLessonMasteryTextAndColor(currentSlipData.lessonMasteryText, calculateMasteryDetailsForPLL(currentSlipData.testFormat, currentSlipData.score).isTrulyMastered).className)}>
+                                    {currentSlipData.lessonMasteryText || "Chưa đánh giá"}
+                                </span>
+                            </SlipDetailItem>
+                            <SlipDetailItem label="Bài tập về nhà">
+                                <span className={cn("font-medium", getHomeworkStatusTextAndColor(currentSlipData.homeworkStatus).className)}>
+                                {currentSlipData.homeworkStatus ? getHomeworkStatusTextAndColor(currentSlipData.homeworkStatus).text : "Không có bài tập về nhà"}
+                                </span>
+                            </SlipDetailItem>
+                          </div>
                         <Separator className="my-3"/>
                         <SlipDetailItem label="Từ vựng cần học lại"><span className="font-medium">{currentSlipData.vocabularyToReview || "Không có"}</span></SlipDetailItem>
                         <SlipDetailItem label="Nhận xét"><span className="font-medium">{currentSlipData.remarks || "Không có nhận xét."}</span></SlipDetailItem>
                         
                         <Separator className="my-3"/>
 
-                        <div className="text-foreground mt-3 text-sm font-medium leading-normal">
+                         <div className="text-foreground mt-3 text-sm font-medium leading-normal">
                             {(currentSlipData.vocabularyToReview && currentSlipData.vocabularyToReview.trim() !== "") ? (
                                 <>
                                     <p>Quý Phụ huynh nhắc nhở các em viết lại những từ vựng chưa thuộc.</p>
@@ -958,10 +953,10 @@ export default function PhieuLienLacPage() {
             <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col p-0">
                 <div ref={periodicSlipDialogContentRef} className="bg-card flex-grow font-sans leading-snug">
                     <ShadDialogHeader className="p-6 pb-2 text-center">
-                        <ShadDialogTitle className="text-2xl font-bold uppercase text-primary">
+                        <ShadDialogTitle className="text-2xl font-bold uppercase text-primary text-center">
                             PHIẾU LIÊN LẠC CHU KỲ
                         </ShadDialogTitle>
-                        <ShadDialogDescription className="text-sm">
+                        <ShadDialogDescription className="text-sm text-center">
                             Ngày xuất: {format(new Date(), "dd/MM/yyyy", { locale: vi })}
                         </ShadDialogDescription>
                     </ShadDialogHeader>
@@ -1069,4 +1064,5 @@ const Separator = React.forwardRef<
 ));
 Separator.displayName = "DialogSeparator";
     
+
 
