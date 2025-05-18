@@ -17,7 +17,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription as 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getClasses } from '@/services/lopHocService';
 import { getStudentsByClassId } from '@/services/hocSinhService';
-import { saveTestScores } from '@/services/testScoreService';
+import { saveTestScores } from '@/services/testScoreService'; // getTestScoresForClassOnDate is still a placeholder
 import type { LopHoc, HocSinh, TestScoreRecord, StudentScoreInput, HomeworkStatus } from '@/lib/types';
 import { ALL_HOMEWORK_STATUSES } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -73,10 +73,37 @@ export default function KiemTraPage() {
     enabled: !!selectedClassId,
   });
 
+  // This useEffect was causing data loss for studentScores.
+  // It's removed to preserve input during the current session for a selected class/date.
+  // The "TODO" to fetch existing scores for a new class/date selection should be implemented later.
+  /*
   useEffect(() => {
-    setStudentScores({});
+    // setStudentScores({}); // REMOVED: This was resetting scores on class/date change.
     // TODO: Fetch existing scores for this class/date and populate studentScores
   }, [selectedClassId, selectedDate]);
+  */
+
+  // Effect to refetch students if the classId changes.
+  // Scores are not cleared here to preserve data if user toggles class/date quickly.
+  // Ideal long-term solution: load scores for the new class/date.
+  useEffect(() => {
+    if (selectedClassId) {
+        console.log("[KiemTraPage] Class ID changed to:", selectedClassId, "- refetching students.");
+        refetchStudentsInClass();
+        // If you want to clear scores when class changes, uncomment below:
+        // setStudentScores({});
+    }
+  }, [selectedClassId, refetchStudentsInClass]);
+  
+  // Effect to clear scores if the date changes (and a class is selected).
+  // This is a common expectation: changing the date means starting fresh for that new date.
+  useEffect(() => {
+    if (selectedClassId && selectedDate) { // Only clear if a class is also selected
+        console.log("[KiemTraPage] Date changed to:", selectedDate, "- clearing scores for new date.");
+        setStudentScores({});
+        // TODO: Fetch existing scores for this new selectedClassId/selectedDate combination
+    }
+  }, [selectedDate, selectedClassId]); // React to changes in selectedDate, but also consider selectedClassId
 
   const handleScoreInputChange = (studentId: string, field: keyof StudentScoreInput | 'homeworkStatus', value: any) => {
     setStudentScores(prev => ({
@@ -96,6 +123,8 @@ export default function KiemTraPage() {
         title: "Lưu điểm thành công!",
         description: "Điểm kiểm tra đã được ghi nhận.",
       });
+      // Optionally, refetch scores for the current class/date after saving
+      // queryClient.invalidateQueries({ queryKey: ['testScores', selectedClassId, format(selectedDate!, 'yyyy-MM-dd')] });
     },
     onError: (error: Error) => {
       toast({
@@ -103,7 +132,7 @@ export default function KiemTraPage() {
         description: `${error.message}. Vui lòng kiểm tra console server để biết thêm chi tiết.`,
         variant: "destructive",
       });
-      console.error("[KiemTraPage] Error saving scores:", error);
+      console.error("[KiemTraPage] Error saving scores in mutation:", error);
     },
   });
 
@@ -314,7 +343,7 @@ export default function KiemTraPage() {
                           <TableCell className="font-medium">{student.hoTen}</TableCell>
                           <TableCell>
                             <Input
-                              type="text"
+                              type="text" // Use text to allow flexible input, validation handles numeric conversion
                               placeholder="Điểm"
                               value={studentScores[student.id]?.score ?? ''}
                               onChange={(e) => handleScoreInputChange(student.id, 'score', e.target.value)}
