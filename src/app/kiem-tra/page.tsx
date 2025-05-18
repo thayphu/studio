@@ -51,7 +51,7 @@ const calculateMasteryDetails = (testFormat?: TestFormat, scoreInput?: number | 
     case "Kiểm tra 45 phút":
     case "Chấm bài tập":
       if (score !== undefined) return { text: "Đã chấm điểm", isMastered: score >= 5 }; // Assuming >= 5 is mastery for graded tests
-      return { text: "Không kiểm tra từ vựng", isMastered: false }; // Or some neutral state
+      return { text: "Không kiểm tra từ vựng", isMastered: false }; 
     default:
       return { text: "Chưa đánh giá", isMastered: false };
   }
@@ -85,6 +85,10 @@ export default function KiemTraPage() {
   const [isGradeSlipModalOpen, setIsGradeSlipModalOpen] = useState(false);
   const [gradeSlipData, setGradeSlipData] = useState<ReportData | null>(null);
 
+  // Memoized formatted date strings for stable dependencies
+  const formattedDateForEffectKey = useMemo(() => format(selectedDate, 'yyyyMMdd'), [selectedDate]);
+  const formattedDateForQueryKey = useMemo(() => format(selectedDate, 'yyyy-MM-dd'), [selectedDate]);
+
 
   const { data: classes = [], isLoading: isLoadingClasses, isError: isErrorClasses } = useQuery<LopHoc[], Error>({
     queryKey: ['classes'],
@@ -104,29 +108,55 @@ export default function KiemTraPage() {
     enabled: !!selectedClassId,
   });
   
-  const formattedTestDateForQuery = selectedDate ? format(selectedDate, 'yyyy-MM-dd') : '';
   const {
     data: existingScoresData,
     isLoading: isLoadingExistingScores,
     isError: isErrorExistingScores,
     error: errorExistingScores,
   } = useQuery<TestScoreRecord[], Error>({
-    queryKey: ['existingTestScores', selectedClassId, formattedTestDateForQuery],
+    queryKey: ['existingTestScores', selectedClassId, formattedDateForQueryKey], // Use memoized key
     queryFn: () => {
       if (!selectedClassId || !selectedDate) {
         console.log("[KiemTraPage] Skipping fetch of existing scores: class or date not selected.");
         return Promise.resolve([]);
       }
-      console.log(`[KiemTraPage] Fetching existing scores for class ${selectedClassId} on ${formattedTestDateForQuery}`);
+      console.log(`[KiemTraPage] Fetching existing scores for class ${selectedClassId} on ${formattedDateForQueryKey}`);
       return getTestScoresForClassOnDate(selectedClassId, selectedDate);
     },
     enabled: !!selectedClassId && !!selectedDate,
   });
 
  useEffect(() => {
-    console.log("[KiemTraPage] Effect for existingScoresData triggered. isLoading:", isLoadingExistingScores, "Data:", existingScoresData);
-    if (!isLoadingExistingScores && studentsInSelectedClass.length > 0) {
-        const newScores: Record<string, StudentScoreInput> = {};
+    // This effect runs when the selected class or date changes.
+    // It's responsible for fetching students for the new class
+    // and resetting/invalidating scores for the new selection.
+    if (selectedClassId) {
+      console.log("[KiemTraPage] Effect for class/date change: Refetching students for class:", selectedClassId);
+      refetchStudentsInClass(); // Fetches students for the selected class
+    }
+
+    // Reset local score states when class or date changes
+    console.log("[KiemTraPage] Effect for class/date change: Resetting local scores and edit states for date key:", formattedDateForEffectKey);
+    setStudentScores({});
+    setInitialLoadedStudentIds(new Set());
+    setEditingStudentId(null);
+
+    // Invalidate and refetch existing scores for the new class/date combination
+    if (selectedClassId) { // Only invalidate if class is selected
+      console.log(`[KiemTraPage] Effect for class/date change: Invalidating existingTestScores for ${selectedClassId} on ${formattedDateForQueryKey}`);
+      queryClient.invalidateQueries({ queryKey: ['existingTestScores', selectedClassId, formattedDateForQueryKey] });
+    }
+  }, [selectedClassId, formattedDateForEffectKey, refetchStudentsInClass, queryClient]); // Use memoized key
+
+
+ useEffect(() => {
+    // This effect synchronizes the local `studentScores` state with fetched `existingScoresData`
+    // and data from `studentsInSelectedClass`.
+
+    console.log("[KiemTraPage] Effect for existingScores/students change. isLoadingExistingScores:", isLoadingExistingScores, "isLoadingStudents:", isLoadingStudents);
+
+    if (!isLoadingExistingScores && !isLoadingStudents) {
+        const newScores: Record<string, StudentScoreInput> = {}; // Always start fresh for this sync
         const newInitialLoadedIds = new Set<string>();
 
         studentsInSelectedClass.forEach(student => {
@@ -142,42 +172,50 @@ export default function KiemTraPage() {
                     homeworkStatus: scoreRecord.homeworkStatus || '',
                 };
                 newScores[student.id] = populatedEntry;
-                if (!isScoreEntryEmpty(populatedEntry)) { // Only add to initialLoaded if it's not empty
+                if (!isScoreEntryEmpty(populatedEntry)) {
                     newInitialLoadedIds.add(student.id);
                 }
             } else {
                 // Student exists in class, but no score record for this date/class
-                newScores[student.id] = {
-                    score: '', testFormat: "", masteredLesson: false,
-                    vocabularyToReview: '', generalRemarks: '', homeworkStatus: ''
-                };
+                // Initialize an empty entry if not already being edited (to avoid overwriting live edits)
+                if (editingStudentId !== student.id || !studentScores[student.id]) {
+                     newScores[student.id] = {
+                        score: '', testFormat: "", masteredLesson: false,
+                        vocabularyToReview: '', generalRemarks: '', homeworkStatus: ''
+                    };
+                } else {
+                    // Preserve current editing data if this student is being edited
+                    newScores[student.id] = studentScores[student.id];
+                }
             }
         });
-        setStudentScores(newScores);
-        setInitialLoadedStudentIds(newInitialLoadedIds);
-        console.log("[KiemTraPage] Populated studentScores from DB. Scores:", newScores, "InitialLoadedIDs:", newInitialLoadedIds);
         
-        // Reset editingStudentId if their DB-loaded entry is empty or they are no longer in the initial loaded set
-        if (editingStudentId && (!newInitialLoadedIds.has(editingStudentId) || isScoreEntryEmpty(newScores[editingStudentId]))) {
-           console.log(`[KiemTraPage] Resetting editingStudentId ${editingStudentId} as their DB-loaded entry is empty or they are no longer in initial loaded set.`);
-           setEditingStudentId(null); 
+        // If an editing student is no longer in the class or their DB record became empty, clear editing state
+        if (editingStudentId && (!studentsInSelectedClass.find(s => s.id === editingStudentId) || (existingScoresData?.find(sr => sr.studentId === editingStudentId) && isScoreEntryEmpty(newScores[editingStudentId])))) {
+            console.log(`[KiemTraPage] Resetting editingStudentId ${editingStudentId} due to data sync.`);
+            setEditingStudentId(null);
         }
-    } else if (!isLoadingExistingScores && (!existingScoresData || existingScoresData.length === 0) && studentsInSelectedClass.length > 0) {
-        // No existing scores, but students are present. Initialize empty scores for all.
-        console.log("[KiemTraPage] No existing scores from DB, but students are present. Initializing empty scores for all.");
-        const emptyScores: Record<string, StudentScoreInput> = {};
-        studentsInSelectedClass.forEach(student => {
-            emptyScores[student.id] = {
-                score: '', testFormat: "", masteredLesson: false,
-                vocabularyToReview: '', generalRemarks: '', homeworkStatus: ''
-            };
-        });
-        setStudentScores(emptyScores);
-        setInitialLoadedStudentIds(new Set());
-         if (editingStudentId) setEditingStudentId(null); // Also reset editing state if no scores were loaded
-    } else if (studentsInSelectedClass.length === 0 && !isLoadingStudents) {
-        // No students in selected class. Clear scores and edit state.
-        console.log("[KiemTraPage] No students in selected class. Clearing scores and edit state.");
+        
+        // Only update states if there's a change to avoid potential loops if references are the same
+        // For studentScores, a deep compare is too much, but this effect should be stable if inputs are.
+        setStudentScores(newScores);
+
+        // For Set, compare size and elements for more precise update
+        let setsAreEqual = initialLoadedStudentIds.size === newInitialLoadedIds.size;
+        if (setsAreEqual) {
+            for (const id of initialLoadedStudentIds) {
+                if (!newInitialLoadedIds.has(id)) { setsAreEqual = false; break; }
+            }
+            for (const id of newInitialLoadedIds) {
+                if (!initialLoadedStudentIds.has(id)) { setsAreEqual = false; break; }
+            }
+        }
+        if (!setsAreEqual) {
+            setInitialLoadedStudentIds(newInitialLoadedIds);
+        }
+
+    } else if (studentsInSelectedClass.length === 0 && !isLoadingStudents && !isLoadingExistingScores) {
+        // Explicitly clear if no students and data has loaded (or attempted to load)
         setStudentScores({});
         setInitialLoadedStudentIds(new Set());
         setEditingStudentId(null);
@@ -194,18 +232,11 @@ export default function KiemTraPage() {
             const masteryDetails = calculateMasteryDetails(updatedEntry.testFormat, updatedEntry.score);
             updatedEntry.masteredLesson = masteryDetails.isMastered;
         }
+        if (editingStudentId !== studentId) {
+            setEditingStudentId(studentId); // Mark as being edited if not already
+        }
         return { ...prev, [studentId]: updatedEntry };
     });
-    
-    // If this student was previously loaded from DB (or saved in this session) and is now being changed, mark them as being edited.
-    if (initialLoadedStudentIds.has(studentId) && editingStudentId !== studentId && field !== 'masteredLesson') {
-        console.log(`[KiemTraPage] User is editing student ${studentId} who was initially loaded (or has data). Setting as editingStudentId.`);
-        setEditingStudentId(studentId);
-         // Optionally switch to the "Nhập điểm" tab if not already active
-        // if (activeTab !== "nhap-diem") {
-            // setActiveTab("nhap-diem"); // This might be too aggressive, consider user experience
-        // }
-    }
   };
 
   const saveScoresMutation = useMutation({
@@ -215,7 +246,9 @@ export default function KiemTraPage() {
         title: "Lưu điểm thành công!",
         description: "Điểm kiểm tra đã được ghi nhận.",
       });
-      queryClient.invalidateQueries({ queryKey: ['existingTestScores', selectedClassId, formattedTestDateForQuery] });
+      if (selectedClassId && selectedDate) {
+        queryClient.invalidateQueries({ queryKey: ['existingTestScores', selectedClassId, formattedDateForQueryKey] });
+      }
       setEditingStudentId(null); 
       console.log("[KiemTraPage] Save successful, editingStudentId reset. Existing scores query invalidated.");
     },
@@ -241,48 +274,47 @@ export default function KiemTraPage() {
     }
 
     console.log("[KiemTraPage] handleSaveAllScores triggered. Current studentScores:", JSON.parse(JSON.stringify(studentScores)));
-    const recordsToSave: TestScoreRecord[] = studentsInSelectedClass
-      .map(student => {
-        const currentScoreInput = studentScores[student.id];
-        
-        // Determine if this student's data should be processed for saving:
-        // 1. They are the student currently being edited.
-        // 2. They were initially loaded with data (meaning they have an existing record or were saved this session).
-        // 3. They have a non-empty score entry now (meaning new data was entered for them).
-        const shouldProcess = editingStudentId === student.id || 
-                              initialLoadedStudentIds.has(student.id) || 
-                              (currentScoreInput && !isScoreEntryEmpty(currentScoreInput));
+    const recordsToSave: TestScoreRecord[] = [];
+    
+    Object.keys(studentScores).forEach(studentId => {
+        const student = studentsInSelectedClass.find(s => s.id === studentId);
+        if (!student) return; 
+
+        const currentScoreInput = studentScores[studentId];
+         
+        const shouldProcess = editingStudentId === studentId || 
+                              initialLoadedStudentIds.has(studentId) || 
+                              (currentScoreInput && !isScoreEntryEmpty(currentScoreInput)); 
 
         if (!shouldProcess) {
            console.log(`[KiemTraPage] Skipping save for student ${student.id} as their entry is empty and they weren't edited or initially loaded with data.`);
-           return null;
+           return;
         }
         console.log(`[KiemTraPage] Preparing to save for student ${student.id}, currentScoreInput:`, currentScoreInput);
 
-        // Convert score to number or null, ensure it's not an empty string or NaN
         const scoreValue = (currentScoreInput?.score !== undefined && currentScoreInput?.score !== null && String(currentScoreInput?.score).trim() !== '' && !isNaN(Number(currentScoreInput?.score)))
           ? Number(currentScoreInput.score)
-          : null; // Use null for empty/invalid scores to signify "no score" or "cleared score"
+          : null; 
 
         const masteryDetails = calculateMasteryDetails(currentScoreInput?.testFormat, scoreValue);
 
-        return {
+        recordsToSave.push({
           studentId: student.id,
           studentName: student.hoTen,
           classId: selectedClassId,
           className: selectedClass.tenLop,
-          testDate: format(selectedDate, 'yyyy-MM-dd'),
+          testDate: formattedDateForQueryKey, 
           testFormat: currentScoreInput?.testFormat || "",
           score: scoreValue, 
           masteredLesson: masteryDetails.isMastered,
           vocabularyToReview: currentScoreInput?.vocabularyToReview || '',
           generalRemarks: currentScoreInput?.generalRemarks || '',
           homeworkStatus: currentScoreInput?.homeworkStatus || '',
-        };
-      })
-      .filter(record => record !== null) as TestScoreRecord[];
+        });
+    });
 
-    if (recordsToSave.length === 0) {
+
+    if (recordsToSave.length === 0 && !editingStudentId) { // Added !editingStudentId for cases where an edit makes an entry empty
       toast({ title: "Không có dữ liệu mới hoặc thay đổi để lưu", description: "Vui lòng nhập điểm hoặc thực hiện thay đổi.", variant: "default" });
       return;
     }
@@ -313,6 +345,8 @@ export default function KiemTraPage() {
         case 'Không có làm': homeworkText = "Không có làm"; homeworkColor = "text-red-600 dark:text-red-400"; break;
         default: homeworkText = "Không có bài tập về nhà"; break;
       }
+    } else {
+        homeworkText = "Không có bài tập về nhà"; 
     }
     return {
       studentName: student.hoTen, studentId: student.id, className: selectedClass.tenLop,
@@ -344,16 +378,13 @@ export default function KiemTraPage() {
         toast({ title: "Lỗi", description: "Không có dữ liệu phiếu điểm để xuất.", variant: "destructive" });
         return;
     }
-    // Check if html2canvas is loaded (it might be commented out for debugging)
-    if (typeof html2canvas === 'undefined') {
-        toast({ 
-            title: "Chức năng Xuất Ảnh Chưa Sẵn Sàng", 
-            description: "Thư viện html2canvas chưa được tải. Vui lòng đảm bảo đã cài đặt (npm install html2canvas) và khởi động lại server.", 
-            variant: "warning",
-            duration: 7000
-        });
-        return;
-    }
+    
+    // Temporarily commented out for debugging module resolution
+    // if (typeof html2canvas === 'undefined') {
+    //    toast({ title: "Đang xử lý...", description: "Vui lòng đợi html2canvas tải xong và thử lại."});
+    //    return;
+    // }
+
     try {
         toast({ title: "Đang xử lý...", description: "Phiếu điểm đang được tạo, vui lòng đợi."});
         const canvas = await html2canvas(gradeSlipDialogContentRef.current, { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: true });
@@ -371,34 +402,26 @@ export default function KiemTraPage() {
     }
   };
 
-  const handleEditScore = (studentId: string) => {
-    console.log("[KiemTraPage] handleEditScore called for studentId:", studentId);
-    if (studentScores[studentId]) { // Ensure the student has an entry
-        setEditingStudentId(studentId);
-        setActiveTab("nhap-diem"); 
-        // Attempt to click tab trigger if not already active
-        requestAnimationFrame(() => {
-            const entryTabTrigger = document.querySelector<HTMLButtonElement>('button[role="tab"][data-state="inactive"][value="nhap-diem"]');
-            if (entryTabTrigger) {
-                entryTabTrigger.click();
-            } else {
-                // If already active or not found, check if form fields need focus.
-                // This part is more complex and might involve refs to form fields.
-            }
-        });
-    } else {
-        toast({ title: "Không thể sửa", description: "Không tìm thấy dữ liệu điểm của học sinh này để sửa.", variant: "warning" });
-    }
+  const handleEditScore = (studentIdToEdit: string) => {
+    console.log("[KiemTraPage] handleEditScore called for studentId:", studentIdToEdit);
+    setEditingStudentId(studentIdToEdit);
+    setActiveTab("nhap-diem"); 
+    requestAnimationFrame(() => {
+        const entryTabTrigger = document.querySelector<HTMLButtonElement>('button[role="tab"][data-state="inactive"][value="nhap-diem"]');
+        if (entryTabTrigger) {
+            entryTabTrigger.click();
+        }
+    });
   };
 
-  const handleDeleteScoreEntry = (studentId: string) => {
-    console.log("[KiemTraPage] handleDeleteScoreEntry called for studentId:", studentId);
-    const masteryDetailsForEmpty = calculateMasteryDetails("", null); // Calculate mastery for an empty entry
+  const handleDeleteScoreEntry = (studentIdToDelete: string) => {
+    console.log("[KiemTraPage] handleDeleteScoreEntry called for studentId:", studentIdToDelete);
+    const masteryDetailsForEmpty = calculateMasteryDetails("", null);
 
     setStudentScores(prev => ({
         ...prev,
-        [studentId]: {
-            score: null, // Explicitly set score to null for "deleted" state
+        [studentIdToDelete]: {
+            score: null, 
             testFormat: "",
             masteredLesson: masteryDetailsForEmpty.isMastered,
             vocabularyToReview: '',
@@ -406,46 +429,35 @@ export default function KiemTraPage() {
             homeworkStatus: '',
         }
     }));
-    // If this student was being edited, clear editing state.
-    // This student will move to "Nhập điểm" tab because their entry in studentScores is now "empty"
-    // and they will likely be removed from initialLoadedStudentIds after a save and reload if the empty state is persisted.
-    if (editingStudentId === studentId) {
+    
+    if (editingStudentId === studentIdToDelete) {
       setEditingStudentId(null); 
     }
-    toast({ title: "Đã xoá dữ liệu điểm cục bộ", description: `Dữ liệu điểm của học sinh đã được xoá khỏi form. Nhấn "Lưu Tất Cả Điểm" hoặc "Lưu Thay Đổi Lịch Sử" để cập nhật thay đổi này vào cơ sở dữ liệu.` });
+    toast({ title: "Đã xoá dữ liệu điểm cục bộ", description: `Dữ liệu điểm của học sinh đã được xoá khỏi form. Nhấn "Lưu" để cập nhật thay đổi này vào cơ sở dữ liệu.` });
   };
 
 
- const studentsForHistoryTab = useMemo(() => {
-    console.log("[KiemTraPage] Recalculating studentsForHistoryTab. InitialLoadedIDs:", initialLoadedStudentIds, "EditingStudentId:", editingStudentId, "studentScores:", studentScores);
+const studentsForHistoryTab = useMemo(() => {
     if (isLoadingStudents || !studentsInSelectedClass || isLoadingExistingScores) return [];
-    
     return studentsInSelectedClass.filter(student =>
-        initialLoadedStudentIds.has(student.id) && // Student has existing data or was saved this session
-        student.id !== editingStudentId && // And is not currently being edited
-        !isScoreEntryEmpty(studentScores[student.id]) // And their current data in the form is not empty
+        initialLoadedStudentIds.has(student.id) &&
+        student.id !== editingStudentId &&
+        !isScoreEntryEmpty(studentScores[student.id])
     );
 }, [studentsInSelectedClass, studentScores, initialLoadedStudentIds, editingStudentId, isLoadingStudents, isLoadingExistingScores]);
 
 
 const studentsForEntryTab = useMemo(() => {
-    console.log("[KiemTraPage] Recalculating studentsForEntryTab. EditingStudentId:", editingStudentId, "initialLoadedStudentIds:", initialLoadedStudentIds, "studentScores:", studentScores);
     if (isLoadingStudents || !studentsInSelectedClass || isLoadingExistingScores) return [];
     
     if (editingStudentId) {
-        // If a student is being edited, only show them in the entry tab.
         const studentBeingEdited = studentsInSelectedClass.find(s => s.id === editingStudentId);
-        const result = studentBeingEdited ? [studentBeingEdited] : [];
-        console.log("[KiemTraPage] studentsForEntryTab (editing):", result.map(s => ({id: s.id, name: s.hoTen})));
-        return result;
+        return studentBeingEdited ? [studentBeingEdited] : [];
     }
 
-    // Otherwise, show students who are NOT in the history tab (i.e., new entries or cleared entries)
     const historyStudentIds = new Set(studentsForHistoryTab.map(s => s.id));
-    const result = studentsInSelectedClass.filter(student => !historyStudentIds.has(student.id));
-    console.log("[KiemTraPage] studentsForEntryTab (not editing):", result.map(s => ({id: s.id, name: s.hoTen})));
-    return result;
-}, [studentsInSelectedClass, studentsForHistoryTab, editingStudentId, isLoadingStudents, isLoadingExistingScores, initialLoadedStudentIds, studentScores]); // Ensure all dependencies are listed
+    return studentsInSelectedClass.filter(student => !historyStudentIds.has(student.id));
+}, [studentsInSelectedClass, studentsForHistoryTab, editingStudentId, isLoadingStudents, isLoadingExistingScores]);
 
 
   const StarRating = ({ count }: { count: number }) => (
@@ -458,7 +470,7 @@ const studentsForEntryTab = useMemo(() => {
 
   const renderScoreDisplay = (scoreInput?: number | string | null) => {
     if (scoreInput === undefined || scoreInput === '' || scoreInput === null) {
-      return <span className="font-semibold text-lg">N/A</span>;
+      return <span className="font-semibold text-lg text-muted-foreground">N/A</span>;
     }
     const numScore = Number(scoreInput);
     if (isNaN(numScore)) {
@@ -474,34 +486,41 @@ const studentsForEntryTab = useMemo(() => {
   };
 
   const isLoadingData = isLoadingClasses || isLoadingStudents || isLoadingExistingScores;
-
-  // Determine if there are actual changes to save
-  const hasNewOrChangedEntries = useMemo(() => {
-    if (editingStudentId && studentScores[editingStudentId] && !isScoreEntryEmpty(studentScores[editingStudentId])) {
+  
+  const hasNewOrChangedEntriesForSave = useMemo(() => {
+    if (editingStudentId && studentScores[editingStudentId]) {
         const originalRecord = existingScoresData?.find(s => s.studentId === editingStudentId);
-        // A more robust check would involve deep comparing studentScores[editingStudentId] with the original record.
-        // For now, assume any edit means changes.
-        if (originalRecord) return true; // Simplified: if editing an existing, assume change
-        if (!originalRecord && !isScoreEntryEmpty(studentScores[editingStudentId])) return true; // New entry for a student
+        if (originalRecord) {
+             const currentData = studentScores[editingStudentId];
+             // Compare with existing data. This is a simplified check.
+             // A deep comparison or checking against initialLoadedStudentIds more precisely would be better.
+             if (String(originalRecord.score ?? '') !== String(currentData.score ?? '') ||
+                 originalRecord.testFormat !== currentData.testFormat ||
+                 originalRecord.homeworkStatus !== currentData.homeworkStatus ||
+                 originalRecord.vocabularyToReview !== currentData.vocabularyToReview ||
+                 originalRecord.generalRemarks !== currentData.generalRemarks
+             ) return true;
+        } else if (!isScoreEntryEmpty(studentScores[editingStudentId])) {
+            return true; // New entry for an editing student
+        }
     }
     // Check if any student in the entry tab (who is not being edited) has non-empty data
     return studentsForEntryTab.some(student => student.id !== editingStudentId && !isScoreEntryEmpty(studentScores[student.id]));
   }, [studentsForEntryTab, editingStudentId, studentScores, existingScoresData]);
-  
-  // Determine if any initially loaded student record has been "emptied" (marked for deletion by clearing their data)
-  const hasPendingDeletions = useMemo(() => {
+
+  const hasPendingDeletionsForSave = useMemo(() => {
       return Array.from(initialLoadedStudentIds).some(studentId => {
           const currentEntry = studentScores[studentId];
           const originalEntry = existingScoresData?.find(s => s.studentId === studentId);
-          // If original was not empty, and current is empty, it's a pending deletion
+          // A deletion is pending if an original non-empty entry is now empty in the current scores
           return originalEntry && !isScoreEntryEmpty(originalEntry as StudentScoreInput) && currentEntry && isScoreEntryEmpty(currentEntry);
       });
   }, [initialLoadedStudentIds, studentScores, existingScoresData]);
   
-  const canSaveChanges = hasNewOrChangedEntries || hasPendingDeletions;
+  const canSaveChanges = hasNewOrChangedEntriesForSave || hasPendingDeletionsForSave;
   
   const saveButtonText = 
-    (activeTab === 'lich-su' && (editingStudentId || hasPendingDeletions)) ? "Lưu Thay Đổi Lịch Sử" : 
+    (activeTab === 'lich-su' && (editingStudentId || hasPendingDeletionsForSave)) ? "Lưu Thay Đổi Lịch Sử" : 
     (editingStudentId ? "Lưu Thay Đổi" : "Lưu Tất Cả Điểm");
 
 
@@ -564,18 +583,40 @@ const studentsForEntryTab = useMemo(() => {
                   {!isLoadingData && !isErrorStudents && studentsForEntryTab.length > 0 && (
                     <div className="overflow-x-auto">
                       <Table>
-                        <TableHeader><TableRow><TableHead className="w-[50px]">STT</TableHead><TableHead>Họ và Tên</TableHead><TableHead className="min-w-[180px]">Hình thức KT</TableHead><TableHead className="w-[100px]">Điểm số</TableHead><TableHead className="min-w-[200px]">Thuộc bài</TableHead><TableHead className="min-w-[200px]">Bài tập về nhà?</TableHead><TableHead className="min-w-[180px]">Từ vựng cần học lại</TableHead><TableHead className="min-w-[180px]">Nhận xét</TableHead></TableRow></TableHeader>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-[50px]">STT</TableHead>
+                            <TableHead>Họ và Tên</TableHead>
+                            <TableHead className="min-w-[180px]">Hình thức KT</TableHead>
+                            <TableHead className="w-[100px]">Điểm số</TableHead>
+                            <TableHead className="min-w-[200px]">Thuộc bài</TableHead>
+                            <TableHead className="min-w-[200px]">Bài tập về nhà?</TableHead>
+                            <TableHead className="min-w-[180px]">Từ vựng cần học lại</TableHead>
+                            <TableHead className="min-w-[180px]">Nhận xét</TableHead>
+                          </TableRow>
+                        </TableHeader>
                         <TableBody>
                           {studentsForEntryTab.map((student, index) => {
-                            const scoreEntry = studentScores[student.id] || {}; const masteryDetails = calculateMasteryDetails(scoreEntry.testFormat, scoreEntry.score);
+                            const scoreEntry = studentScores[student.id] || {}; 
+                            const masteryDetails = calculateMasteryDetails(scoreEntry.testFormat, scoreEntry.score);
                             return (
                               <TableRow key={student.id}>
                                 <TableCell>{index + 1}</TableCell>
                                 <TableCell className="font-medium">{student.hoTen} {student.id === editingStudentId && <Badge variant="outline" className="ml-2 border-amber-500 text-amber-600">Đang sửa</Badge>}</TableCell>
-                                <TableCell><Select value={scoreEntry.testFormat || ""} onValueChange={(value) => handleScoreInputChange(student.id, 'testFormat', value as TestFormat)}><SelectTrigger><SelectValue placeholder="Chọn hình thức" /></SelectTrigger><SelectContent>{ALL_TEST_FORMATS.map(formatValue => (<SelectItem key={formatValue} value={formatValue}>{formatValue}</SelectItem>))}</SelectContent></Select></TableCell>
+                                <TableCell>
+                                  <Select value={scoreEntry.testFormat || ""} onValueChange={(value) => handleScoreInputChange(student.id, 'testFormat', value as TestFormat)}>
+                                    <SelectTrigger><SelectValue placeholder="Chọn hình thức" /></SelectTrigger>
+                                    <SelectContent>{ALL_TEST_FORMATS.map(formatValue => (<SelectItem key={formatValue} value={formatValue}>{formatValue}</SelectItem>))}</SelectContent>
+                                  </Select>
+                                </TableCell>
                                 <TableCell><Input type="text" placeholder="Điểm" value={scoreEntry.score ?? ''} onChange={(e) => handleScoreInputChange(student.id, 'score', e.target.value)} className="w-full" /></TableCell>
                                 <TableCell>{masteryDetails.text}</TableCell>
-                                <TableCell><Select value={scoreEntry.homeworkStatus || ''} onValueChange={(value) => handleScoreInputChange(student.id, 'homeworkStatus', value as HomeworkStatus)}><SelectTrigger><SelectValue placeholder="Chọn trạng thái" /></SelectTrigger><SelectContent>{ALL_HOMEWORK_STATUSES.map(status => (<SelectItem key={status} value={status}>{status}</SelectItem>))}</SelectContent></Select></TableCell>
+                                <TableCell>
+                                  <Select value={scoreEntry.homeworkStatus || ''} onValueChange={(value) => handleScoreInputChange(student.id, 'homeworkStatus', value as HomeworkStatus)}>
+                                    <SelectTrigger><SelectValue placeholder="Chọn trạng thái" /></SelectTrigger>
+                                    <SelectContent>{ALL_HOMEWORK_STATUSES.map(status => (<SelectItem key={status} value={status}>{status}</SelectItem>))}</SelectContent>
+                                  </Select>
+                                </TableCell>
                                 <TableCell><Textarea placeholder="Liệt kê từ vựng..." value={scoreEntry.vocabularyToReview || ''} onChange={(e) => handleScoreInputChange(student.id, 'vocabularyToReview', e.target.value)} rows={1} /></TableCell>
                                 <TableCell><Textarea placeholder="Nhận xét khác..." value={scoreEntry.generalRemarks || ''} onChange={(e) => handleScoreInputChange(student.id, 'generalRemarks', e.target.value)} rows={1} /></TableCell>
                               </TableRow>
@@ -593,15 +634,30 @@ const studentsForEntryTab = useMemo(() => {
                   {!isLoadingData && !isErrorStudents && studentsForHistoryTab.length > 0 && (
                     <div className="overflow-x-auto">
                       <Table>
-                        <TableHeader><TableRow><TableHead className="w-[50px]">STT</TableHead><TableHead>Họ và Tên</TableHead><TableHead>Hình thức KT</TableHead><TableHead className="w-[100px]">Điểm số</TableHead><TableHead className="min-w-[200px]">Thuộc bài</TableHead><TableHead>Bài tập về nhà?</TableHead><TableHead>Nhận xét</TableHead><TableHead className="w-[200px] text-center">Hành động</TableHead></TableRow></TableHeader>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-[50px]">STT</TableHead>
+                            <TableHead>Họ và Tên</TableHead>
+                            <TableHead className="min-w-[180px]">Hình thức KT</TableHead>
+                            <TableHead className="w-[100px]">Điểm số</TableHead>
+                            <TableHead className="min-w-[200px]">Thuộc bài</TableHead>
+                            <TableHead className="min-w-[200px]">Bài tập về nhà?</TableHead>
+                            <TableHead>Nhận xét</TableHead>
+                            <TableHead className="w-[200px] text-center">Hành động</TableHead>
+                          </TableRow>
+                        </TableHeader>
                         <TableBody>
                           {studentsForHistoryTab.map((student, index) => {
-                            const scores = studentScores[student.id] || {}; const masteryDetails = calculateMasteryDetails(scores.testFormat, scores.score);
+                            const scores = studentScores[student.id] || {}; 
+                            const masteryDetails = calculateMasteryDetails(scores.testFormat, scores.score);
                             return (
                               <TableRow key={student.id}>
-                                <TableCell>{index + 1}</TableCell><TableCell className="font-medium">{student.hoTen}</TableCell>
-                                <TableCell>{scores.testFormat || 'N/A'}</TableCell><TableCell>{renderScoreDisplay(scores.score)}</TableCell>
-                                <TableCell>{masteryDetails.text}</TableCell><TableCell>{scores.homeworkStatus || 'N/A'}</TableCell>
+                                <TableCell>{index + 1}</TableCell>
+                                <TableCell className="font-medium">{student.hoTen}</TableCell>
+                                <TableCell>{scores.testFormat || 'N/A'}</TableCell>
+                                <TableCell>{renderScoreDisplay(scores.score)}</TableCell>
+                                <TableCell>{masteryDetails.text}</TableCell>
+                                <TableCell>{scores.homeworkStatus || 'N/A'}</TableCell>
                                 <TableCell className="text-xs max-w-xs truncate">{scores.generalRemarks || 'N/A'}</TableCell>
                                 <TableCell className="text-center space-x-1">
                                   <Button variant="outline" size="icon" onClick={() => handleEditScore(student.id)} aria-label={`Sửa điểm cho ${student.hoTen}`} disabled={saveScoresMutation.isPending || editingStudentId === student.id}><Edit className="h-4 w-4" /></Button>
@@ -618,14 +674,12 @@ const studentsForEntryTab = useMemo(() => {
                 </TabsContent>
               </Tabs>
             </CardContent>
-             {selectedClassId && selectedDate && (studentsInSelectedClass.length > 0 || editingStudentId) && (
+             {(activeTab === 'nhap-diem' || (activeTab === 'lich-su' && (editingStudentId || hasPendingDeletionsForSave))) && selectedClassId && selectedDate && (studentsInSelectedClass.length > 0 || editingStudentId) && (
                 <CardFooter className="justify-end border-t pt-6">
-                  {(activeTab === 'nhap-diem' || (activeTab === 'lich-su' && (editingStudentId || hasPendingDeletions))) && (
                     <Button onClick={handleSaveAllScores} disabled={saveScoresMutation.isPending || !canSaveChanges}>
                         {saveScoresMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />} 
                         {saveButtonText}
                     </Button>
-                  )}
                 </CardFooter>
             )}
           </Card>
@@ -634,10 +688,10 @@ const studentsForEntryTab = useMemo(() => {
 
       {isGradeSlipModalOpen && gradeSlipData && (
         <Dialog open={isGradeSlipModalOpen} onOpenChange={setIsGradeSlipModalOpen}>
-          <DialogContent className="sm:max-w-lg p-0 font-sans"> {/* Added font-sans here */}
-            <div ref={gradeSlipDialogContentRef} className="p-6 bg-card font-sans"> {/* Added font-sans here */}
+          <DialogContent className="sm:max-w-lg p-0 font-sans"> 
+            <div ref={gradeSlipDialogContentRef} className="p-6 bg-card font-sans"> 
               <DialogHeader className="text-center mb-4"><ShadDialogTitle className="text-xl font-bold text-primary uppercase tracking-wider">PHIẾU LIÊN LẠC</ShadDialogTitle><ShadDialogDescription className="text-sm text-muted-foreground mt-1">Kết quả kiểm tra ngày: {gradeSlipData.testDate}</ShadDialogDescription></DialogHeader>
-              <div className="space-y-1 text-sm leading-snug"> {/* Reduced space-y and leading */}
+              <div className="space-y-2 text-sm leading-relaxed"> 
                 <p><span className="font-semibold">Họ và tên:</span> {gradeSlipData.studentName}</p>
                 <p><span className="font-semibold">Mã HS:</span> {gradeSlipData.studentId}</p>
                 <p><span className="font-semibold">Lớp:</span> {gradeSlipData.className}</p>
@@ -646,17 +700,17 @@ const studentsForEntryTab = useMemo(() => {
                 
                 <p><span className="font-semibold">Thuộc bài:</span> <span className={cn("font-bold", gradeSlipData.masteryColor)}>{gradeSlipData.masteryText}</span></p>
                 
-                <div className="mt-1"><p className="font-semibold">Bài tập về nhà:</p><p className={cn("pl-2", gradeSlipData.homeworkColor, (!gradeSlipData.homeworkStatusValue || gradeSlipData.homeworkStatusValue === "") && "italic text-muted-foreground")}>{gradeSlipData.homeworkStatusValue && gradeSlipData.homeworkStatusValue !== "" ? gradeSlipData.homeworkText : "Không có bài tập về nhà"}</p></div>
-                <div className="mt-1"><p className="font-semibold">Nhận xét:</p><p className="pl-2 whitespace-pre-line">{gradeSlipData.remarks}</p></div>
-                <div className="mt-1"><p className="font-semibold">Từ vựng cần học lại:</p><p className="pl-2 whitespace-pre-line">{gradeSlipData.vocabularyToReview}</p></div>
+                 <div className="mt-2"><p className="font-semibold">Bài tập về nhà:</p><p className={cn("pl-2", gradeSlipData.homeworkColor, (!gradeSlipData.homeworkStatusValue || gradeSlipData.homeworkStatusValue === "") && "italic text-muted-foreground")}>{gradeSlipData.homeworkStatusValue && gradeSlipData.homeworkStatusValue !== "" ? gradeSlipData.homeworkText : "Không có bài tập về nhà"}</p></div>
+                <div className="mt-2"><p className="font-semibold">Nhận xét:</p><p className="pl-2 whitespace-pre-line">{gradeSlipData.remarks}</p></div>
+                <div className="mt-2"><p className="font-semibold">Từ vựng cần học lại:</p><p className="pl-2 whitespace-pre-line">{gradeSlipData.vocabularyToReview}</p></div>
                 
-                <div className="pt-3 mt-3 border-t"><p className="whitespace-pre-line text-sm text-muted-foreground italic">{gradeSlipData.footer}</p></div>
+                <div className="pt-3 mt-4 border-t"><p className="whitespace-pre-line text-sm text-muted-foreground italic leading-relaxed">{gradeSlipData.footer}</p></div>
               </div>
             </div>
             <DialogFooter className="p-4 border-t bg-muted/50 sm:justify-between">
-              <Button type="button" onClick={handleExportGradeSlipImage} disabled={typeof html2canvas === 'undefined' || saveScoresMutation.isPending}>
+              <Button type="button" onClick={handleExportGradeSlipImage} disabled={saveScoresMutation.isPending}>
                 <Download className="mr-2 h-4 w-4" /> 
-                {typeof html2canvas === 'undefined' ? "Đang tải html2canvas..." : "Xuất file ảnh"}
+                Xuất file ảnh
               </Button>
               <DialogClose asChild><Button type="button" variant="outline">Đóng</Button></DialogClose>
             </DialogFooter>
