@@ -47,6 +47,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     window.open(PARENT_PORTAL_LINK.href, '_blank');
   }, []);
 
+  const parentPortalTooltipContent = React.useMemo(() => ({
+    children: PARENT_PORTAL_LINK.label,
+    side: "right",
+    align: "center",
+  } as const), [PARENT_PORTAL_LINK.label]);
+
 
   return (
     <SidebarProvider defaultOpen>
@@ -65,6 +71,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           <SidebarContent className="p-2">
             <SidebarMenu>
               {NAV_LINKS.map((link) => {
+                 const tooltipContent = React.useMemo(() => ({
+                    children: link.label,
+                    side: "right",
+                    align: "center",
+                  } as const), [link.label]);
+
                 return (
                   <SidebarMenuItem key={link.href}>
                     <SidebarMenuButton
