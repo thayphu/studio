@@ -269,10 +269,10 @@ export default function KiemTraPage() {
                         <TableHead className="w-[50px]">STT</TableHead>
                         <TableHead>Họ và Tên</TableHead>
                         <TableHead className="w-[100px]">Điểm số</TableHead>
-                        <TableHead className="w-[150px] text-center">Đã thuộc bài?</TableHead>
+                        <TableHead className="w-[150px] text-center">Thuộc bài</TableHead>
                         <TableHead>Từ vựng cần học lại</TableHead>
                         <TableHead>Nhận xét</TableHead>
-                        <TableHead className="min-w-[200px]">Đã làm bài tập về nhà</TableHead>
+                        <TableHead className="min-w-[200px]">Bài tập về nhà?</TableHead>
                         <TableHead className="w-[100px] text-center">Hành động</TableHead> 
                       </TableRow>
                     </TableHeader>
@@ -297,7 +297,7 @@ export default function KiemTraPage() {
                                 checked={studentScores[student.id]?.masteredLesson || false}
                                 onCheckedChange={(checked) => handleScoreInputChange(student.id, 'masteredLesson', checked)}
                               />
-                              <Label htmlFor={`mastered-${student.id}`} className="sr-only">Đã thuộc bài</Label>
+                              <Label htmlFor={`mastered-${student.id}`} className="sr-only">Thuộc bài</Label>
                             </div>
                           </TableCell>
                           <TableCell>
@@ -325,7 +325,6 @@ export default function KiemTraPage() {
                                 <SelectValue placeholder="Chọn trạng thái" />
                               </SelectTrigger>
                               <SelectContent>
-                                {/* <SelectItem value="">(Để trống)</SelectItem> */}
                                 {ALL_HOMEWORK_STATUSES.map(status => (
                                   <SelectItem key={status} value={status}>{status}</SelectItem>
                                 ))}
