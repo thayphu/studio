@@ -39,15 +39,15 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const pathname = usePathname();
   const router = useRouter();
 
-  const handleLogout = () => {
+  const handleLogout = React.useCallback(() => { 
     router.push('/login');
-  };
+  }, [router]);
 
   const handleParentPortalClick = React.useCallback(() => {
     window.open(PARENT_PORTAL_LINK.href, '_blank');
   }, []);
 
-  const parentPortalTooltipProps = React.useMemo(() => ({
+  const parentPortalTooltipProps = React.useMemo(() => ({ // Memoize tooltip object
     children: PARENT_PORTAL_LINK.label,
     side: "right" as const,
     align: "center" as const,
@@ -72,7 +72,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           <SidebarContent className="p-2">
             <SidebarMenu>
               {NAV_LINKS.map((link) => {
-                const navLinkTooltipProps = React.useMemo(() => ({
+                const navLinkTooltipProps = React.useMemo(() => ({ // Memoize tooltip object for each link
                   children: link.label,
                   side: "right" as const,
                   align: "center" as const,
@@ -83,7 +83,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                     <SidebarMenuButton
                       asChild
                       isActive={pathname.startsWith(link.href)}
-                      tooltip={navLinkTooltipProps}
+                      tooltip={navLinkTooltipProps} 
                       className={cn(
                         "justify-start",
                         pathname.startsWith(link.href) && "bg-primary/10 text-primary hover:bg-primary/20"
@@ -104,7 +104,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     asChild
-                    tooltip={parentPortalTooltipProps}
+                    tooltip={parentPortalTooltipProps} 
                     className="justify-start"
                     onClick={handleParentPortalClick}
                   >
