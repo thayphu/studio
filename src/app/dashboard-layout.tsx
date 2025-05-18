@@ -23,13 +23,13 @@ import {
   SidebarFooter,
   SidebarMenu,
   SidebarMenuItem,
-  SidebarMenuButton,
+  // SidebarMenuButton, // Intentionally removed for extreme debugging
   SidebarInset,
   SidebarTrigger,
 } from '@/components/ui/sidebar';
 import { NAV_LINKS, PARENT_PORTAL_LINK, TEXTS_VI } from '@/lib/constants';
 import { cn } from '@/lib/utils';
-import React from 'react'; // Import React for useMemo and useCallback
+import React from 'react';
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -39,7 +39,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const pathname = usePathname();
   const router = useRouter();
 
-  const handleLogout = React.useCallback(() => { 
+  const handleLogout = React.useCallback(() => {
     router.push('/login');
   }, [router]);
 
@@ -47,12 +47,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     window.open(PARENT_PORTAL_LINK.href, '_blank');
   }, []);
 
-  const parentPortalTooltipProps = React.useMemo(() => ({ // Memoize tooltip object
-    children: PARENT_PORTAL_LINK.label,
-    side: "right" as const,
-    align: "center" as const,
-  }), []);
-
+  // For debugging "Maximum update depth exceeded"
+  // We are temporarily replacing SidebarMenuButton with simple Link/a tags
+  // to isolate if the complex component is part of the issue.
 
   return (
     <SidebarProvider defaultOpen>
@@ -60,7 +57,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         <Sidebar collapsible="icon" className="border-r">
           <SidebarHeader className="p-4 flex items-center justify-between">
             <Link href="/lop-hoc" className="flex items-center gap-2">
-              {/* Replace with an actual logo if available */}
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-8 h-8 text-primary">
                 <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
               </svg>
@@ -71,48 +67,37 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           </SidebarHeader>
           <SidebarContent className="p-2">
             <SidebarMenu>
-              {NAV_LINKS.map((link) => {
-                const navLinkTooltipProps = React.useMemo(() => ({ // Memoize tooltip object for each link
-                  children: link.label,
-                  side: "right" as const,
-                  align: "center" as const,
-                }), [link.label]);
-
-                return (
-                  <SidebarMenuItem key={link.href}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={pathname.startsWith(link.href)}
-                      tooltip={navLinkTooltipProps} 
-                      className={cn(
-                        "justify-start",
-                        pathname.startsWith(link.href) && "bg-primary/10 text-primary hover:bg-primary/20"
-                      )}
-                    >
-                      <Link href={link.href}>
-                        <link.icon className="h-5 w-5" />
-                        <span>{link.label}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
+              {NAV_LINKS.map((link) => (
+                <SidebarMenuItem key={link.href}>
+                  <Link
+                    href={link.href}
+                    className={cn(
+                      "flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm outline-none ring-sidebar-ring transition-[width,height,padding] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50",
+                      "group-data-[collapsible=icon]:!size-8 group-data-[collapsible=icon]:!p-2 [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0", // Classes from SidebarMenuButton
+                      pathname.startsWith(link.href) ? "bg-primary/10 text-primary hover:bg-primary/20" : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                    )}
+                  >
+                    <link.icon className="h-5 w-5" />
+                    <span className="group-data-[collapsible=icon]:hidden">{link.label}</span>
+                  </Link>
+                </SidebarMenuItem>
+              ))}
             </SidebarMenu>
           </SidebarContent>
           <SidebarFooter className="p-2 mt-auto border-t">
              <SidebarMenu>
                 <SidebarMenuItem>
-                  <SidebarMenuButton
-                    asChild
-                    tooltip={parentPortalTooltipProps} 
-                    className="justify-start"
+                  <a
                     onClick={handleParentPortalClick}
+                    className={cn(
+                      "flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm outline-none ring-sidebar-ring transition-[width,height,padding] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50",
+                      "cursor-pointer",
+                      "group-data-[collapsible=icon]:!size-8 group-data-[collapsible=icon]:!p-2 [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0" // Classes from SidebarMenuButton
+                    )}
                   >
-                    <a> {/* Use <a> for onClick to work properly with window.open */}
-                      <PARENT_PORTAL_LINK.icon className="h-5 w-5" />
-                      <span>{PARENT_PORTAL_LINK.label}</span>
-                    </a>
-                  </SidebarMenuButton>
+                    <PARENT_PORTAL_LINK.icon className="h-5 w-5" />
+                    <span className="group-data-[collapsible=icon]:hidden">{PARENT_PORTAL_LINK.label}</span>
+                  </a>
                 </SidebarMenuItem>
               </SidebarMenu>
           </SidebarFooter>
@@ -122,7 +107,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-background/80 backdrop-blur-sm px-6">
             <div className="flex items-center">
               <SidebarTrigger className="md:hidden mr-2" />
-              {/* Breadcrumbs or page title can go here */}
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
