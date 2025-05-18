@@ -1,6 +1,6 @@
 
 import type { LucideIcon } from 'lucide-react';
-import { LayoutDashboard, Users, CreditCard, UserCheck, BarChart3, Search, LogOut, School } from 'lucide-react'; // Removed TestIcon (FileText)
+import { LayoutDashboard, Users, CreditCard, UserCheck, BarChart3, Search, LogOut, School } from 'lucide-react';
 
 interface NavLink {
   href: string;
@@ -13,7 +13,6 @@ export const NAV_LINKS: NavLink[] = [
   { href: "/hoc-sinh", label: "Học sinh", icon: Users },
   { href: "/hoc-phi", label: "Học phí", icon: CreditCard },
   { href: "/diem-danh", label: "Điểm danh", icon: UserCheck },
-  // { href: "/kiem-tra", label: "Kiểm Tra", icon: TestIcon }, // Removed Kiem Tra link
   { href: "/bao-cao", label: "Báo cáo", icon: BarChart3 },
 ];
 
@@ -23,10 +22,9 @@ export const PARENT_PORTAL_LINK = {
   icon: Search
 };
 
-// Admin Credentials - WARNING: Storing credentials in client-side code is insecure.
-// Consider using Firebase Authentication or another secure method for production.
-export const ADMIN_USERNAME = "dongphubte@gmail.com";
-export const ADMIN_PASSWORD_TEMP = "@Quantriweb2013";
+// Admin Credentials (FOR DEVELOPMENT ONLY - USE SECURE AUTH LIKE FIREBASE AUTH FOR PRODUCTION)
+export const ADMIN_USERNAME = "dongphubte@gmail.com"; // Read from env vars in production
+export const ADMIN_PASSWORD_TEMP = "@Quantriweb2013"; // Read from env vars in production
 
 
 // Vietnamese Texts
@@ -70,4 +68,3 @@ export const WEEKDAYS_VI: Record<string, number> = {
   'Thứ 6': 5,
   'Thứ 7': 6,
 };
-

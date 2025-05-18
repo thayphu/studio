@@ -85,6 +85,3 @@ export interface GiaoVienVangRecord {
   notes?: string;
   createdAt: string; // ISO Date string
 }
-
-// Removed TestScoreRecord, StudentScoreInput, TestFormat, ALL_TEST_FORMATS, HomeworkStatus, ALL_HOMEWORK_STATUSES
-
