@@ -25,8 +25,8 @@ export const PARENT_PORTAL_LINK = {
 // Admin Credentials
 // IMPORTANT: For development only. In production, use a secure authentication system.
 // This information is read by src/components/auth/LoginForm.tsx
-export const ADMIN_USERNAME = "dongphubte@gmail.com";
-export const ADMIN_PASSWORD_TEMP = "@Quantriweb2013";
+export const ADMIN_USERNAME = "dongphubte@gmail.com"; // Reverted for simplicity as per user request
+export const ADMIN_PASSWORD_TEMP = "@Quantriweb2013"; // Reverted for simplicity as per user request
 
 
 // Vietnamese Texts
