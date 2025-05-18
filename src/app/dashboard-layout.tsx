@@ -29,7 +29,7 @@ import {
 } from '@/components/ui/sidebar';
 import { NAV_LINKS, PARENT_PORTAL_LINK, TEXTS_VI } from '@/lib/constants';
 import { cn } from '@/lib/utils';
-import React, { useEffect } from 'react'; 
+import React, { useEffect, useMemo, useCallback } from 'react'; // Added useMemo and useCallback
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -40,15 +40,15 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const router = useRouter();
 
   useEffect(() => {
-    // console.log("DashboardLayout mounted or updated - " + new Date().toLocaleTimeString()); 
+    console.log("DashboardLayout mounted or updated - " + new Date().toLocaleTimeString()); 
   }, []); 
 
 
-  const handleLogout = React.useCallback(() => {
+  const handleLogout = useCallback(() => {
     router.push('/login');
   }, [router]);
 
-  const handleParentPortalClick = React.useCallback(() => {
+  const handleParentPortalClick = useCallback(() => {
     window.open(PARENT_PORTAL_LINK.href, '_blank');
   }, []);
   
@@ -76,7 +76,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                     className={cn(
                       pathname.startsWith(link.href) ? "bg-primary/10 text-primary hover:bg-primary/20" : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                     )}
-                    tooltip={link.label} 
+                    tooltip={link.label} // Pass string directly
                   >
                     <Link href={link.href}>
                       <link.icon className="h-5 w-5" />
@@ -92,7 +92,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               <SidebarMenuItem>
                 <SidebarMenuButton
                   asChild
-                  tooltip={PARENT_PORTAL_LINK.label} 
+                  tooltip={PARENT_PORTAL_LINK.label} // Pass string directly
                   className="cursor-pointer hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                   onClick={handleParentPortalClick}
                 >
@@ -115,7 +115,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                   <Avatar className="h-9 w-9">
-                    <AvatarImage src="https://placehold.co/100x100.png" alt="Admin Avatar" />
+                    <AvatarImage src="https://placehold.co/100x100.png" alt="Admin Avatar" data-ai-hint="avatar user" />
                     <AvatarFallback>DP</AvatarFallback>
                   </Avatar>
                 </Button>
