@@ -47,6 +47,13 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     window.open(PARENT_PORTAL_LINK.href, '_blank');
   }, []); // PARENT_PORTAL_LINK.href is constant
 
+  const parentPortalTooltipContent = React.useMemo(() => ({
+    children: PARENT_PORTAL_LINK.label,
+    side: "right" as const,
+    align: "center" as const,
+  }), []); // PARENT_PORTAL_LINK.label is constant, so empty dependency array is fine.
+
+
   return (
     <SidebarProvider defaultOpen>
       <div className="flex min-h-screen bg-background">
@@ -65,12 +72,18 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           <SidebarContent className="p-2">
             <SidebarMenu>
               {NAV_LINKS.map((link) => {
+                const navLinkTooltipContent = React.useMemo(() => ({
+                  children: link.label,
+                  side: "right" as const,
+                  align: "center" as const,
+                }), [link.label]);
+
                 return (
                   <SidebarMenuItem key={link.href}>
                     <SidebarMenuButton
                       asChild
                       isActive={pathname.startsWith(link.href)}
-                      tooltip={link.label} // Pass string directly
+                      tooltip={navLinkTooltipContent} // Pass memoized object
                       className={cn(
                         "justify-start",
                         pathname.startsWith(link.href) && "bg-primary/10 text-primary hover:bg-primary/20"
@@ -91,7 +104,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     asChild
-                    tooltip={PARENT_PORTAL_LINK.label} // Pass string directly
+                    tooltip={parentPortalTooltipContent} // Pass memoized object
                     className="justify-start"
                     onClick={handleParentPortalClick} 
                   >
@@ -145,3 +158,4 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     </SidebarProvider>
   );
 }
+
