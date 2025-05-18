@@ -22,9 +22,11 @@ export const PARENT_PORTAL_LINK = {
   icon: Search
 };
 
-// Admin Credentials (FOR DEVELOPMENT ONLY - USE SECURE AUTH LIKE FIREBASE AUTH FOR PRODUCTION)
-export const ADMIN_USERNAME = "dongphubte@gmail.com"; // Read from env vars in production
-export const ADMIN_PASSWORD_TEMP = "@Quantriweb2013"; // Read from env vars in production
+// Admin Credentials
+// IMPORTANT: For development only. In production, use a secure authentication system.
+// This information is read by src/components/auth/LoginForm.tsx
+export const ADMIN_USERNAME = "dongphubte@gmail.com";
+export const ADMIN_PASSWORD_TEMP = "@Quantriweb2013";
 
 
 // Vietnamese Texts

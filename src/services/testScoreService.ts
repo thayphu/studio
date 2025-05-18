@@ -1,2 +1,2 @@
-// This file is intentionally left blank as it is being deleted.
-// The build system should remove it. If not, please delete manually.
+// This file is intentionally left blank as the "Kiểm Tra" feature,
+// including its services, has been removed.
