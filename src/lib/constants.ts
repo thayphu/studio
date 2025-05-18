@@ -1,6 +1,6 @@
 
 import type { LucideIcon } from 'lucide-react';
-import { LayoutDashboard, Users, CreditCard, UserCheck, BarChart3, Search, LogOut, School, FileText as TestIcon } from 'lucide-react';
+import { LayoutDashboard, Users, CreditCard, UserCheck, BarChart3, Search, LogOut, School } from 'lucide-react'; // Removed TestIcon (FileText)
 
 interface NavLink {
   href: string;
@@ -13,7 +13,7 @@ export const NAV_LINKS: NavLink[] = [
   { href: "/hoc-sinh", label: "Học sinh", icon: Users },
   { href: "/hoc-phi", label: "Học phí", icon: CreditCard },
   { href: "/diem-danh", label: "Điểm danh", icon: UserCheck },
-  { href: "/kiem-tra", label: "Kiểm Tra", icon: TestIcon },
+  // { href: "/kiem-tra", label: "Kiểm Tra", icon: TestIcon }, // Removed Kiem Tra link
   { href: "/bao-cao", label: "Báo cáo", icon: BarChart3 },
 ];
 
