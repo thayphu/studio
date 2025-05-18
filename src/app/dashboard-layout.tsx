@@ -47,6 +47,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     window.open(PARENT_PORTAL_LINK.href, '_blank');
   }, []);
 
+
   return (
     <SidebarProvider defaultOpen>
       <div className="flex min-h-screen bg-background">
