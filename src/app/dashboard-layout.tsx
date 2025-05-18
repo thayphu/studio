@@ -23,7 +23,7 @@ import {
   SidebarFooter,
   SidebarMenu,
   SidebarMenuItem,
-  // SidebarMenuButton, // Intentionally removed for extreme debugging
+  SidebarMenuButton,
   SidebarInset,
   SidebarTrigger,
 } from '@/components/ui/sidebar';
@@ -47,9 +47,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     window.open(PARENT_PORTAL_LINK.href, '_blank');
   }, []);
 
-  // For debugging "Maximum update depth exceeded"
-  // We are temporarily replacing SidebarMenuButton with simple Link/a tags
-  // to isolate if the complex component is part of the issue.
+  const parentPortalTooltipContent = React.useMemo(() => ({
+    children: PARENT_PORTAL_LINK.label,
+    side: "right" as const,
+    align: "center" as const,
+  }), []);
+
 
   return (
     <SidebarProvider defaultOpen>
@@ -67,37 +70,47 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           </SidebarHeader>
           <SidebarContent className="p-2">
             <SidebarMenu>
-              {NAV_LINKS.map((link) => (
-                <SidebarMenuItem key={link.href}>
-                  <Link
-                    href={link.href}
-                    className={cn(
-                      "flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm outline-none ring-sidebar-ring transition-[width,height,padding] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50",
-                      "group-data-[collapsible=icon]:!size-8 group-data-[collapsible=icon]:!p-2 [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0", // Classes from SidebarMenuButton
-                      pathname.startsWith(link.href) ? "bg-primary/10 text-primary hover:bg-primary/20" : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                    )}
-                  >
-                    <link.icon className="h-5 w-5" />
-                    <span className="group-data-[collapsible=icon]:hidden">{link.label}</span>
-                  </Link>
-                </SidebarMenuItem>
-              ))}
+              {NAV_LINKS.map((link) => {
+                const tooltipContent = React.useMemo(() => ({
+                  children: link.label,
+                  side: "right" as const,
+                  align: "center" as const,
+                }), [link.label]);
+
+                return (
+                  <SidebarMenuItem key={link.href}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={pathname.startsWith(link.href)}
+                      className={cn(
+                        pathname.startsWith(link.href) ? "bg-primary/10 text-primary hover:bg-primary/20" : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                      )}
+                      tooltip={tooltipContent}
+                    >
+                      <Link href={link.href}>
+                        <link.icon className="h-5 w-5" />
+                        <span>{link.label}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarContent>
           <SidebarFooter className="p-2 mt-auto border-t">
              <SidebarMenu>
                 <SidebarMenuItem>
-                  <a
-                    onClick={handleParentPortalClick}
-                    className={cn(
-                      "flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm outline-none ring-sidebar-ring transition-[width,height,padding] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50",
-                      "cursor-pointer",
-                      "group-data-[collapsible=icon]:!size-8 group-data-[collapsible=icon]:!p-2 [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0" // Classes from SidebarMenuButton
-                    )}
+                  <SidebarMenuButton
+                    asChild
+                    tooltip={parentPortalTooltipContent}
+                    className="cursor-pointer hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                    onClick={handleParentPortalClick} 
                   >
-                    <PARENT_PORTAL_LINK.icon className="h-5 w-5" />
-                    <span className="group-data-[collapsible=icon]:hidden">{PARENT_PORTAL_LINK.label}</span>
-                  </a>
+                    <a> {/* Use <a> for onClick to work properly with window.open */}
+                      <PARENT_PORTAL_LINK.icon className="h-5 w-5" />
+                      <span>{PARENT_PORTAL_LINK.label}</span>
+                    </a>
+                  </SidebarMenuButton>
                 </SidebarMenuItem>
               </SidebarMenu>
           </SidebarFooter>
