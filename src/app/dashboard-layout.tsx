@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { ReactNode } from 'react';
@@ -28,7 +29,7 @@ import {
 } from '@/components/ui/sidebar';
 import { NAV_LINKS, PARENT_PORTAL_LINK, TEXTS_VI } from '@/lib/constants';
 import { cn } from '@/lib/utils';
-import React, { useEffect, useCallback } from 'react'; 
+import React, { useEffect, useCallback, useMemo } from 'react'; 
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -39,7 +40,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const router = useRouter();
 
   useEffect(() => {
-    // console.log("DashboardLayout mounted or updated - " + new Date().toLocaleTimeString()); 
+    console.log("DashboardLayout mounted or updated - " + new Date().toLocaleTimeString()); 
   }, []); 
 
 
@@ -67,23 +68,25 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           </SidebarHeader>
           <SidebarContent className="p-2">
             <SidebarMenu>
-              {NAV_LINKS.map((link) => (
-                <SidebarMenuItem key={link.href}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={pathname.startsWith(link.href)}
-                    className={cn(
-                      pathname.startsWith(link.href) ? "bg-primary/10 text-primary hover:bg-primary/20" : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                    )}
-                    tooltip={link.label} 
-                  >
-                    <Link href={link.href}>
-                      <link.icon className="h-5 w-5" />
-                      <span>{link.label}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              {NAV_LINKS.map((link) => {
+                return (
+                  <SidebarMenuItem key={link.href}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={pathname.startsWith(link.href)}
+                      className={cn(
+                        pathname.startsWith(link.href) ? "bg-primary/10 text-primary hover:bg-primary/20" : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                      )}
+                      tooltip={link.label} // Pass string directly
+                    >
+                      <Link href={link.href}>
+                        <link.icon className="h-5 w-5" />
+                        <span>{link.label}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarContent>
           <SidebarFooter className="p-2 mt-auto border-t">
@@ -91,11 +94,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               <SidebarMenuItem>
                 <SidebarMenuButton
                   asChild
-                  tooltip={PARENT_PORTAL_LINK.label} 
+                  tooltip={PARENT_PORTAL_LINK.label} // Pass string directly
                   className="cursor-pointer hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                   onClick={handleParentPortalClick}
                 >
-                  <a> 
+                  <a> {/* Use <a> for onClick to work properly with window.open */}
                     <PARENT_PORTAL_LINK.icon className="h-5 w-5" />
                     <span>{PARENT_PORTAL_LINK.label}</span>
                   </a>
