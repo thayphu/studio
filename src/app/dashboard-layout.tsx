@@ -29,7 +29,7 @@ import {
 } from '@/components/ui/sidebar';
 import { NAV_LINKS, PARENT_PORTAL_LINK, TEXTS_VI } from '@/lib/constants';
 import { cn } from '@/lib/utils';
-import React from 'react'; // Import React for useMemo
+import React from 'react'; // Import React for useMemo and useCallback
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -40,9 +40,18 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const router = useRouter();
 
   const handleLogout = () => {
-    // Implement actual logout logic here
     router.push('/login');
   };
+
+  // Memoize the onClick handler for the parent portal link
+  const handleParentPortalClick = React.useCallback(() => {
+    window.open(PARENT_PORTAL_LINK.href, '_blank');
+  }, []); // PARENT_PORTAL_LINK.href is constant
+
+  // Memoize the tooltip props for the parent portal link
+  const parentPortalTooltipProps = React.useMemo(() => ({
+    children: PARENT_PORTAL_LINK.label
+  }), []); // PARENT_PORTAL_LINK.label is constant
 
   return (
     <SidebarProvider defaultOpen>
@@ -62,16 +71,17 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           <SidebarContent className="p-2">
             <SidebarMenu>
               {NAV_LINKS.map((link) => {
-                const tooltipProps = React.useMemo(() => ({
+                // Memoize tooltip props for each nav link
+                const navLinkTooltipProps = React.useMemo(() => ({
                   children: link.label
-                }), [link.label]);
+                }), [link.label]); // link.label is stable per link item
 
                 return (
                   <SidebarMenuItem key={link.href}>
                     <SidebarMenuButton
                       asChild
                       isActive={pathname.startsWith(link.href)}
-                      tooltip={tooltipProps}
+                      tooltip={navLinkTooltipProps} // Use memoized version
                       className={cn(
                         "justify-start",
                         pathname.startsWith(link.href) && "bg-primary/10 text-primary hover:bg-primary/20"
@@ -90,11 +100,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           <SidebarFooter className="p-2 mt-auto border-t">
              <SidebarMenu>
                 <SidebarMenuItem>
-                  <SidebarMenuButton 
+                  <SidebarMenuButton
                     asChild
-                    tooltip={{children: PARENT_PORTAL_LINK.label}}
+                    tooltip={parentPortalTooltipProps} // Use memoized version
                     className="justify-start"
-                    onClick={() => window.open(PARENT_PORTAL_LINK.href, '_blank')}
+                    onClick={handleParentPortalClick} // Use memoized version
                   >
                     <a> {/* Use <a> for onClick to work properly with window.open */}
                       <PARENT_PORTAL_LINK.icon className="h-5 w-5" />
