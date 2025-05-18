@@ -47,14 +47,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     window.open(PARENT_PORTAL_LINK.href, '_blank');
   }, []);
 
-  // Memoize tooltip props for the parent portal link
-  const parentPortalTooltipContent = React.useMemo(() => ({
-    children: PARENT_PORTAL_LINK.label,
-    side: "right" as const,
-    align: "center" as const,
-  }), []);
-
-
   return (
     <SidebarProvider defaultOpen>
       <div className="flex min-h-screen bg-background">
@@ -72,13 +64,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           <SidebarContent className="p-2">
             <SidebarMenu>
               {NAV_LINKS.map((link) => {
-                // Memoize tooltip props for each navigation link
-                const tooltipContent = React.useMemo(() => ({
-                  children: link.label,
-                  side: "right" as const,
-                  align: "center" as const,
-                }), [link.label]);
-
                 return (
                   <SidebarMenuItem key={link.href}>
                     <SidebarMenuButton
@@ -87,7 +72,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                       className={cn(
                         pathname.startsWith(link.href) ? "bg-primary/10 text-primary hover:bg-primary/20" : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                       )}
-                      tooltip={tooltipContent} // Pass memoized object
+                      tooltip={link.label} // Pass string directly
                     >
                       <Link href={link.href}>
                         <link.icon className="h-5 w-5" />
@@ -104,7 +89,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     asChild
-                    tooltip={parentPortalTooltipContent} // Pass memoized object
+                    tooltip={PARENT_PORTAL_LINK.label} // Pass string directly
                     className="cursor-pointer hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                     onClick={handleParentPortalClick} 
                   >
