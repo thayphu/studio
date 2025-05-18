@@ -1,6 +1,6 @@
 
 import type { LucideIcon } from 'lucide-react';
-import { LayoutDashboard, Users, CreditCard, UserCheck, BarChart3, Search, LogOut, School } from 'lucide-react';
+import { LayoutDashboard, Users, CreditCard, UserCheck, BarChart3, Search, LogOut, School, FileText as TestIcon } from 'lucide-react';
 
 interface NavLink {
   href: string;
@@ -13,19 +13,20 @@ export const NAV_LINKS: NavLink[] = [
   { href: "/hoc-sinh", label: "Học sinh", icon: Users },
   { href: "/hoc-phi", label: "Học phí", icon: CreditCard },
   { href: "/diem-danh", label: "Điểm danh", icon: UserCheck },
+  { href: "/kiem-tra", label: "Kiểm Tra", icon: TestIcon },
   { href: "/bao-cao", label: "Báo cáo", icon: BarChart3 },
 ];
 
-export const PARENT_PORTAL_LINK = { 
-  href: "/phu-huynh", 
+export const PARENT_PORTAL_LINK = {
+  href: "/phu-huynh",
   label: "Cổng thông tin Phụ huynh",
-  icon: Search 
+  icon: Search
 };
 
 // Admin Credentials - WARNING: Storing credentials in client-side code is insecure.
 // Consider using Firebase Authentication or another secure method for production.
 export const ADMIN_USERNAME = "dongphubte@gmail.com";
-export const ADMIN_PASSWORD_TEMP = "@Quantriweb2013"; 
+export const ADMIN_PASSWORD_TEMP = "@Quantriweb2013";
 
 
 // Vietnamese Texts
