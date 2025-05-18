@@ -1,4 +1,3 @@
-
 "use client";
 
 import type { ReactNode } from 'react';
@@ -76,7 +75,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                     className={cn(
                       pathname.startsWith(link.href) ? "bg-primary/10 text-primary hover:bg-primary/20" : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                     )}
-                    tooltip={link.label} // Pass string directly
+                    tooltip={link.label} 
                   >
                     <Link href={link.href}>
                       <link.icon className="h-5 w-5" />
@@ -92,7 +91,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               <SidebarMenuItem>
                 <SidebarMenuButton
                   asChild
-                  tooltip={PARENT_PORTAL_LINK.label} // Pass string directly
+                  tooltip={PARENT_PORTAL_LINK.label} 
                   className="cursor-pointer hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                   onClick={handleParentPortalClick}
                 >
