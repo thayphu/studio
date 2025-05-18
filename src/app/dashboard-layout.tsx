@@ -43,15 +43,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     router.push('/login');
   };
 
-  // Memoize the onClick handler for the parent portal link
   const handleParentPortalClick = React.useCallback(() => {
     window.open(PARENT_PORTAL_LINK.href, '_blank');
   }, []); // PARENT_PORTAL_LINK.href is constant
-
-  // Memoize the tooltip props for the parent portal link
-  const parentPortalTooltipProps = React.useMemo(() => ({
-    children: PARENT_PORTAL_LINK.label
-  }), []); // PARENT_PORTAL_LINK.label is constant
 
   return (
     <SidebarProvider defaultOpen>
@@ -71,17 +65,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           <SidebarContent className="p-2">
             <SidebarMenu>
               {NAV_LINKS.map((link) => {
-                // Memoize tooltip props for each nav link
-                const navLinkTooltipProps = React.useMemo(() => ({
-                  children: link.label
-                }), [link.label]); // link.label is stable per link item
-
                 return (
                   <SidebarMenuItem key={link.href}>
                     <SidebarMenuButton
                       asChild
                       isActive={pathname.startsWith(link.href)}
-                      tooltip={navLinkTooltipProps} // Use memoized version
+                      tooltip={link.label} // Pass string directly
                       className={cn(
                         "justify-start",
                         pathname.startsWith(link.href) && "bg-primary/10 text-primary hover:bg-primary/20"
@@ -102,9 +91,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     asChild
-                    tooltip={parentPortalTooltipProps} // Use memoized version
+                    tooltip={PARENT_PORTAL_LINK.label} // Pass string directly
                     className="justify-start"
-                    onClick={handleParentPortalClick} // Use memoized version
+                    onClick={handleParentPortalClick} 
                   >
                     <a> {/* Use <a> for onClick to work properly with window.open */}
                       <PARENT_PORTAL_LINK.icon className="h-5 w-5" />
