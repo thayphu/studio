@@ -1,6 +1,6 @@
 
 import type { LucideIcon } from 'lucide-react';
-import { LayoutDashboard, Users, CreditCard, UserCheck, BarChart3, Search, LogOut, School } from 'lucide-react';
+import { LayoutDashboard, Users, CreditCard, UserCheck, BarChart3, Search, School, ClipboardList } from 'lucide-react';
 
 interface NavLink {
   href: string;
@@ -13,6 +13,7 @@ export const NAV_LINKS: NavLink[] = [
   { href: "/hoc-sinh", label: "Học sinh", icon: Users },
   { href: "/hoc-phi", label: "Học phí", icon: CreditCard },
   { href: "/diem-danh", label: "Điểm danh", icon: UserCheck },
+  { href: "/phieu-lien-lac", label: "Phiếu liên lạc", icon: ClipboardList },
   { href: "/bao-cao", label: "Báo cáo", icon: BarChart3 },
 ];
 
@@ -25,8 +26,8 @@ export const PARENT_PORTAL_LINK = {
 // Admin Credentials
 // IMPORTANT: For development only. In production, use a secure authentication system.
 // This information is read by src/components/auth/LoginForm.tsx
-export const ADMIN_USERNAME = "dongphubte@gmail.com"; // Reverted for simplicity as per user request
-export const ADMIN_PASSWORD_TEMP = "@Quantriweb2013"; // Reverted for simplicity as per user request
+export const ADMIN_USERNAME = "dongphubte@gmail.com";
+export const ADMIN_PASSWORD_TEMP = "@Quantriweb2013";
 
 
 // Vietnamese Texts
@@ -70,3 +71,4 @@ export const WEEKDAYS_VI: Record<string, number> = {
   'Thứ 6': 5,
   'Thứ 7': 6,
 };
+

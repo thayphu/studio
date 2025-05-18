@@ -85,3 +85,36 @@ export interface GiaoVienVangRecord {
   notes?: string;
   createdAt: string; // ISO Date string
 }
+
+// Types for PhieuLienLac
+export type TestFormatPLC = "KT bài cũ" | "KT 15 phút" | "KT 45 Phút" | "Làm bài tập";
+export const ALL_TEST_FORMATS_PLC: TestFormatPLC[] = ["KT bài cũ", "KT 15 phút", "KT 45 Phút", "Làm bài tập"];
+
+export type HomeworkStatusPLC = "Đã làm bài đầy đủ" | "Chỉ làm bài 1 phần" | "Chỉ làm 2/3 bài" | "Không làm bài";
+export const ALL_HOMEWORK_STATUSES_PLC: HomeworkStatusPLC[] = ["Đã làm bài đầy đủ", "Chỉ làm bài 1 phần", "Chỉ làm 2/3 bài", "Không làm bài"];
+
+export interface PhieuLienLacRecord {
+  id: string; // Auto-generated Firestore ID
+  studentId: string;
+  studentName?: string; // Denormalized
+  classId: string;
+  className?: string; // Denormalized
+  date: string; // YYYY-MM-DD, date of the assessment/communication
+  testFormat?: TestFormatPLC;
+  score?: number | null;
+  lessonMasteryText?: string; // Calculated text for "Thuộc bài"
+  homeworkStatus?: HomeworkStatusPLC;
+  vocabularyToReview?: string;
+  remarks?: string;
+  createdAt?: string; // ISO string, Firestore server timestamp
+  updatedAt?: string; // ISO string, Firestore server timestamp
+}
+
+export interface StudentSlipInput {
+  testFormat?: TestFormatPLC;
+  score?: string | number | null; // Input can be string
+  lessonMasteryText?: string; // Displayed text, not directly input
+  homeworkStatus?: HomeworkStatusPLC;
+  vocabularyToReview?: string;
+  remarks?: string;
+}
