@@ -151,6 +151,8 @@ export const ALL_GRADE_LEVELS: GradeLevel[] = [
   "Lớp 10", "Lớp 11", "Lớp 12", "Khác"
 ];
 
+export type CurriculumType = "Global Success" | "Friends plus" | "I learn smart";
+export const ALL_CURRICULUM_TYPES: CurriculumType[] = ["Global Success", "Friends plus", "I learn smart"];
 
 export type TestBankType = "15 phút" | "45 phút" | "Giữa kỳ" | "Cuối kỳ";
 export const ALL_TEST_BANK_TYPES: TestBankType[] = ["15 phút", "45 phút", "Giữa kỳ", "Cuối kỳ"];
@@ -161,6 +163,7 @@ export const ALL_QUESTION_TYPES: QuestionType[] = ["Nhiều lựa chọn", "True
 export interface QuestionBankEntry {
   id: string; // Firestore document ID
   gradeLevel: GradeLevel;
+  curriculumType: CurriculumType; // Added curriculum type
   testBankType: TestBankType;
   questionType: QuestionType;
   text: string; // Question content
@@ -171,20 +174,4 @@ export interface QuestionBankEntry {
   tags?: string[];                // Optional tags for further categorization
   createdAt: string;              // ISO string
   updatedAt: string;              // ISO string
-}
-
-// Kept existing Quiz types in case they are used for assembling tests later
-export interface Question {
-  id: string;
-  text: string;
-  options: MultipleChoiceOption[];
-  correctOptionId: OptionLabel;
-}
-
-export interface Quiz {
-  id: string;
-  title: string;
-  description?: string;
-  questions: Question[];
-  createdAt: string;
 }

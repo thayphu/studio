@@ -13,10 +13,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { PlusCircle, Save, ListChecks } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type { 
-  GradeLevel, TestBankType, QuestionType, MultipleChoiceOption, OptionLabel, QuestionBankEntry 
+  GradeLevel, CurriculumType, TestBankType, QuestionType, MultipleChoiceOption, OptionLabel, QuestionBankEntry 
 } from '@/lib/types';
 import { 
-  ALL_GRADE_LEVELS, ALL_TEST_BANK_TYPES, ALL_QUESTION_TYPES, ALL_OPTION_LABELS 
+  ALL_GRADE_LEVELS, ALL_CURRICULUM_TYPES, ALL_TEST_BANK_TYPES, ALL_QUESTION_TYPES, ALL_OPTION_LABELS 
 } from '@/lib/types';
 import { nanoid } from 'nanoid';
 
@@ -55,6 +55,7 @@ export default function QuestionBankPage() {
   const { toast } = useToast();
 
   const [selectedGradeLevel, setSelectedGradeLevel] = useState<GradeLevel | ''>('');
+  const [selectedCurriculumType, setSelectedCurriculumType] = useState<CurriculumType | ''>('');
   const [selectedTestBankType, setSelectedTestBankType] = useState<TestBankType | ''>('');
   const [selectedQuestionType, setSelectedQuestionType] = useState<QuestionType | ''>('');
 
@@ -69,8 +70,8 @@ export default function QuestionBankPage() {
   };
 
   const handleSaveQuestion = () => {
-    if (!selectedGradeLevel || !selectedTestBankType || !selectedQuestionType) {
-      toast({ title: "Thiếu thông tin", description: "Vui lòng chọn Khối lớp, Ngân hàng kiểm tra và Dạng câu hỏi.", variant: "destructive" });
+    if (!selectedGradeLevel || !selectedCurriculumType || !selectedTestBankType || !selectedQuestionType) {
+      toast({ title: "Thiếu thông tin", description: "Vui lòng chọn đầy đủ Khối lớp, Chương trình học, Ngân hàng kiểm tra và Dạng câu hỏi.", variant: "destructive" });
       return;
     }
 
@@ -91,6 +92,7 @@ export default function QuestionBankPage() {
       }
       questionEntry = {
         gradeLevel: selectedGradeLevel,
+        curriculumType: selectedCurriculumType,
         testBankType: selectedTestBankType,
         questionType: "Nhiều lựa chọn",
         text: multipleChoiceData.text.trim(),
@@ -111,6 +113,7 @@ export default function QuestionBankPage() {
       }
       questionEntry = {
         gradeLevel: selectedGradeLevel,
+        curriculumType: selectedCurriculumType,
         testBankType: selectedTestBankType,
         questionType: "True/False",
         text: trueFalseData.text.trim(),
@@ -123,6 +126,7 @@ export default function QuestionBankPage() {
       }
       questionEntry = {
         gradeLevel: selectedGradeLevel,
+        curriculumType: selectedCurriculumType,
         testBankType: selectedTestBankType,
         questionType: "Tự luận",
         text: essayData.text.trim(),
@@ -136,14 +140,14 @@ export default function QuestionBankPage() {
         id: nanoid(), // Generate unique ID here
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-      } as QuestionBankEntry; // Type assertion if questionEntry might not satisfy all fields initially
+      } as QuestionBankEntry; 
 
       console.log("Saving Question:", JSON.stringify(fullQuestionData, null, 2));
       // TODO: Implement actual saving to Firestore via a service
       // e.g., saveQuestionToBankMutation.mutate(fullQuestionData);
 
       toast({ title: "Đã Lưu (Console)", description: "Câu hỏi đã được log ra console. Chức năng lưu vào DB sẽ được triển khai sau." });
-      resetQuestionForms(); // Reset form after "saving"
+      resetQuestionForms(); 
     } else {
       toast({ title: "Lỗi", description: "Không thể xác định dạng câu hỏi để lưu.", variant: "destructive" });
     }
@@ -243,13 +247,22 @@ export default function QuestionBankPage() {
           <CardHeader>
             <CardTitle>Bước 1: Chọn Thông Tin Phân Loại</CardTitle>
           </CardHeader>
-          <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
               <Label htmlFor="grade-level-select">Khối lớp</Label>
               <Select value={selectedGradeLevel} onValueChange={(val) => setSelectedGradeLevel(val as GradeLevel)}>
                 <SelectTrigger id="grade-level-select"><SelectValue placeholder="Chọn khối lớp" /></SelectTrigger>
                 <SelectContent>
                   {ALL_GRADE_LEVELS.map(level => <SelectItem key={level} value={level}>{level}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="curriculum-type-select">Chương trình học</Label>
+              <Select value={selectedCurriculumType} onValueChange={(val) => setSelectedCurriculumType(val as CurriculumType)}>
+                <SelectTrigger id="curriculum-type-select"><SelectValue placeholder="Chọn chương trình học" /></SelectTrigger>
+                <SelectContent>
+                  {ALL_CURRICULUM_TYPES.map(type => <SelectItem key={type} value={type}>{type}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -274,12 +287,12 @@ export default function QuestionBankPage() {
           </CardContent>
         </Card>
 
-        {selectedGradeLevel && selectedTestBankType && selectedQuestionType && (
+        {selectedGradeLevel && selectedCurriculumType && selectedTestBankType && selectedQuestionType && (
           <Card className="shadow-md">
             <CardHeader>
               <CardTitle>Bước 2: Nhập Nội Dung Câu Hỏi ({selectedQuestionType})</CardTitle>
               <CardDescription>
-                Đang thêm câu hỏi cho: {selectedGradeLevel} - {selectedTestBankType}
+                Đang thêm câu hỏi cho: {selectedGradeLevel} - {selectedCurriculumType} - {selectedTestBankType}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -292,8 +305,6 @@ export default function QuestionBankPage() {
             </CardFooter>
           </Card>
         )}
-        
-        {/* Future: Add a section here to display questions already added to this bank */}
         
       </div>
     </DashboardLayout>
