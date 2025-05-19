@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react'; // Added useRef
 import dynamic from 'next/dynamic';
 import 'react-quill/dist/quill.snow.css'; // Import Quill styles
 
@@ -58,6 +58,7 @@ const initialEssayState: EssayFormState = {
 
 export default function QuestionBankPage() {
   const { toast } = useToast();
+  const quillRef = useRef(null); // Create a ref for ReactQuill
 
   const [selectedGradeLevel, setSelectedGradeLevel] = useState<GradeLevel | ''>('');
   const [selectedCurriculumType, setSelectedCurriculumType] = useState<CurriculumType | ''>('');
@@ -68,11 +69,11 @@ export default function QuestionBankPage() {
   const [trueFalseData, setTrueFalseData] = useState<TrueFalseFormState>(initialTrueFalseState);
   const [essayData, setEssayData] = useState<EssayFormState>(initialEssayState);
 
-  const resetQuestionForms = () => {
+  const resetQuestionForms = useCallback(() => {
     setMultipleChoiceData(initialMultipleChoiceState);
     setTrueFalseData(initialTrueFalseState);
     setEssayData(initialEssayState);
-  };
+  }, []);
 
   const handleSaveQuestion = () => {
     if (!selectedGradeLevel || !selectedCurriculumType || !selectedTestBankType || !selectedQuestionType) {
@@ -83,7 +84,6 @@ export default function QuestionBankPage() {
     let questionEntry: Omit<QuestionBankEntry, 'id' | 'createdAt' | 'updatedAt'> | null = null;
 
     if (selectedQuestionType === "Nhiều lựa chọn") {
-      // ReactQuill returns HTML, check if the content (excluding HTML tags) is empty
       const tempDiv = document.createElement('div');
       tempDiv.innerHTML = multipleChoiceData.text;
       const plainTextContent = tempDiv.textContent || tempDiv.innerText || "";
@@ -101,9 +101,9 @@ export default function QuestionBankPage() {
         return;
       }
       questionEntry = {
-        gradeLevel: selectedGradeLevel,
-        curriculumType: selectedCurriculumType,
-        testBankType: selectedTestBankType,
+        gradeLevel: selectedGradeLevel as GradeLevel,
+        curriculumType: selectedCurriculumType as CurriculumType,
+        testBankType: selectedTestBankType as TestBankType,
         questionType: "Nhiều lựa chọn",
         text: multipleChoiceData.text, // Save HTML content
         options: ALL_OPTION_LABELS.map(label => ({
@@ -122,9 +122,9 @@ export default function QuestionBankPage() {
         return;
       }
       questionEntry = {
-        gradeLevel: selectedGradeLevel,
-        curriculumType: selectedCurriculumType,
-        testBankType: selectedTestBankType,
+        gradeLevel: selectedGradeLevel as GradeLevel,
+        curriculumType: selectedCurriculumType as CurriculumType,
+        testBankType: selectedTestBankType as TestBankType,
         questionType: "True/False",
         text: trueFalseData.text.trim(),
         correctBooleanAnswer: trueFalseData.correctAnswer,
@@ -135,9 +135,9 @@ export default function QuestionBankPage() {
         return;
       }
       questionEntry = {
-        gradeLevel: selectedGradeLevel,
-        curriculumType: selectedCurriculumType,
-        testBankType: selectedTestBankType,
+        gradeLevel: selectedGradeLevel as GradeLevel,
+        curriculumType: selectedCurriculumType as CurriculumType,
+        testBankType: selectedTestBankType as TestBankType,
         questionType: "Tự luận",
         text: essayData.text.trim(),
         modelAnswer: essayData.modelAnswer.trim(), 
@@ -166,7 +166,7 @@ export default function QuestionBankPage() {
       [{ 'header': [1, 2, false] }],
       ['bold', 'italic', 'underline','strike', 'blockquote'],
       [{'list': 'ordered'}, {'list': 'bullet'}, {'indent': '-1'}, {'indent': '+1'}],
-      ['link'], // Removed 'image' for simplicity
+      ['link'], 
       ['clean']
     ],
   };
@@ -176,7 +176,6 @@ export default function QuestionBankPage() {
     'bold', 'italic', 'underline', 'strike', 'blockquote',
     'list', 'bullet', 'indent',
     'link', 
-    // 'image' // Removed 'image'
   ];
 
   const renderQuestionForm = () => {
@@ -190,15 +189,16 @@ export default function QuestionBankPage() {
           <div className="space-y-4">
             <div>
               <Label htmlFor="mc-question-text">Nội dung câu hỏi</Label>
-              {typeof window !== 'undefined' && ReactQuill && (
+              {typeof window !== 'undefined' && (
                 <ReactQuill 
+                  ref={quillRef} // Pass the ref here
                   theme="snow" 
                   value={multipleChoiceData.text} 
                   onChange={(content) => setMultipleChoiceData(prev => ({ ...prev, text: content }))}
                   modules={quillModules}
                   formats={quillFormats}
                   placeholder="Nhập nội dung câu hỏi ở đây..."
-                  className="bg-card" // Ensure editor blends with card background
+                  className="bg-card" 
                 />
               )}
             </div>
@@ -345,3 +345,5 @@ export default function QuestionBankPage() {
     </DashboardLayout>
   );
 }
+
+    
