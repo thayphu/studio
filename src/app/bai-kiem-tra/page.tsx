@@ -18,7 +18,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription as ShadCardDescription } from '@/components/ui/card';
 import { PlusCircle, Trash2, AlertCircle, Loader2, ListChecks } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -137,10 +137,10 @@ export default function BaiKiemTraPage() {
       <div className="container mx-auto py-8 px-4 md:px-6">
         <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
           <h1 className="text-3xl font-bold text-foreground flex items-center">
-            <ListChecks className="mr-3 h-8 w-8 text-primary" /> Quản lý Bài kiểm tra
+            <ListChecks className="mr-3 h-8 w-8 text-primary" /> Quản lý Đề kiểm tra
           </h1>
           <Button onClick={() => setIsCreateQuizModalOpen(true)}>
-            <PlusCircle className="mr-2 h-4 w-4" /> Tạo Bài kiểm tra mới
+            <PlusCircle className="mr-2 h-4 w-4" /> Tạo Đề kiểm tra mới
           </Button>
         </div>
 
@@ -154,14 +154,14 @@ export default function BaiKiemTraPage() {
 
         {isErrorQuizzes && (
           <div className="p-4 text-destructive text-center border border-destructive/50 bg-destructive/10 rounded-md shadow-sm">
-            <AlertCircle className="inline mr-2 h-5 w-5"/>Lỗi tải danh sách bài kiểm tra.
+            <AlertCircle className="inline mr-2 h-5 w-5"/>Lỗi tải danh sách đề kiểm tra.
             <p className="text-xs text-muted-foreground mt-1">{(errorQuizzes as Error)?.message || "Không thể tải dữ liệu."}</p>
           </div>
         )}
 
         {!isLoadingQuizzes && !isErrorQuizzes && quizzes.length === 0 && (
           <div className="text-center py-10 bg-card rounded-lg shadow p-6">
-            <p className="text-xl text-muted-foreground">Chưa có bài kiểm tra nào. Hãy tạo bài mới!</p>
+            <p className="text-xl text-muted-foreground">Chưa có đề kiểm tra nào. Hãy tạo đề mới!</p>
           </div>
         )}
 
@@ -171,7 +171,7 @@ export default function BaiKiemTraPage() {
               <Card key={quiz.id} className="shadow-md hover:shadow-lg transition-shadow">
                 <CardHeader>
                   <CardTitle>{quiz.title}</CardTitle>
-                  <CardDescription>{quiz.description || "Không có mô tả"}</CardDescription>
+                  <ShadCardDescription>{quiz.description || "Không có mô tả"}</ShadCardDescription>
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm text-muted-foreground">Số câu hỏi: {quiz.questions.length}</p>
@@ -191,20 +191,20 @@ export default function BaiKiemTraPage() {
         }}>
           <DialogContent className="sm:max-w-3xl max-h-[90vh] flex flex-col">
             <DialogHeader>
-              <DialogTitle>Tạo Bài kiểm tra mới</DialogTitle>
-              <DialogDescription>Điền thông tin và thêm các câu hỏi cho bài kiểm tra của bạn.</DialogDescription>
+              <DialogTitle>Tạo Đề kiểm tra mới</DialogTitle>
+              <DialogDescription>Điền thông tin và thêm các câu hỏi cho đề kiểm tra của bạn.</DialogDescription>
             </DialogHeader>
             
             <ScrollArea className="flex-grow -mx-6 px-6 py-4 border-y">
               <div className="space-y-6">
                 {/* Quiz Info */}
                 <div className="space-y-2">
-                  <Label htmlFor="quiz-title">Tiêu đề Bài kiểm tra</Label>
+                  <Label htmlFor="quiz-title">Tiêu đề Đề kiểm tra</Label>
                   <Input id="quiz-title" value={newQuizTitle} onChange={(e) => setNewQuizTitle(e.target.value)} placeholder="VD: Kiểm tra giữa kỳ Tiếng Anh lớp 12" />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="quiz-description">Mô tả (tùy chọn)</Label>
-                  <Textarea id="quiz-description" value={newQuizDescription} onChange={(e) => setNewQuizDescription(e.target.value)} placeholder="Mô tả ngắn về nội dung bài kiểm tra..." />
+                  <Textarea id="quiz-description" value={newQuizDescription} onChange={(e) => setNewQuizDescription(e.target.value)} placeholder="Mô tả ngắn về nội dung đề kiểm tra..." />
                 </div>
 
                 <hr className="my-4"/>
@@ -286,3 +286,5 @@ export default function BaiKiemTraPage() {
     </DashboardLayout>
   );
 }
+
+    
