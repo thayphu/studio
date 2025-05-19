@@ -30,6 +30,7 @@ import {
 import { NAV_LINKS, PARENT_PORTAL_LINK, TEXTS_VI } from '@/lib/constants';
 import { cn } from '@/lib/utils';
 import React, { useEffect, useCallback, useMemo } from 'react'; 
+import { useToast } from "@/hooks/use-toast"; // Added useToast import
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -38,6 +39,7 @@ interface DashboardLayoutProps {
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const { toast } = useToast(); // Initialized useToast
 
   useEffect(() => {
     console.log("DashboardLayout mounted or updated - " + new Date().toLocaleTimeString()); 
@@ -51,6 +53,13 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const handleParentPortalClick = useCallback(() => {
     window.open(PARENT_PORTAL_LINK.href, '_blank');
   }, []);
+
+  const handleAccountSettingsClick = () => {
+    toast({
+      title: "Thông báo",
+      description: "Chức năng Cài đặt tài khoản đang được phát triển.",
+    });
+  };
   
   return (
     <SidebarProvider defaultOpen>
@@ -68,26 +77,23 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           </SidebarHeader>
           <SidebarContent className="p-2">
             <SidebarMenu>
-              {NAV_LINKS.map((link) => {
-                const tooltipContent = link.label; // Use string directly for tooltip
-                return (
-                  <SidebarMenuItem key={link.href}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={pathname.startsWith(link.href)}
-                      className={cn(
-                        pathname.startsWith(link.href) ? "bg-primary/10 text-primary hover:bg-primary/20" : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                      )}
-                      tooltip={tooltipContent} 
-                    >
-                      <Link href={link.href}>
-                        <link.icon className="h-5 w-5" />
-                        <span>{link.label}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
+              {NAV_LINKS.map((link) => (
+                <SidebarMenuItem key={link.href}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={pathname.startsWith(link.href)}
+                    className={cn(
+                      pathname.startsWith(link.href) ? "bg-primary/10 text-primary hover:bg-primary/20" : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                    )}
+                    tooltip={link.label} 
+                  >
+                    <Link href={link.href}>
+                      <link.icon className="h-5 w-5" />
+                      <span>{link.label}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
             </SidebarMenu>
           </SidebarContent>
           <SidebarFooter className="p-2 mt-auto border-t">
@@ -95,7 +101,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               <SidebarMenuItem>
                 <SidebarMenuButton
                   asChild
-                  tooltip={PARENT_PORTAL_LINK.label} // Use string directly for tooltip
+                  tooltip={PARENT_PORTAL_LINK.label}
                   className="cursor-pointer hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                   onClick={handleParentPortalClick}
                 >
@@ -126,7 +132,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuLabel>Đông Phú</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>
+                <DropdownMenuItem onClick={handleAccountSettingsClick}>
                   <Settings className="mr-2 h-4 w-4" />
                   <span>Cài đặt tài khoản</span>
                 </DropdownMenuItem>
@@ -148,4 +154,3 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     </SidebarProvider>
   );
 }
-
