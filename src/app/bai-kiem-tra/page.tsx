@@ -2,6 +2,9 @@
 "use client";
 
 import React, { useState, useCallback } from 'react';
+import dynamic from 'next/dynamic';
+import 'react-quill/dist/quill.snow.css'; // Import Quill styles
+
 import DashboardLayout from '../dashboard-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card'; // Added CardFooter
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { PlusCircle, Save, ListChecks } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type { 
@@ -20,9 +23,11 @@ import {
 } from '@/lib/types';
 import { nanoid } from 'nanoid';
 
-// States for each question type form
+// Dynamically import ReactQuill to ensure it only loads on the client-side
+const ReactQuill = dynamic(() => import('react-quill'), { ssr: false });
+
 interface MultipleChoiceFormState {
-  text: string;
+  text: string; // This will now store HTML content from ReactQuill
   options: Record<OptionLabel, string>;
   correctOptionLabel: OptionLabel | '';
 }
@@ -34,7 +39,7 @@ const initialMultipleChoiceState: MultipleChoiceFormState = {
 
 interface TrueFalseFormState {
   text: string;
-  correctAnswer: boolean | null; // null for not selected, true for True, false for False
+  correctAnswer: boolean | null;
 }
 const initialTrueFalseState: TrueFalseFormState = {
   text: '',
@@ -78,7 +83,12 @@ export default function QuestionBankPage() {
     let questionEntry: Omit<QuestionBankEntry, 'id' | 'createdAt' | 'updatedAt'> | null = null;
 
     if (selectedQuestionType === "Nhiều lựa chọn") {
-      if (!multipleChoiceData.text.trim()) {
+      // ReactQuill returns HTML, check if the content (excluding HTML tags) is empty
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = multipleChoiceData.text;
+      const plainTextContent = tempDiv.textContent || tempDiv.innerText || "";
+
+      if (!plainTextContent.trim()) {
         toast({ title: "Lỗi", description: "Nội dung câu hỏi trắc nghiệm không được để trống.", variant: "destructive" });
         return;
       }
@@ -95,7 +105,7 @@ export default function QuestionBankPage() {
         curriculumType: selectedCurriculumType,
         testBankType: selectedTestBankType,
         questionType: "Nhiều lựa chọn",
-        text: multipleChoiceData.text.trim(),
+        text: multipleChoiceData.text, // Save HTML content
         options: ALL_OPTION_LABELS.map(label => ({
           id: label,
           text: multipleChoiceData.options[label].trim(),
@@ -130,22 +140,20 @@ export default function QuestionBankPage() {
         testBankType: selectedTestBankType,
         questionType: "Tự luận",
         text: essayData.text.trim(),
-        modelAnswer: essayData.modelAnswer.trim(), // Optional
+        modelAnswer: essayData.modelAnswer.trim(), 
       };
     }
 
     if (questionEntry) {
       const fullQuestionData: QuestionBankEntry = {
         ...questionEntry,
-        id: nanoid(), // Generate unique ID here
+        id: nanoid(), 
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       } as QuestionBankEntry; 
 
       console.log("Saving Question:", JSON.stringify(fullQuestionData, null, 2));
       // TODO: Implement actual saving to Firestore via a service
-      // e.g., saveQuestionToBankMutation.mutate(fullQuestionData);
-
       toast({ title: "Đã Lưu (Console)", description: "Câu hỏi đã được log ra console. Chức năng lưu vào DB sẽ được triển khai sau." });
       resetQuestionForms(); 
     } else {
@@ -153,6 +161,23 @@ export default function QuestionBankPage() {
     }
   };
 
+  const quillModules = {
+    toolbar: [
+      [{ 'header': [1, 2, false] }],
+      ['bold', 'italic', 'underline','strike', 'blockquote'],
+      [{'list': 'ordered'}, {'list': 'bullet'}, {'indent': '-1'}, {'indent': '+1'}],
+      ['link'], // Removed 'image' for simplicity
+      ['clean']
+    ],
+  };
+
+  const quillFormats = [
+    'header',
+    'bold', 'italic', 'underline', 'strike', 'blockquote',
+    'list', 'bullet', 'indent',
+    'link', 
+    // 'image' // Removed 'image'
+  ];
 
   const renderQuestionForm = () => {
     if (!selectedQuestionType) {
@@ -165,7 +190,17 @@ export default function QuestionBankPage() {
           <div className="space-y-4">
             <div>
               <Label htmlFor="mc-question-text">Nội dung câu hỏi</Label>
-              <Textarea id="mc-question-text" value={multipleChoiceData.text} onChange={(e) => setMultipleChoiceData(prev => ({ ...prev, text: e.target.value }))} placeholder="Nhập nội dung câu hỏi ở đây..." />
+              {typeof window !== 'undefined' && ReactQuill && (
+                <ReactQuill 
+                  theme="snow" 
+                  value={multipleChoiceData.text} 
+                  onChange={(content) => setMultipleChoiceData(prev => ({ ...prev, text: content }))}
+                  modules={quillModules}
+                  formats={quillFormats}
+                  placeholder="Nhập nội dung câu hỏi ở đây..."
+                  className="bg-card" // Ensure editor blends with card background
+                />
+              )}
             </div>
             {ALL_OPTION_LABELS.map(label => (
               <div key={label}>
@@ -310,4 +345,3 @@ export default function QuestionBankPage() {
     </DashboardLayout>
   );
 }
-
