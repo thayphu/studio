@@ -4,289 +4,298 @@
 import React, { useState, useCallback } from 'react';
 import DashboardLayout from '../dashboard-layout';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-  DialogClose,
-} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription as ShadCardDescription } from '@/components/ui/card';
-import { PlusCircle, Trash2, AlertCircle, Loader2, ListChecks } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { PlusCircle, Save, ListChecks } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import type { Quiz, Question, QuestionOption, OptionLabel } from '@/lib/types';
-import { ALL_OPTION_LABELS } from '@/lib/types';
-import { saveQuiz, getQuizzes } from '@/services/quizService';
+import type { 
+  GradeLevel, TestBankType, QuestionType, MultipleChoiceOption, OptionLabel, QuestionBankEntry 
+} from '@/lib/types';
+import { 
+  ALL_GRADE_LEVELS, ALL_TEST_BANK_TYPES, ALL_QUESTION_TYPES, ALL_OPTION_LABELS 
+} from '@/lib/types';
 import { nanoid } from 'nanoid';
 
-interface NewQuestionFormState {
+// States for each question type form
+interface MultipleChoiceFormState {
   text: string;
   options: Record<OptionLabel, string>;
   correctOptionLabel: OptionLabel | '';
 }
-
-const initialNewQuestionState: NewQuestionFormState = {
+const initialMultipleChoiceState: MultipleChoiceFormState = {
   text: '',
   options: { A: '', B: '', C: '', D: '' },
   correctOptionLabel: '',
 };
 
-export default function BaiKiemTraPage() {
+interface TrueFalseFormState {
+  text: string;
+  correctAnswer: boolean | null; // null for not selected, true for True, false for False
+}
+const initialTrueFalseState: TrueFalseFormState = {
+  text: '',
+  correctAnswer: null,
+};
+
+interface EssayFormState {
+  text: string;
+  modelAnswer: string;
+}
+const initialEssayState: EssayFormState = {
+  text: '',
+  modelAnswer: '',
+};
+
+
+export default function QuestionBankPage() {
   const { toast } = useToast();
-  const queryClient = useQueryClient();
 
-  const [isCreateQuizModalOpen, setIsCreateQuizModalOpen] = useState(false);
-  const [newQuizTitle, setNewQuizTitle] = useState('');
-  const [newQuizDescription, setNewQuizDescription] = useState('');
-  const [currentQuestions, setCurrentQuestions] = useState<Omit<Question, 'id'>[]>([]);
-  const [newQuestion, setNewQuestion] = useState<NewQuestionFormState>(initialNewQuestionState);
+  const [selectedGradeLevel, setSelectedGradeLevel] = useState<GradeLevel | ''>('');
+  const [selectedTestBankType, setSelectedTestBankType] = useState<TestBankType | ''>('');
+  const [selectedQuestionType, setSelectedQuestionType] = useState<QuestionType | ''>('');
 
-  const { data: quizzes = [], isLoading: isLoadingQuizzes, isError: isErrorQuizzes, error: errorQuizzes } = useQuery<Quiz[], Error>({
-    queryKey: ['quizzes'],
-    queryFn: getQuizzes,
-  });
+  const [multipleChoiceData, setMultipleChoiceData] = useState<MultipleChoiceFormState>(initialMultipleChoiceState);
+  const [trueFalseData, setTrueFalseData] = useState<TrueFalseFormState>(initialTrueFalseState);
+  const [essayData, setEssayData] = useState<EssayFormState>(initialEssayState);
 
-  const saveQuizMutation = useMutation({
-    mutationFn: (data: { quizData: Omit<Quiz, 'id' | 'createdAt' | 'questions'>, questions: Omit<Question, 'id'>[] }) =>
-      saveQuiz(data.quizData, data.questions),
-    onSuccess: () => {
-      toast({ title: "Thành công!", description: "Đề kiểm tra đã được lưu." });
-      queryClient.invalidateQueries({ queryKey: ['quizzes'] });
-      setIsCreateQuizModalOpen(false);
-      setNewQuizTitle('');
-      setNewQuizDescription('');
-      setCurrentQuestions([]);
-      setNewQuestion(initialNewQuestionState);
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Lỗi khi lưu đề kiểm tra",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
-  const handleNewQuestionInputChange = <K extends keyof NewQuestionFormState>(field: K, value: NewQuestionFormState[K]) => {
-    setNewQuestion(prev => ({ ...prev, [field]: value }));
+  const resetQuestionForms = () => {
+    setMultipleChoiceData(initialMultipleChoiceState);
+    setTrueFalseData(initialTrueFalseState);
+    setEssayData(initialEssayState);
   };
 
-  const handleOptionInputChange = (optionLabel: OptionLabel, value: string) => {
-    setNewQuestion(prev => ({
-      ...prev,
-      options: { ...prev.options, [optionLabel]: value },
-    }));
-  };
-
-  const handleAddQuestion = () => {
-    if (!newQuestion.text.trim()) {
-      toast({ title: "Lỗi", description: "Nội dung câu hỏi không được để trống.", variant: "destructive" });
-      return;
-    }
-    if (ALL_OPTION_LABELS.some(label => !newQuestion.options[label].trim())) {
-      toast({ title: "Lỗi", description: "Vui lòng nhập nội dung cho tất cả các lựa chọn A, B, C, D.", variant: "destructive" });
-      return;
-    }
-    if (!newQuestion.correctOptionLabel) {
-      toast({ title: "Lỗi", description: "Vui lòng chọn đáp án đúng.", variant: "destructive" });
+  const handleSaveQuestion = () => {
+    if (!selectedGradeLevel || !selectedTestBankType || !selectedQuestionType) {
+      toast({ title: "Thiếu thông tin", description: "Vui lòng chọn Khối lớp, Ngân hàng kiểm tra và Dạng câu hỏi.", variant: "destructive" });
       return;
     }
 
-    const questionToAdd: Omit<Question, 'id'> = {
-      text: newQuestion.text.trim(),
-      options: ALL_OPTION_LABELS.map(label => ({
-        id: label, // Using A, B, C, D as IDs for options within a question
-        text: newQuestion.options[label].trim(),
-      })),
-      correctOptionId: newQuestion.correctOptionLabel,
-    };
-    setCurrentQuestions(prev => [...prev, questionToAdd]);
-    setNewQuestion(initialNewQuestionState); // Reset for next question
-  };
+    let questionEntry: Omit<QuestionBankEntry, 'id' | 'createdAt' | 'updatedAt'> | null = null;
 
-  const handleRemoveQuestion = (indexToRemove: number) => {
-    setCurrentQuestions(prev => prev.filter((_, index) => index !== indexToRemove));
-  };
-
-  const handleSaveQuiz = () => {
-    if (!newQuizTitle.trim()) {
-      toast({ title: "Lỗi", description: "Tiêu đề đề kiểm tra không được để trống.", variant: "destructive" });
-      return;
+    if (selectedQuestionType === "Nhiều lựa chọn") {
+      if (!multipleChoiceData.text.trim()) {
+        toast({ title: "Lỗi", description: "Nội dung câu hỏi trắc nghiệm không được để trống.", variant: "destructive" });
+        return;
+      }
+      if (ALL_OPTION_LABELS.some(label => !multipleChoiceData.options[label].trim())) {
+        toast({ title: "Lỗi", description: "Vui lòng nhập nội dung cho tất cả các lựa chọn A, B, C, D.", variant: "destructive" });
+        return;
+      }
+      if (!multipleChoiceData.correctOptionLabel) {
+        toast({ title: "Lỗi", description: "Vui lòng chọn đáp án đúng cho câu hỏi trắc nghiệm.", variant: "destructive" });
+        return;
+      }
+      questionEntry = {
+        gradeLevel: selectedGradeLevel,
+        testBankType: selectedTestBankType,
+        questionType: "Nhiều lựa chọn",
+        text: multipleChoiceData.text.trim(),
+        options: ALL_OPTION_LABELS.map(label => ({
+          id: label,
+          text: multipleChoiceData.options[label].trim(),
+        })),
+        correctOptionId: multipleChoiceData.correctOptionLabel,
+      };
+    } else if (selectedQuestionType === "True/False") {
+      if (!trueFalseData.text.trim()) {
+        toast({ title: "Lỗi", description: "Nội dung câu hỏi Đúng/Sai không được để trống.", variant: "destructive" });
+        return;
+      }
+      if (trueFalseData.correctAnswer === null) {
+        toast({ title: "Lỗi", description: "Vui lòng chọn đáp án đúng (Đúng hoặc Sai).", variant: "destructive" });
+        return;
+      }
+      questionEntry = {
+        gradeLevel: selectedGradeLevel,
+        testBankType: selectedTestBankType,
+        questionType: "True/False",
+        text: trueFalseData.text.trim(),
+        correctBooleanAnswer: trueFalseData.correctAnswer,
+      };
+    } else if (selectedQuestionType === "Tự luận") {
+      if (!essayData.text.trim()) {
+        toast({ title: "Lỗi", description: "Nội dung câu hỏi tự luận không được để trống.", variant: "destructive" });
+        return;
+      }
+      questionEntry = {
+        gradeLevel: selectedGradeLevel,
+        testBankType: selectedTestBankType,
+        questionType: "Tự luận",
+        text: essayData.text.trim(),
+        modelAnswer: essayData.modelAnswer.trim(), // Optional
+      };
     }
-    if (currentQuestions.length === 0) {
-      toast({ title: "Lỗi", description: "Đề kiểm tra phải có ít nhất một câu hỏi.", variant: "destructive" });
-      return;
+
+    if (questionEntry) {
+      const fullQuestionData: QuestionBankEntry = {
+        ...questionEntry,
+        id: nanoid(), // Generate unique ID here
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      } as QuestionBankEntry; // Type assertion if questionEntry might not satisfy all fields initially
+
+      console.log("Saving Question:", JSON.stringify(fullQuestionData, null, 2));
+      // TODO: Implement actual saving to Firestore via a service
+      // e.g., saveQuestionToBankMutation.mutate(fullQuestionData);
+
+      toast({ title: "Đã Lưu (Console)", description: "Câu hỏi đã được log ra console. Chức năng lưu vào DB sẽ được triển khai sau." });
+      resetQuestionForms(); // Reset form after "saving"
+    } else {
+      toast({ title: "Lỗi", description: "Không thể xác định dạng câu hỏi để lưu.", variant: "destructive" });
     }
-    saveQuizMutation.mutate({
-      quizData: { title: newQuizTitle.trim(), description: newQuizDescription.trim() },
-      questions: currentQuestions,
-    });
   };
 
+
+  const renderQuestionForm = () => {
+    if (!selectedQuestionType) {
+      return <p className="text-muted-foreground text-center py-4">Vui lòng chọn dạng câu hỏi để hiển thị form nhập liệu.</p>;
+    }
+
+    switch (selectedQuestionType) {
+      case "Nhiều lựa chọn":
+        return (
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="mc-question-text">Nội dung câu hỏi</Label>
+              <Textarea id="mc-question-text" value={multipleChoiceData.text} onChange={(e) => setMultipleChoiceData(prev => ({ ...prev, text: e.target.value }))} placeholder="Nhập nội dung câu hỏi ở đây..." />
+            </div>
+            {ALL_OPTION_LABELS.map(label => (
+              <div key={label}>
+                <Label htmlFor={`mc-option-${label}`}>Lựa chọn {label}</Label>
+                <Input id={`mc-option-${label}`} value={multipleChoiceData.options[label]} onChange={(e) => setMultipleChoiceData(prev => ({ ...prev, options: { ...prev.options, [label]: e.target.value } }))} placeholder={`Nội dung lựa chọn ${label}`} />
+              </div>
+            ))}
+            <div>
+              <Label>Đáp án đúng</Label>
+              <RadioGroup
+                value={multipleChoiceData.correctOptionLabel}
+                onValueChange={(val) => setMultipleChoiceData(prev => ({ ...prev, correctOptionLabel: val as OptionLabel }))}
+                className="flex space-x-4"
+              >
+                {ALL_OPTION_LABELS.map(label => (
+                  <div key={`radio-${label}`} className="flex items-center space-x-2">
+                    <RadioGroupItem value={label} id={`mc-correct-${label}`} />
+                    <Label htmlFor={`mc-correct-${label}`}>{label}</Label>
+                  </div>
+                ))}
+              </RadioGroup>
+            </div>
+          </div>
+        );
+      case "True/False":
+        return (
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="tf-question-text">Nội dung câu hỏi/mệnh đề</Label>
+              <Textarea id="tf-question-text" value={trueFalseData.text} onChange={(e) => setTrueFalseData(prev => ({ ...prev, text: e.target.value }))} placeholder="Nhập nội dung câu hỏi hoặc mệnh đề..." />
+            </div>
+            <div>
+              <Label>Đáp án đúng</Label>
+              <RadioGroup
+                value={trueFalseData.correctAnswer === null ? "" : String(trueFalseData.correctAnswer)}
+                onValueChange={(val) => setTrueFalseData(prev => ({ ...prev, correctAnswer: val === "true" }))}
+                className="flex space-x-4"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="true" id="tf-correct-true" />
+                  <Label htmlFor="tf-correct-true">Đúng (True)</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="false" id="tf-correct-false" />
+                  <Label htmlFor="tf-correct-false">Sai (False)</Label>
+                </div>
+              </RadioGroup>
+            </div>
+          </div>
+        );
+      case "Tự luận":
+        return (
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="essay-question-text">Nội dung câu hỏi tự luận</Label>
+              <Textarea id="essay-question-text" value={essayData.text} onChange={(e) => setEssayData(prev => ({ ...prev, text: e.target.value }))} placeholder="Nhập nội dung câu hỏi tự luận..." rows={5} />
+            </div>
+            <div>
+              <Label htmlFor="essay-model-answer">Đáp án mẫu/Gợi ý chấm (tùy chọn)</Label>
+              <Textarea id="essay-model-answer" value={essayData.modelAnswer} onChange={(e) => setEssayData(prev => ({ ...prev, modelAnswer: e.target.value }))} placeholder="Nhập đáp án mẫu hoặc gợi ý chấm điểm..." rows={5}/>
+            </div>
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
 
   return (
     <DashboardLayout>
       <div className="container mx-auto py-8 px-4 md:px-6">
         <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
           <h1 className="text-3xl font-bold text-foreground flex items-center">
-            <ListChecks className="mr-3 h-8 w-8 text-primary" /> Quản lý Đề kiểm tra
+            <ListChecks className="mr-3 h-8 w-8 text-primary" /> Thêm Câu Hỏi vào Ngân Hàng
           </h1>
-          <Button onClick={() => setIsCreateQuizModalOpen(true)}>
-            <PlusCircle className="mr-2 h-4 w-4" /> Tạo Đề kiểm tra mới
-          </Button>
         </div>
 
-        {isLoadingQuizzes && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[...Array(3)].map((_, i) => (
-              <Card key={`quiz-skel-${i}`}><CardHeader><div className="h-6 bg-muted rounded w-3/4"></div></CardHeader><CardContent><div className="h-4 bg-muted rounded w-1/2"></div></CardContent></Card>
-            ))}
-          </div>
-        )}
+        <Card className="mb-6 shadow-md">
+          <CardHeader>
+            <CardTitle>Bước 1: Chọn Thông Tin Phân Loại</CardTitle>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <Label htmlFor="grade-level-select">Khối lớp</Label>
+              <Select value={selectedGradeLevel} onValueChange={(val) => setSelectedGradeLevel(val as GradeLevel)}>
+                <SelectTrigger id="grade-level-select"><SelectValue placeholder="Chọn khối lớp" /></SelectTrigger>
+                <SelectContent>
+                  {ALL_GRADE_LEVELS.map(level => <SelectItem key={level} value={level}>{level}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="test-bank-select">Ngân hàng kiểm tra</Label>
+              <Select value={selectedTestBankType} onValueChange={(val) => setSelectedTestBankType(val as TestBankType)}>
+                <SelectTrigger id="test-bank-select"><SelectValue placeholder="Chọn ngân hàng KT" /></SelectTrigger>
+                <SelectContent>
+                  {ALL_TEST_BANK_TYPES.map(type => <SelectItem key={type} value={type}>{type}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="question-type-select">Dạng câu hỏi</Label>
+              <Select value={selectedQuestionType} onValueChange={(val) => { setSelectedQuestionType(val as QuestionType); resetQuestionForms(); }}>
+                <SelectTrigger id="question-type-select"><SelectValue placeholder="Chọn dạng câu hỏi" /></SelectTrigger>
+                <SelectContent>
+                  {ALL_QUESTION_TYPES.map(type => <SelectItem key={type} value={type}>{type}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
 
-        {isErrorQuizzes && (
-          <div className="p-4 text-destructive text-center border border-destructive/50 bg-destructive/10 rounded-md shadow-sm">
-            <AlertCircle className="inline mr-2 h-5 w-5"/>Lỗi tải danh sách đề kiểm tra.
-            <p className="text-xs text-muted-foreground mt-1">{(errorQuizzes as Error)?.message || "Không thể tải dữ liệu."}</p>
-          </div>
-        )}
-
-        {!isLoadingQuizzes && !isErrorQuizzes && quizzes.length === 0 && (
-          <div className="text-center py-10 bg-card rounded-lg shadow p-6">
-            <p className="text-xl text-muted-foreground">Chưa có đề kiểm tra nào. Hãy tạo đề mới!</p>
-          </div>
-        )}
-
-        {!isLoadingQuizzes && !isErrorQuizzes && quizzes.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {quizzes.map(quiz => (
-              <Card key={quiz.id} className="shadow-md hover:shadow-lg transition-shadow">
-                <CardHeader>
-                  <CardTitle>{quiz.title}</CardTitle>
-                  <ShadCardDescription>{quiz.description || "Không có mô tả"}</ShadCardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground">Số câu hỏi: {quiz.questions.length}</p>
-                  <p className="text-xs text-muted-foreground">Ngày tạo: {new Date(quiz.createdAt).toLocaleDateString('vi-VN')}</p>
-                </CardContent>
-                {/* Add Edit/Delete/View buttons later */}
-              </Card>
-            ))}
-          </div>
-        )}
-
-        <Dialog open={isCreateQuizModalOpen} onOpenChange={(isOpen) => {
-            if (!isOpen) {
-                setNewQuizTitle(''); setNewQuizDescription(''); setCurrentQuestions([]); setNewQuestion(initialNewQuestionState);
-            }
-            setIsCreateQuizModalOpen(isOpen);
-        }}>
-          <DialogContent className="sm:max-w-3xl max-h-[90vh] flex flex-col">
-            <DialogHeader>
-              <DialogTitle>Tạo Đề kiểm tra mới</DialogTitle>
-              <DialogDescription>Điền thông tin và thêm các câu hỏi cho đề kiểm tra của bạn.</DialogDescription>
-            </DialogHeader>
-            
-            <ScrollArea className="flex-grow -mx-6 px-6 py-4 border-y">
-              <div className="space-y-6">
-                {/* Quiz Info */}
-                <div className="space-y-2">
-                  <Label htmlFor="quiz-title">Tiêu đề Đề kiểm tra</Label>
-                  <Input id="quiz-title" value={newQuizTitle} onChange={(e) => setNewQuizTitle(e.target.value)} placeholder="VD: Kiểm tra giữa kỳ Tiếng Anh lớp 12" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="quiz-description">Mô tả (tùy chọn)</Label>
-                  <Textarea id="quiz-description" value={newQuizDescription} onChange={(e) => setNewQuizDescription(e.target.value)} placeholder="Mô tả ngắn về nội dung đề kiểm tra..." />
-                </div>
-
-                <hr className="my-4"/>
-
-                {/* Add Question Form */}
-                <Card className="bg-muted/50">
-                  <CardHeader><CardTitle className="text-lg">Thêm Câu hỏi mới</CardTitle></CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="space-y-1">
-                      <Label htmlFor="new-question-text">Nội dung câu hỏi</Label>
-                      <Textarea id="new-question-text" value={newQuestion.text} onChange={(e) => handleNewQuestionInputChange('text', e.target.value)} placeholder="Nhập nội dung câu hỏi ở đây..." />
-                    </div>
-                    {ALL_OPTION_LABELS.map(label => (
-                      <div key={label} className="space-y-1">
-                        <Label htmlFor={`new-option-${label}`}>Lựa chọn {label}</Label>
-                        <Input id={`new-option-${label}`} value={newQuestion.options[label]} onChange={(e) => handleOptionInputChange(label, e.target.value)} placeholder={`Nội dung lựa chọn ${label}`} />
-                      </div>
-                    ))}
-                    <div className="space-y-1">
-                      <Label>Đáp án đúng</Label>
-                      <RadioGroup
-                        value={newQuestion.correctOptionLabel}
-                        onValueChange={(val) => handleNewQuestionInputChange('correctOptionLabel', val as OptionLabel)}
-                        className="flex space-x-4"
-                      >
-                        {ALL_OPTION_LABELS.map(label => (
-                          <div key={`radio-${label}`} className="flex items-center space-x-2">
-                            <RadioGroupItem value={label} id={`correct-${label}`} />
-                            <Label htmlFor={`correct-${label}`}>{label}</Label>
-                          </div>
-                        ))}
-                      </RadioGroup>
-                    </div>
-                    <Button onClick={handleAddQuestion} type="button" variant="outline" size="sm">
-                      <PlusCircle className="mr-2 h-4 w-4" /> Thêm câu hỏi này
-                    </Button>
-                  </CardContent>
-                </Card>
-
-                {/* Current Questions List */}
-                {currentQuestions.length > 0 && (
-                  <div className="space-y-3">
-                    <h3 className="text-md font-semibold">Các câu hỏi đã thêm ({currentQuestions.length}):</h3>
-                    <ScrollArea className="max-h-60 border rounded-md p-3 space-y-2 bg-background">
-                      {currentQuestions.map((q, index) => (
-                        <div key={index} className="p-2 border rounded-md text-sm">
-                          <div className="flex justify-between items-start">
-                            <p className="font-medium flex-1">Câu {index + 1}: {q.text}</p>
-                            <Button variant="ghost" size="icon" onClick={() => handleRemoveQuestion(index)} className="h-7 w-7 shrink-0">
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                          </div>
-                          <ul className="list-disc list-inside pl-4 mt-1">
-                            {q.options.map(opt => (
-                              <li key={opt.id} className={opt.id === q.correctOptionId ? 'font-bold text-green-600' : ''}>
-                                {opt.id}: {opt.text}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      ))}
-                    </ScrollArea>
-                  </div>
-                )}
-              </div>
-            </ScrollArea>
-
-            <DialogFooter className="pt-4">
-              <DialogClose asChild>
-                <Button type="button" variant="outline">Hủy</Button>
-              </DialogClose>
-              <Button onClick={handleSaveQuiz} disabled={saveQuizMutation.isPending}>
-                {saveQuizMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Lưu Đề kiểm tra
+        {selectedGradeLevel && selectedTestBankType && selectedQuestionType && (
+          <Card className="shadow-md">
+            <CardHeader>
+              <CardTitle>Bước 2: Nhập Nội Dung Câu Hỏi ({selectedQuestionType})</CardTitle>
+              <CardDescription>
+                Đang thêm câu hỏi cho: {selectedGradeLevel} - {selectedTestBankType}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {renderQuestionForm()}
+            </CardContent>
+            <CardFooter>
+              <Button onClick={handleSaveQuestion}>
+                <Save className="mr-2 h-4 w-4" /> Lưu Câu Hỏi Này
               </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
+            </CardFooter>
+          </Card>
+        )}
+        
+        {/* Future: Add a section here to display questions already added to this bank */}
+        
       </div>
     </DashboardLayout>
   );
 }
-
-    
