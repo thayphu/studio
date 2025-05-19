@@ -1,6 +1,6 @@
 
 import type { LucideIcon } from 'lucide-react';
-import { LayoutDashboard, Users, CreditCard, UserCheck, BarChart3, Search, School, ClipboardList } from 'lucide-react';
+import { Users, CreditCard, UserCheck, BarChart3, Search, School, ClipboardList, Award } from 'lucide-react'; // Added Award
 
 interface NavLink {
   href: string;
@@ -15,6 +15,7 @@ export const NAV_LINKS: NavLink[] = [
   { href: "/diem-danh", label: "Điểm danh", icon: UserCheck },
   { href: "/phieu-lien-lac", label: "Phiếu liên lạc", icon: ClipboardList },
   { href: "/bao-cao", label: "Báo cáo", icon: BarChart3 },
+  { href: "/xep-hang", label: "Xếp hạng", icon: Award }, // Added Xep Hang
 ];
 
 export const PARENT_PORTAL_LINK = {
@@ -24,7 +25,6 @@ export const PARENT_PORTAL_LINK = {
 };
 
 // Admin Credentials
-// IMPORTANT: For development only. In production, use a secure authentication system.
 // This information is read by src/components/auth/LoginForm.tsx
 export const ADMIN_USERNAME = "dongphubte@gmail.com";
 export const ADMIN_PASSWORD_TEMP = "@Quantriweb2013";
@@ -58,8 +58,6 @@ export const TEXTS_VI = {
   closeClassButton: "Đóng lớp",
   addStudentButton: "Thêm HS",
   noClassesFound: "Chưa có lớp học nào. Hãy thêm lớp mới!",
-  // Generic
-  loading: "Đang tải...",
 };
 
 export const WEEKDAYS_VI: Record<string, number> = {

@@ -122,3 +122,30 @@ export interface StudentSlipInput {
   homeworkAssignmentVocabulary?: string;
   homeworkAssignmentTasks?: string;
 }
+
+// Types for Test Scores (used for Ranking page)
+export interface TestScoreRecord {
+  id: string; // Firestore document ID
+  studentId: string;
+  classId: string;
+  testDate: string; // YYYY-MM-DD
+  score?: number | null;
+  // Add other fields from the old TestScoreRecord if they are needed for ranking
+  // For now, only score is essential for ranking.
+  // testName?: string;
+  // masteredLesson?: boolean;
+  // vocabularyToReview?: string;
+  // generalRemarks?: string;
+  // homeworkStatus?: HomeworkStatus;
+  createdAt?: string; // ISO string from Firestore timestamp
+  updatedAt?: string; // ISO string from Firestore timestamp
+}
+
+export interface StudentRankingInfo {
+  studentId: string;
+  studentName: string;
+  classId?: string;
+  className?: string;
+  totalScore: number;
+  rank?: number;
+}
