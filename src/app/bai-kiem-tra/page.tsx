@@ -2,8 +2,8 @@
 "use client";
 
 import React, { useState, useCallback, useRef, useMemo } from 'react';
-import dynamic from 'next/dynamic';
-import 'react-quill/dist/quill.snow.css'; // Import Quill styles
+// Removed ReactQuill import: import dynamic from 'next/dynamic';
+// Removed Quill styles import: import 'react-quill/dist/quill.snow.css'; 
 
 import DashboardLayout from '../dashboard-layout';
 import { Button } from '@/components/ui/button';
@@ -23,11 +23,10 @@ import {
 } from '@/lib/types';
 import { nanoid } from 'nanoid';
 
-// Dynamically import ReactQuill to ensure it only loads on the client-side
-const ReactQuill = dynamic(() => import('react-quill'), { ssr: false });
+// Removed ReactQuill dynamic import
 
 interface MultipleChoiceFormState {
-  text: string; // This will now store HTML content from ReactQuill
+  text: string; // This will now store plain text
   options: Record<OptionLabel, string>;
   correctOptionLabel: OptionLabel | '';
 }
@@ -58,7 +57,7 @@ const initialEssayState: EssayFormState = {
 
 export default function QuestionBankPage() {
   const { toast } = useToast();
-  const quillRef = useRef<any>(null);
+  // Removed quillRef: const quillRef = useRef<any>(null);
 
   const [selectedGradeLevel, setSelectedGradeLevel] = useState<GradeLevel | ''>('');
   const [selectedCurriculumType, setSelectedCurriculumType] = useState<CurriculumType | ''>('');
@@ -69,17 +68,13 @@ export default function QuestionBankPage() {
   const [trueFalseData, setTrueFalseData] = useState<TrueFalseFormState>(initialTrueFalseState);
   const [essayData, setEssayData] = useState<EssayFormState>(initialEssayState);
 
-  const handleMultipleChoiceTextChange = useCallback((content: string) => {
-    setMultipleChoiceData(prev => ({ ...prev, text: content }));
-  }, []); // setMultipleChoiceData is stable from useState
+  // Removed handleMultipleChoiceTextChange for ReactQuill
 
   const resetQuestionForms = useCallback(() => {
     setMultipleChoiceData(initialMultipleChoiceState);
     setTrueFalseData(initialTrueFalseState);
     setEssayData(initialEssayState);
-    if (quillRef.current && quillRef.current.getEditor()) {
-      quillRef.current.getEditor().setText('');
-    }
+    // Removed quillRef editor reset
   }, []);
 
   const handleSaveQuestion = () => {
@@ -91,11 +86,8 @@ export default function QuestionBankPage() {
     let questionEntry: Omit<QuestionBankEntry, 'id' | 'createdAt' | 'updatedAt'> | null = null;
 
     if (selectedQuestionType === "Nhiều lựa chọn") {
-      const tempDiv = document.createElement('div');
-      tempDiv.innerHTML = multipleChoiceData.text;
-      const plainTextContent = tempDiv.textContent || tempDiv.innerText || "";
-
-      if (!plainTextContent.trim()) {
+      // Plain text check for multiple choice question
+      if (!multipleChoiceData.text.trim()) {
         toast({ title: "Lỗi", description: "Nội dung câu hỏi trắc nghiệm không được để trống.", variant: "destructive" });
         return;
       }
@@ -112,7 +104,7 @@ export default function QuestionBankPage() {
         curriculumType: selectedCurriculumType as CurriculumType,
         testBankType: selectedTestBankType as TestBankType,
         questionType: "Nhiều lựa chọn",
-        text: multipleChoiceData.text,
+        text: multipleChoiceData.text.trim(), // Save plain text
         options: ALL_OPTION_LABELS.map(label => ({
           id: label,
           text: multipleChoiceData.options[label].trim(),
@@ -160,7 +152,6 @@ export default function QuestionBankPage() {
       } as QuestionBankEntry;
 
       console.log("Saving Question:", JSON.stringify(fullQuestionData, null, 2));
-      // TODO: Implement actual saving to Firestore via a service
       toast({ title: "Đã Lưu (Console)", description: "Câu hỏi đã được log ra console. Chức năng lưu vào DB sẽ được triển khai sau." });
       resetQuestionForms();
     } else {
@@ -168,22 +159,7 @@ export default function QuestionBankPage() {
     }
   };
 
-  const quillModules = useMemo(() => ({
-    toolbar: [
-      [{ 'header': [1, 2, false] }],
-      ['bold', 'italic', 'underline','strike', 'blockquote'],
-      [{'list': 'ordered'}, {'list': 'bullet'}, {'indent': '-1'}, {'indent': '+1'}],
-      ['link'],
-      ['clean']
-    ],
-  }), []);
-
-  const quillFormats = useMemo(() => ([
-    'header',
-    'bold', 'italic', 'underline', 'strike', 'blockquote',
-    'list', 'bullet', 'indent',
-    'link',
-  ]), []);
+  // Removed quillModules and quillFormats
 
   const renderQuestionForm = () => {
     if (!selectedQuestionType) {
@@ -196,18 +172,14 @@ export default function QuestionBankPage() {
           <div className="space-y-4">
             <div>
               <Label htmlFor="mc-question-text">Nội dung câu hỏi</Label>
-              {typeof window !== 'undefined' && ReactQuill && (
-                <ReactQuill
-                  ref={quillRef}
-                  theme="snow"
-                  value={multipleChoiceData.text}
-                  onChange={handleMultipleChoiceTextChange} // Use memoized handler
-                  modules={quillModules}
-                  formats={quillFormats}
-                  placeholder="Nhập nội dung câu hỏi ở đây..."
-                  className="bg-card"
-                />
-              )}
+              <Textarea
+                id="mc-question-text"
+                value={multipleChoiceData.text}
+                onChange={(e) => setMultipleChoiceData(prev => ({ ...prev, text: e.target.value }))}
+                placeholder="Nhập nội dung câu hỏi ở đây..."
+                rows={5}
+                className="bg-card"
+              />
             </div>
             {ALL_OPTION_LABELS.map(label => (
               <div key={label}>
@@ -362,5 +334,3 @@ export default function QuestionBankPage() {
     </DashboardLayout>
   );
 }
-
-    
