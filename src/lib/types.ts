@@ -64,8 +64,8 @@ export interface DiemDanhGhiNhan {
   ngayDiemDanh: string; // ISO Date string (YYYYMMDD)
   trangThai: AttendanceStatus;
   ghiChu?: string;
-  hoTen?: string; 
-  tenLop?: string; 
+  hoTen?: string;
+  tenLop?: string;
 }
 
 
@@ -74,9 +74,9 @@ export const ALL_MAKEUP_CLASS_STATUSES: MakeupClassStatus[] = ['chờ xếp lị
 
 
 export interface GiaoVienVangRecord {
-  id: string; 
+  id: string;
   classId: string;
-  className: string; 
+  className: string;
   originalDate: string; // YYYYMMDD format
   status: MakeupClassStatus;
   makeupDate?: string; // YYYYMMDD format, if scheduled
@@ -93,28 +93,28 @@ export type HomeworkStatusPLC = "Đã làm bài đầy đủ" | "Chỉ làm bài
 export const ALL_HOMEWORK_STATUSES_PLC: HomeworkStatusPLC[] = ["Đã làm bài đầy đủ", "Chỉ làm bài 1 phần", "Chỉ làm 2/3 bài", "Không làm bài"];
 
 export interface PhieuLienLacRecord {
-  id: string; 
+  id: string;
   studentId: string;
-  studentName?: string; 
+  studentName?: string;
   classId: string;
-  className?: string; 
+  className?: string;
   date: string; // YYYY-MM-DD
   testFormat?: TestFormatPLC;
   score?: number | null;
-  lessonMasteryText?: string; 
+  lessonMasteryText?: string;
   homeworkStatus?: HomeworkStatusPLC;
   vocabularyToReview?: string;
   remarks?: string;
-  homeworkAssignmentVocabulary?: string; 
-  homeworkAssignmentTasks?: string;    
-  createdAt?: string; 
-  updatedAt?: string; 
+  homeworkAssignmentVocabulary?: string;
+  homeworkAssignmentTasks?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface StudentSlipInput {
   testFormat?: TestFormatPLC;
-  score?: string | number | null; 
-  lessonMasteryText?: string; 
+  score?: string | number | null;
+  lessonMasteryText?: string;
   homeworkStatus?: HomeworkStatusPLC;
   vocabularyToReview?: string;
   remarks?: string;
@@ -140,8 +140,17 @@ export interface MultipleChoiceOption {
   text: string;
 }
 
-export type GradeLevel = "Lớp 10" | "Lớp 11" | "Lớp 12" | "Khác";
-export const ALL_GRADE_LEVELS: GradeLevel[] = ["Lớp 10", "Lớp 11", "Lớp 12", "Khác"];
+export type GradeLevel =
+  | "Lớp 1" | "Lớp 2" | "Lớp 3" | "Lớp 4" | "Lớp 5"
+  | "Lớp 6" | "Lớp 7" | "Lớp 8" | "Lớp 9"
+  | "Lớp 10" | "Lớp 11" | "Lớp 12" | "Khác";
+
+export const ALL_GRADE_LEVELS: GradeLevel[] = [
+  "Lớp 1", "Lớp 2", "Lớp 3", "Lớp 4", "Lớp 5",
+  "Lớp 6", "Lớp 7", "Lớp 8", "Lớp 9",
+  "Lớp 10", "Lớp 11", "Lớp 12", "Khác"
+];
+
 
 export type TestBankType = "15 phút" | "45 phút" | "Giữa kỳ" | "Cuối kỳ";
 export const ALL_TEST_BANK_TYPES: TestBankType[] = ["15 phút", "45 phút", "Giữa kỳ", "Cuối kỳ"];
@@ -166,16 +175,16 @@ export interface QuestionBankEntry {
 
 // Kept existing Quiz types in case they are used for assembling tests later
 export interface Question {
-  id: string; 
+  id: string;
   text: string;
-  options: MultipleChoiceOption[]; 
-  correctOptionId: OptionLabel; 
+  options: MultipleChoiceOption[];
+  correctOptionId: OptionLabel;
 }
 
 export interface Quiz {
-  id: string; 
+  id: string;
   title: string;
   description?: string;
-  questions: Question[]; 
-  createdAt: string; 
+  questions: Question[];
+  createdAt: string;
 }
