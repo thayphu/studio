@@ -1,6 +1,6 @@
 
 import type { LucideIcon } from 'lucide-react';
-import { Users, CreditCard, UserCheck, BarChart3, Search, School, ClipboardList, Award } from 'lucide-react';
+import { Users, CreditCard, UserCheck, BarChart3, Search, School, ClipboardList, Award, FileQuestion } from 'lucide-react'; // Added FileQuestion
 
 interface NavLink {
   href: string;
@@ -14,7 +14,7 @@ export const NAV_LINKS: NavLink[] = [
   { href: "/hoc-phi", label: "Học phí", icon: CreditCard },
   { href: "/diem-danh", label: "Điểm danh", icon: UserCheck },
   { href: "/phieu-lien-lac", label: "Phiếu liên lạc", icon: ClipboardList },
-  // { href: "/bai-kiem-tra", label: "Đề kiểm tra", icon: FileQuestion }, // Removed
+  { href: "/bai-kiem-tra", label: "Đề kiểm tra", icon: FileQuestion },
   { href: "/bao-cao", label: "Báo cáo", icon: BarChart3 },
   { href: "/xep-hang", label: "Xếp hạng", icon: Award },
 ];
@@ -25,17 +25,13 @@ export const PARENT_PORTAL_LINK = {
   icon: Search
 };
 
-// Admin Credentials
-// This information is read by src/components/auth/LoginForm.tsx
-export const ADMIN_USERNAME = "dongphubte@gmail.com";
-export const ADMIN_PASSWORD_TEMP = "@Quantriweb2013";
-
+// Admin Credentials are now removed from here and should be managed via Firebase Authentication.
 
 // Vietnamese Texts
 export const TEXTS_VI = {
   appName: "HoEdu Solution",
   loginTitle: "Đăng nhập quản trị",
-  usernameLabel: "Tên đăng nhập",
+  usernameLabel: "Email", // Changed from Tên đăng nhập to Email
   passwordLabel: "Mật khẩu",
   loginButton: "Đăng nhập",
   logoutButton: "Đăng xuất",

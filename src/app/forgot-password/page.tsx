@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { getAuth, sendPasswordResetEmail } from "firebase/auth";
+import { getAuth, sendPasswordResetEmail, type AuthError } from "firebase/auth"; // Import AuthError
 import { app } from "@/lib/firebase"; // Ensure Firebase app is initialized and exported
 
 export default function ForgotPasswordPage() {
@@ -41,25 +41,17 @@ export default function ForgotPasswordPage() {
         description: "Yêu cầu đặt lại mật khẩu đã được gửi. Vui lòng kiểm tra email.",
       });
       setEmail(""); // Clear email field on success
-    } catch (error: any) {
-      console.error("Error sending password reset email:", error);
+    } catch (error) {
+      const authError = error as AuthError;
+      console.error("Error sending password reset email:", authError.code, authError.message);
       let errorMessage = "Đã có lỗi xảy ra khi gửi email đặt lại mật khẩu. Vui lòng thử lại.";
-      if (error.code === "auth/user-not-found") {
-        // To avoid disclosing whether an email is registered, you might want to show a generic message for both user-not-found and success.
-        // However, for development/admin purposes, a specific message can be helpful.
-        // For now, we will stick to a generic success message to prevent user enumeration.
-        setMessage("Nếu địa chỉ email của bạn tồn tại trong hệ thống, một liên kết đặt lại mật khẩu đã được gửi. Vui lòng kiểm tra hộp thư đến.");
-        toast({
+      // To avoid disclosing whether an email is registered, show a generic message for both user-not-found and success.
+      if (authError.code === "auth/user-not-found" || authError.code === "auth/invalid-email") {
+         errorMessage = "Nếu địa chỉ email của bạn tồn tại trong hệ thống, một liên kết đặt lại mật khẩu đã được gửi. Vui lòng kiểm tra hộp thư đến.";
+         setMessage(errorMessage);
+         toast({
             title: "Yêu cầu đã được xử lý",
             description: "Nếu email của bạn được đăng ký, bạn sẽ nhận được hướng dẫn đặt lại mật khẩu.",
-        });
-      } else if (error.code === "auth/invalid-email") {
-        errorMessage = "Địa chỉ email không hợp lệ. Vui lòng kiểm tra lại.";
-        setMessage(errorMessage);
-        toast({
-            title: "Lỗi",
-            description: errorMessage,
-            variant: "destructive",
         });
       } else {
         // For other errors, show a generic message to the user

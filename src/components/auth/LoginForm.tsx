@@ -17,13 +17,15 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { TEXTS_VI, ADMIN_USERNAME, ADMIN_PASSWORD_TEMP } from '@/lib/constants'; // Import credentials
+import { TEXTS_VI } from '@/lib/constants';
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
 import { Eye, EyeOff } from "lucide-react";
+import { getAuth, signInWithEmailAndPassword, type AuthError } from "firebase/auth";
+import { app } from "@/lib/firebase"; // Firebase app instance
 
 const loginFormSchema = z.object({
-  username: z.string().min(1, { message: "Tên đăng nhập không được để trống." }),
+  email: z.string().email({ message: "Địa chỉ email không hợp lệ." }).min(1, { message: "Email không được để trống." }),
   password: z.string().min(1, { message: "Mật khẩu không được để trống." }),
 });
 
@@ -34,56 +36,44 @@ export default function LoginForm() {
   const { toast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-
-  useEffect(() => {
-    // Client-side check for environment variables (can be removed if not using them)
-    // console.log("DEBUG: NEXT_PUBLIC_ADMIN_USERNAME from client-side:", process.env.NEXT_PUBLIC_ADMIN_USERNAME);
-    // console.log("DEBUG: NEXT_PUBLIC_ADMIN_PASSWORD from client-side:", process.env.NEXT_PUBLIC_ADMIN_PASSWORD);
-  }, []);
+  const auth = getAuth(app); // Initialize Firebase Auth
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginFormSchema),
     defaultValues: {
-      username: "",
+      email: "",
       password: "",
     },
   });
 
-  function onSubmit(data: LoginFormValues) {
+  async function onSubmit(data: LoginFormValues) {
     setIsLoading(true);
-    // Read admin credentials from constants.ts
-    const adminUsername = ADMIN_USERNAME;
-    const adminPassword = ADMIN_PASSWORD_TEMP;
-
-    if (!adminUsername || !adminPassword) {
-      // This case should ideally not happen if constants are defined
+    try {
+      await signInWithEmailAndPassword(auth, data.email, data.password);
       toast({
-        title: "Lỗi Cấu Hình Đăng Nhập Nghiêm Trọng",
-        description: "Thông tin đăng nhập quản trị không được định nghĩa trong mã nguồn. Vui lòng liên hệ nhà phát triển.",
+        title: "Đăng nhập thành công!",
+        description: "Chào mừng quay trở lại.",
+      });
+      router.push('/lop-hoc');
+    } catch (error) {
+      const authError = error as AuthError;
+      console.error("Firebase Auth Error:", authError.code, authError.message);
+      let description = "Tên đăng nhập hoặc mật khẩu không đúng.";
+      if (authError.code === "auth/user-not-found" || authError.code === "auth/wrong-password" || authError.code === "auth/invalid-credential") {
+        description = "Email hoặc mật khẩu không chính xác. Vui lòng thử lại.";
+      } else if (authError.code === "auth/too-many-requests") {
+        description = "Quá nhiều lần thử đăng nhập không thành công. Vui lòng thử lại sau.";
+      } else if (authError.code === "auth/invalid-email") {
+        description = "Địa chỉ email không hợp lệ.";
+      }
+      toast({
+        title: "Đăng nhập thất bại",
+        description: description,
         variant: "destructive",
       });
-      console.error("LOGIN_FORM_ERROR: Admin credentials are not defined in constants.ts.");
+    } finally {
       setIsLoading(false);
-      return;
     }
-
-    // Simulate API call
-    setTimeout(() => {
-      if (data.username === adminUsername && data.password === adminPassword) {
-        toast({
-          title: "Đăng nhập thành công!",
-          description: "Chào mừng quay trở lại.",
-        });
-        router.push('/lop-hoc');
-      } else {
-        toast({
-          title: "Đăng nhập thất bại",
-          description: "Tên đăng nhập hoặc mật khẩu không đúng.",
-          variant: "destructive",
-        });
-      }
-      setIsLoading(false);
-    }, 1000);
   }
 
   return (
@@ -97,12 +87,12 @@ export default function LoginForm() {
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <FormField
               control={form.control}
-              name="username"
+              name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{TEXTS_VI.usernameLabel}</FormLabel>
+                  <FormLabel>Email</FormLabel>
                   <FormControl>
-                    <Input {...field} />
+                    <Input {...field} type="email" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -126,6 +116,7 @@ export default function LoginForm() {
                         size="icon"
                         className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
                         onClick={() => setShowPassword(!showPassword)}
+                        aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
                       >
                         {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </Button>
@@ -136,7 +127,7 @@ export default function LoginForm() {
               )}
             />
             <div className="flex items-center justify-between">
-              <div></div>
+              <div></div> {/* Empty div for spacing if needed, or remove if not needed */}
               <Button
                 type="button"
                 variant="link"

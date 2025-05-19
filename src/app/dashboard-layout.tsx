@@ -30,7 +30,9 @@ import {
 import { NAV_LINKS, PARENT_PORTAL_LINK, TEXTS_VI } from '@/lib/constants';
 import { cn } from '@/lib/utils';
 import React, { useEffect, useCallback, useMemo } from 'react'; 
-import { useToast } from "@/hooks/use-toast"; // Added useToast import
+import { useToast } from "@/hooks/use-toast";
+import { getAuth, signOut } from "firebase/auth"; // Import Firebase Auth
+import { app } from "@/lib/firebase"; // Firebase app instance
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -39,16 +41,33 @@ interface DashboardLayoutProps {
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { toast } = useToast(); // Initialized useToast
+  const { toast } = useToast();
+  const auth = getAuth(app); // Initialize Firebase Auth
 
   useEffect(() => {
     console.log("DashboardLayout mounted or updated - " + new Date().toLocaleTimeString()); 
   }, []); 
 
 
-  const handleLogout = useCallback(() => {
-    router.push('/login');
-  }, [router]);
+  const handleLogout = useCallback(async () => {
+    try {
+      await signOut(auth);
+      toast({
+        title: "Đã đăng xuất",
+        description: "Bạn đã đăng xuất thành công.",
+      });
+      router.push('/login');
+    } catch (error) {
+      console.error("Error signing out: ", error);
+      toast({
+        title: "Lỗi đăng xuất",
+        description: "Đã có lỗi xảy ra khi đăng xuất. Vui lòng thử lại.",
+        variant: "destructive",
+      });
+      // Fallback to redirect even if sign out fails to prevent being stuck
+      router.push('/login');
+    }
+  }, [auth, router, toast]);
 
   const handleParentPortalClick = useCallback(() => {
     window.open(PARENT_PORTAL_LINK.href, '_blank');
@@ -57,7 +76,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const handleAccountSettingsClick = () => {
     toast({
       title: "Thông báo",
-      description: "Chức năng Cài đặt tài khoản đang được phát triển.",
+      description: "Chức năng Cài đặt tài khoản đang được phát triển. Sẽ yêu cầu tích hợp Firebase Authentication.",
     });
   };
   
@@ -77,23 +96,26 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           </SidebarHeader>
           <SidebarContent className="p-2">
             <SidebarMenu>
-              {NAV_LINKS.map((link) => (
-                <SidebarMenuItem key={link.href}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={pathname.startsWith(link.href)}
-                    className={cn(
-                      pathname.startsWith(link.href) ? "bg-primary/10 text-primary hover:bg-primary/20" : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                    )}
-                    tooltip={link.label} 
-                  >
-                    <Link href={link.href}>
-                      <link.icon className="h-5 w-5" />
-                      <span>{link.label}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              {NAV_LINKS.map((link) => {
+                const tooltipContent = link.label; 
+                return (
+                  <SidebarMenuItem key={link.href}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={pathname.startsWith(link.href)}
+                      className={cn(
+                        pathname.startsWith(link.href) ? "bg-primary/10 text-primary hover:bg-primary/20" : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                      )}
+                      tooltip={tooltipContent} 
+                    >
+                      <Link href={link.href}>
+                        <link.icon className="h-5 w-5" />
+                        <span>{link.label}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarContent>
           <SidebarFooter className="p-2 mt-auto border-t">
@@ -130,7 +152,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel>Đông Phú</DropdownMenuLabel>
+                <DropdownMenuLabel>{auth.currentUser?.displayName || auth.currentUser?.email || "Admin"}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleAccountSettingsClick}>
                   <Settings className="mr-2 h-4 w-4" />
