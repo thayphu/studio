@@ -4,7 +4,7 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { LogOut, Settings } from 'lucide-react';
+import { LogOut, Settings, Loader2 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
@@ -29,32 +29,36 @@ import {
 } from '@/components/ui/sidebar';
 import { NAV_LINKS, PARENT_PORTAL_LINK, TEXTS_VI } from '@/lib/constants';
 import { cn } from '@/lib/utils';
-import React, { useEffect, useCallback, useMemo } from 'react'; 
+import React, { useEffect, useCallback, useMemo, useState, useRef } from 'react'; 
 import { useToast } from "@/hooks/use-toast";
-import { getAuth, signOut } from "firebase/auth"; // Import Firebase Auth
-import { app } from "@/lib/firebase"; // Firebase app instance
+import { getAuth, signOut, onAuthStateChanged, type User } from "firebase/auth";
+import { app } from "@/lib/firebase";
+import ChangePasswordDialog from '@/components/auth/ChangePasswordDialog';
 
 interface DashboardLayoutProps {
   children: ReactNode;
 }
 
+const INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
+
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { toast } = useToast();
-  const auth = getAuth(app); // Initialize Firebase Auth
+  const auth = getAuth(app);
+  const [currentUser, setCurrentUser] = useState<User | null>(auth.currentUser);
+  const [isChangePasswordDialogOpen, setIsChangePasswordDialogOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  useEffect(() => {
-    console.log("DashboardLayout mounted or updated - " + new Date().toLocaleTimeString()); 
-  }, []); 
+  const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-
-  const handleLogout = useCallback(async () => {
+  const handleLogout = useCallback(async (isAutoLogout: boolean = false) => {
+    setIsLoggingOut(true);
     try {
       await signOut(auth);
       toast({
-        title: "Đã đăng xuất",
-        description: "Bạn đã đăng xuất thành công.",
+        title: isAutoLogout ? "Đã tự động đăng xuất" : "Đã đăng xuất",
+        description: isAutoLogout ? "Bạn đã không hoạt động trong một khoảng thời gian." : "Bạn đã đăng xuất thành công.",
       });
       router.push('/login');
     } catch (error) {
@@ -64,20 +68,73 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         description: "Đã có lỗi xảy ra khi đăng xuất. Vui lòng thử lại.",
         variant: "destructive",
       });
-      // Fallback to redirect even if sign out fails to prevent being stuck
-      router.push('/login');
+      router.push('/login'); // Fallback redirect
+    } finally {
+      setIsLoggingOut(false);
     }
   }, [auth, router, toast]);
+
+  const resetInactivityTimer = useCallback(() => {
+    if (inactivityTimerRef.current) {
+      clearTimeout(inactivityTimerRef.current);
+    }
+    if (currentUser) { // Only set timer if user is logged in
+      inactivityTimerRef.current = setTimeout(() => {
+        toast({
+          title: "Phiên sắp hết hạn",
+          description: "Bạn sẽ tự động đăng xuất sau một phút nữa nếu không có hoạt động.",
+          variant: "default",
+          duration: 60000, // Show for 1 minute
+        });
+        // Set another shorter timer for actual logout
+        setTimeout(() => {
+          if (auth.currentUser) { // Check again if user is still logged in
+             handleLogout(true);
+          }
+        }, 60000); // 1 minute warning
+      }, INACTIVITY_TIMEOUT_MS - 60000); // Trigger warning 1 min before actual timeout
+    }
+  }, [currentUser, handleLogout, toast, auth]);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setCurrentUser(user);
+      if (user) {
+        resetInactivityTimer();
+      } else if (inactivityTimerRef.current) {
+        clearTimeout(inactivityTimerRef.current);
+      }
+    });
+    return () => unsubscribe();
+  }, [auth, resetInactivityTimer]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && currentUser) {
+      const activityEvents: (keyof WindowEventMap)[] = ['mousemove', 'mousedown', 'keypress', 'scroll', 'touchstart'];
+      activityEvents.forEach(event => window.addEventListener(event, resetInactivityTimer));
+
+      resetInactivityTimer(); // Initial timer start
+
+      return () => {
+        activityEvents.forEach(event => window.removeEventListener(event, resetInactivityTimer));
+        if (inactivityTimerRef.current) {
+          clearTimeout(inactivityTimerRef.current);
+        }
+      };
+    }
+  }, [resetInactivityTimer, currentUser]);
+
+
+  useEffect(() => {
+    console.log("DashboardLayout mounted or updated - " + new Date().toLocaleTimeString()); 
+  }, []); 
 
   const handleParentPortalClick = useCallback(() => {
     window.open(PARENT_PORTAL_LINK.href, '_blank');
   }, []);
 
   const handleAccountSettingsClick = () => {
-    toast({
-      title: "Thông báo",
-      description: "Chức năng Cài đặt tài khoản đang được phát triển. Sẽ yêu cầu tích hợp Firebase Authentication.",
-    });
+    setIsChangePasswordDialogOpen(true);
   };
   
   return (
@@ -127,7 +184,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                   className="cursor-pointer hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                   onClick={handleParentPortalClick}
                 >
-                  <a> {/* Use <a> for onClick to work properly with window.open */}
+                  <a> 
                     <PARENT_PORTAL_LINK.icon className="h-5 w-5" />
                     <span>{PARENT_PORTAL_LINK.label}</span>
                   </a>
@@ -147,20 +204,20 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                   <Avatar className="h-9 w-9">
                     <AvatarImage src="https://placehold.co/100x100.png" alt="Admin Avatar" data-ai-hint="avatar user" />
-                    <AvatarFallback>DP</AvatarFallback>
+                    <AvatarFallback>{currentUser?.email?.substring(0,2)?.toUpperCase() || "AD"}</AvatarFallback>
                   </Avatar>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel>{auth.currentUser?.displayName || auth.currentUser?.email || "Admin"}</DropdownMenuLabel>
+                <DropdownMenuLabel>{currentUser?.displayName || currentUser?.email || "Admin"}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleAccountSettingsClick}>
                   <Settings className="mr-2 h-4 w-4" />
                   <span>Cài đặt tài khoản</span>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout}>
-                  <LogOut className="mr-2 h-4 w-4" />
+                <DropdownMenuItem onClick={() => handleLogout(false)} disabled={isLoggingOut}>
+                  {isLoggingOut ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LogOut className="mr-2 h-4 w-4" />}
                   <span>{TEXTS_VI.logoutButton}</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -173,6 +230,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           </main>
         </div>
       </div>
+      <ChangePasswordDialog open={isChangePasswordDialogOpen} onOpenChange={setIsChangePasswordDialogOpen} />
     </SidebarProvider>
   );
 }

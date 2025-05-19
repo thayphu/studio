@@ -8,20 +8,20 @@ import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { getAuth, sendPasswordResetEmail, type AuthError } from "firebase/auth"; // Import AuthError
-import { app } from "@/lib/firebase"; // Ensure Firebase app is initialized and exported
+import { getAuth, sendPasswordResetEmail, type AuthError } from "firebase/auth";
+import { app } from "@/lib/firebase";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [message, setMessage] = useState(""); // To display success/error messages within the card
+  const [message, setMessage] = useState("");
   const { toast } = useToast();
-  const auth = getAuth(app); // Initialize Firebase Auth
+  const auth = getAuth(app);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
-    setMessage(""); // Clear previous messages
+    setMessage("");
 
     if (!email) {
       toast({
@@ -35,30 +35,39 @@ export default function ForgotPasswordPage() {
 
     try {
       await sendPasswordResetEmail(auth, email);
-      setMessage("Một email đặt lại mật khẩu đã được gửi đến địa chỉ của bạn (nếu tài khoản tồn tại). Vui lòng kiểm tra hộp thư đến, bao gồm cả thư mục spam.");
+      const successMessage = "Một email đặt lại mật khẩu đã được gửi đến địa chỉ của bạn (nếu tài khoản tồn tại). Vui lòng kiểm tra hộp thư đến, bao gồm cả thư mục spam.";
+      setMessage(successMessage);
       toast({
-        title: "Thành công",
-        description: "Yêu cầu đặt lại mật khẩu đã được gửi. Vui lòng kiểm tra email.",
+        title: "Yêu cầu đã được gửi",
+        description: successMessage,
       });
-      setEmail(""); // Clear email field on success
+      setEmail(""); 
     } catch (error) {
       const authError = error as AuthError;
       console.error("Error sending password reset email:", authError.code, authError.message);
-      let errorMessage = "Đã có lỗi xảy ra khi gửi email đặt lại mật khẩu. Vui lòng thử lại.";
-      // To avoid disclosing whether an email is registered, show a generic message for both user-not-found and success.
-      if (authError.code === "auth/user-not-found" || authError.code === "auth/invalid-email") {
-         errorMessage = "Nếu địa chỉ email của bạn tồn tại trong hệ thống, một liên kết đặt lại mật khẩu đã được gửi. Vui lòng kiểm tra hộp thư đến.";
-         setMessage(errorMessage);
+      let userFriendlyMessage = "Đã có lỗi xảy ra khi gửi email đặt lại mật khẩu. Vui lòng thử lại.";
+
+      if (authError.code === "auth/user-not-found") {
+        // To prevent email enumeration, show a generic message for user-not-found
+        userFriendlyMessage = "Nếu địa chỉ email của bạn tồn tại trong hệ thống, một liên kết đặt lại mật khẩu đã được gửi. Vui lòng kiểm tra hộp thư đến.";
+         setMessage(userFriendlyMessage);
          toast({
             title: "Yêu cầu đã được xử lý",
-            description: "Nếu email của bạn được đăng ký, bạn sẽ nhận được hướng dẫn đặt lại mật khẩu.",
+            description: userFriendlyMessage,
+        });
+      } else if (authError.code === "auth/invalid-email") {
+        userFriendlyMessage = "Địa chỉ email không hợp lệ. Vui lòng kiểm tra lại.";
+         setMessage(userFriendlyMessage);
+         toast({
+            title: "Lỗi",
+            description: userFriendlyMessage,
+            variant: "destructive",
         });
       } else {
-        // For other errors, show a generic message to the user
-        setMessage(errorMessage);
+        setMessage(userFriendlyMessage);
         toast({
             title: "Lỗi",
-            description: errorMessage,
+            description: userFriendlyMessage,
             variant: "destructive",
         });
       }
