@@ -36,7 +36,15 @@ export default function LoginForm() {
   const { toast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const auth = getAuth(app); // Initialize Firebase Auth
+  const auth = getAuth(app);
+
+  useEffect(() => {
+    // This log helps confirm if env vars are accessible on client for debugging.
+    // For actual admin credentials, these are now read from Firebase Auth, not env vars.
+    // console.log("DEBUG: NEXT_PUBLIC_ADMIN_USERNAME from client-side:", process.env.NEXT_PUBLIC_ADMIN_USERNAME);
+    // console.log("DEBUG: NEXT_PUBLIC_ADMIN_PASSWORD from client-side:", process.env.NEXT_PUBLIC_ADMIN_PASSWORD);
+  }, []);
+
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginFormSchema),
@@ -58,7 +66,9 @@ export default function LoginForm() {
     } catch (error) {
       const authError = error as AuthError;
       console.error("Firebase Auth Error:", authError.code, authError.message);
-      let description = "Tên đăng nhập hoặc mật khẩu không đúng.";
+      // Default error message, generally overridden by more specific checks below
+      let description = "Đã có lỗi xảy ra khi đăng nhập. Vui lòng thử lại."; 
+      
       if (authError.code === "auth/user-not-found" || authError.code === "auth/wrong-password" || authError.code === "auth/invalid-credential") {
         description = "Email hoặc mật khẩu không chính xác. Vui lòng thử lại.";
       } else if (authError.code === "auth/too-many-requests") {
@@ -90,7 +100,7 @@ export default function LoginForm() {
               name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Email</FormLabel>
+                  <FormLabel>{TEXTS_VI.usernameLabel}</FormLabel>
                   <FormControl>
                     <Input {...field} type="email" />
                   </FormControl>
@@ -127,7 +137,7 @@ export default function LoginForm() {
               )}
             />
             <div className="flex items-center justify-between">
-              <div></div> {/* Empty div for spacing if needed, or remove if not needed */}
+              <div></div> 
               <Button
                 type="button"
                 variant="link"
