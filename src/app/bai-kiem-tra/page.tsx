@@ -2,18 +2,17 @@
 "use client";
 
 import React, { useState, useCallback, useRef, useMemo } from 'react';
-import dynamic from 'next/dynamic'; // Import dynamic
+import dynamic from 'next/dynamic';
 import 'react-quill/dist/quill.snow.css'; // Import Quill styles
 
 import DashboardLayout from '../dashboard-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-// Removed Textarea import as ReactQuill will replace it for MC questions
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
-import { ListChecks, Save } from 'lucide-react'; // Removed PlusCircle
+import { ListChecks, Save } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type {
   GradeLevel, CurriculumType, TestBankType, QuestionType, MultipleChoiceOption, OptionLabel, QuestionBankEntry
@@ -27,12 +26,12 @@ import { Textarea } from '@/components/ui/textarea'; // Keep Textarea for other 
 // Dynamically import ReactQuill
 const ReactQuill = dynamic(() => import('react-quill'), { ssr: false });
 
-interface MultipleChoiceFormState {
+interface NewMultipleChoiceFormState {
   text: string; // This will store HTML content from ReactQuill
   options: Record<OptionLabel, string>;
   correctOptionLabel: OptionLabel | '';
 }
-const initialMultipleChoiceState: MultipleChoiceFormState = {
+const initialNewMultipleChoiceState: NewMultipleChoiceFormState = {
   text: '',
   options: { A: '', B: '', C: '', D: '' },
   correctOptionLabel: '',
@@ -58,14 +57,14 @@ const initialEssayState: EssayFormState = {
 
 export default function QuestionBankPage() {
   const { toast } = useToast();
-  const quillRef = useRef<any>(null); // Ref for ReactQuill
+  const quillRef = useRef<any>(null);
 
   const [selectedGradeLevel, setSelectedGradeLevel] = useState<GradeLevel | ''>('');
   const [selectedCurriculumType, setSelectedCurriculumType] = useState<CurriculumType | ''>('');
   const [selectedTestBankType, setSelectedTestBankType] = useState<TestBankType | ''>('');
   const [selectedQuestionType, setSelectedQuestionType] = useState<QuestionType | ''>('');
 
-  const [multipleChoiceData, setMultipleChoiceData] = useState<MultipleChoiceFormState>(initialMultipleChoiceState);
+  const [multipleChoiceData, setMultipleChoiceData] = useState<NewMultipleChoiceFormState>(initialNewMultipleChoiceState);
   const [trueFalseData, setTrueFalseData] = useState<TrueFalseFormState>(initialTrueFalseState);
   const [essayData, setEssayData] = useState<EssayFormState>(initialEssayState);
 
@@ -73,12 +72,24 @@ export default function QuestionBankPage() {
     setMultipleChoiceData(prev => ({ ...prev, text: content }));
   }, []);
 
+  const handleOptionInputChange = useCallback((label: OptionLabel, value: string) => {
+    setMultipleChoiceData(prev => ({
+      ...prev,
+      options: { ...prev.options, [label]: value }
+    }));
+  }, []);
+
+  const handleCorrectOptionChange = useCallback((label: OptionLabel) => {
+    setMultipleChoiceData(prev => ({ ...prev, correctOptionLabel: label }));
+  }, []);
+
+
   const resetQuestionForms = useCallback(() => {
-    setMultipleChoiceData(initialMultipleChoiceState);
-    if (quillRef.current) {
+    setMultipleChoiceData(initialNewMultipleChoiceState);
+     if (quillRef.current) {
         const editor = quillRef.current.getEditor();
         if (editor) {
-            editor.setText(''); // Clears the content
+            editor.setText(''); 
         }
     }
     setTrueFalseData(initialTrueFalseState);
@@ -94,7 +105,6 @@ export default function QuestionBankPage() {
     let questionEntry: Omit<QuestionBankEntry, 'id' | 'createdAt' | 'updatedAt'> | null = null;
 
     if (selectedQuestionType === "Nhiều lựa chọn") {
-      // For ReactQuill, checking if the content (even if HTML) is effectively empty
       const tempDiv = document.createElement('div');
       tempDiv.innerHTML = multipleChoiceData.text;
       if (!tempDiv.textContent?.trim()) {
@@ -114,7 +124,7 @@ export default function QuestionBankPage() {
         curriculumType: selectedCurriculumType as CurriculumType,
         testBankType: selectedTestBankType as TestBankType,
         questionType: "Nhiều lựa chọn",
-        text: multipleChoiceData.text, // Save HTML content
+        text: multipleChoiceData.text,
         options: ALL_OPTION_LABELS.map(label => ({
           id: label,
           text: multipleChoiceData.options[label].trim(),
@@ -206,7 +216,7 @@ export default function QuestionBankPage() {
                   modules={quillModules}
                   formats={quillFormats}
                   placeholder="Nhập nội dung câu hỏi ở đây..."
-                  className="bg-card" // Added for potential theming consistency
+                  className="bg-card"
                 />
               )}
             </div>
@@ -216,12 +226,7 @@ export default function QuestionBankPage() {
                 <Input
                   id={`mc-option-${label}`}
                   value={multipleChoiceData.options[label]}
-                  onChange={(e) =>
-                    setMultipleChoiceData(prev => ({
-                      ...prev,
-                      options: { ...prev.options, [label]: e.target.value }
-                    }))
-                  }
+                  onChange={(e) => handleOptionInputChange(label, e.target.value)}
                   placeholder={`Nội dung lựa chọn ${label}`}
                 />
               </div>
@@ -230,7 +235,7 @@ export default function QuestionBankPage() {
               <Label>Đáp án đúng</Label>
               <RadioGroup
                 value={multipleChoiceData.correctOptionLabel}
-                onValueChange={(val) => setMultipleChoiceData(prev => ({ ...prev, correctOptionLabel: val as OptionLabel }))}
+                onValueChange={(val) => handleCorrectOptionChange(val as OptionLabel)}
                 className="flex space-x-4"
               >
                 {ALL_OPTION_LABELS.map(label => (
@@ -363,3 +368,5 @@ export default function QuestionBankPage() {
     </DashboardLayout>
   );
 }
+
+    
