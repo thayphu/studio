@@ -1,9 +1,10 @@
 
 "use client";
 
-import React, { useState, useCallback, useRef, useMemo } from 'react';
-import dynamic from 'next/dynamic';
-import 'react-quill/dist/quill.snow.css'; // Import Quill styles
+import React, { useState, useCallback, useRef, useMemo, useEffect } from 'react';
+// Quill.js will be loaded from CDN, so no direct import of ReactQuill here.
+// Ensure 'quill/dist/quill.snow.css' is imported if you use a local Quill instance,
+// but for CDN, it's linked in layout.tsx.
 
 import DashboardLayout from '../dashboard-layout';
 import { Button } from '@/components/ui/button';
@@ -15,7 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { ListChecks, Save } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type {
-  GradeLevel, CurriculumType, TestBankType, QuestionType, MultipleChoiceOption, OptionLabel, QuestionBankEntry
+  GradeLevel, CurriculumType, TestBankType, QuestionType, OptionLabel, QuestionBankEntry
 } from '@/lib/types';
 import {
   ALL_GRADE_LEVELS, ALL_CURRICULUM_TYPES, ALL_TEST_BANK_TYPES, ALL_QUESTION_TYPES, ALL_OPTION_LABELS
@@ -23,11 +24,8 @@ import {
 import { nanoid } from 'nanoid';
 import { Textarea } from '@/components/ui/textarea';
 
-// Dynamically import ReactQuill to ensure it's only loaded on the client side
-const ReactQuill = dynamic(() => import('react-quill'), { ssr: false });
-
 interface NewMultipleChoiceFormState {
-  text: string; // This will store HTML content from ReactQuill
+  text: string; // This will store HTML content from Quill
   options: Record<OptionLabel, string>;
   correctOptionLabel: OptionLabel | '';
 }
@@ -57,7 +55,8 @@ const initialEssayState: EssayFormState = {
 
 export default function QuestionBankPage() {
   const { toast } = useToast();
-  const quillRef = useRef<any>(null); // Ref for ReactQuill
+  const quillInstanceRef = useRef<any>(null); // Ref for Quill.js instance
+  const editorRef = useRef<HTMLDivElement>(null); // Ref for the editor div
 
   const [selectedGradeLevel, setSelectedGradeLevel] = useState<GradeLevel | ''>('');
   const [selectedCurriculumType, setSelectedCurriculumType] = useState<CurriculumType | ''>('');
@@ -67,10 +66,6 @@ export default function QuestionBankPage() {
   const [multipleChoiceData, setMultipleChoiceData] = useState<NewMultipleChoiceFormState>(initialNewMultipleChoiceState);
   const [trueFalseData, setTrueFalseData] = useState<TrueFalseFormState>(initialTrueFalseState);
   const [essayData, setEssayData] = useState<EssayFormState>(initialEssayState);
-
-  const handleMultipleChoiceTextChange = useCallback((content: string) => {
-    setMultipleChoiceData(prev => ({ ...prev, text: content }));
-  }, []);
 
   const handleOptionInputChange = useCallback((label: OptionLabel, value: string) => {
     setMultipleChoiceData(prev => ({
@@ -85,15 +80,66 @@ export default function QuestionBankPage() {
 
   const resetQuestionForms = useCallback(() => {
     setMultipleChoiceData(initialNewMultipleChoiceState);
-    if (quillRef.current) {
-        const editor = quillRef.current.getEditor();
-        if (editor) {
-            editor.setText(''); // Clear Quill editor content
-        }
+    if (quillInstanceRef.current) {
+      quillInstanceRef.current.setText(''); // Clear Quill editor content
     }
     setTrueFalseData(initialTrueFalseState);
     setEssayData(initialEssayState);
   }, []);
+
+  // Initialize Quill Editor
+  useEffect(() => {
+    if (selectedQuestionType === "Nhiều lựa chọn" && editorRef.current && typeof window !== 'undefined' && (window as any).Quill) {
+      if (!quillInstanceRef.current) { // Initialize only once
+        const quill = new (window as any).Quill(editorRef.current, {
+          theme: 'snow',
+          modules: {
+            toolbar: [
+              [{ 'header': [1, 2, 3, false] }],
+              ['bold', 'italic', 'underline', 'strike'],
+              [{'list': 'ordered'}, {'list': 'bullet'}],
+              ['link'],
+              ['clean']
+            ],
+          },
+          formats: [
+            'header',
+            'bold', 'italic', 'underline', 'strike',
+            'list', 'bullet',
+            'link',
+          ],
+          placeholder: 'Nhập nội dung câu hỏi ở đây...',
+        });
+
+        quill.on('text-change', () => {
+          setMultipleChoiceData(prev => ({ ...prev, text: quill.root.innerHTML }));
+        });
+        
+        // Set initial content if any
+        if (multipleChoiceData.text) {
+            const delta = quill.clipboard.convert(multipleChoiceData.text);
+            quill.setContents(delta, 'silent');
+        } else {
+            quill.setText('');
+        }
+
+
+        quillInstanceRef.current = quill;
+      }
+    } else if (quillInstanceRef.current && selectedQuestionType !== "Nhiều lựa chọn") {
+      // Clean up Quill instance if question type changes or component unmounts
+      // A more robust cleanup might be needed for complex scenarios
+      quillInstanceRef.current = null; 
+      if(editorRef.current) editorRef.current.innerHTML = ''; // Clear the div
+    }
+
+    // Basic cleanup for when the component unmounts
+    return () => {
+        // This cleanup might not be perfect for Quill, as it's initialized outside React's direct control.
+        // For a production app, more sophisticated cleanup or a React-specific Quill wrapper might be better.
+        quillInstanceRef.current = null;
+    };
+  }, [selectedQuestionType, multipleChoiceData.text]); // Rerun if question type changes or to set initial text
 
   const handleSaveQuestion = () => {
     if (!selectedGradeLevel || !selectedCurriculumType || !selectedTestBankType || !selectedQuestionType) {
@@ -102,25 +148,30 @@ export default function QuestionBankPage() {
     }
 
     let questionEntry: Omit<QuestionBankEntry, 'id' | 'createdAt' | 'updatedAt'> | null = null;
+    let questionTextContent = '';
 
     if (selectedQuestionType === "Nhiều lựa chọn") {
-      // For ReactQuill, content is HTML. Need a robust way to check if it's "empty".
-      // For simplicity, checking if the plain text version is empty.
-      let plainTextContent = "";
-      if (quillRef.current) {
-        const editor = quillRef.current.getEditor();
-        plainTextContent = editor.getText().trim();
-      } else if (multipleChoiceData.text) { // Fallback if ref not ready (should not happen often)
+      if (quillInstanceRef.current) {
+        questionTextContent = quillInstanceRef.current.root.innerHTML;
+        const plainText = quillInstanceRef.current.getText().trim();
+        if (!plainText) {
+            toast({ title: "Lỗi", description: "Nội dung câu hỏi trắc nghiệm không được để trống.", variant: "destructive" });
+            return;
+        }
+      } else if (multipleChoiceData.text) { // Fallback if Quill not ready
+        questionTextContent = multipleChoiceData.text;
         const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = multipleChoiceData.text;
-        plainTextContent = tempDiv.textContent || tempDiv.innerText || "";
-        plainTextContent = plainTextContent.trim();
-      }
-
-      if (!plainTextContent) {
+        tempDiv.innerHTML = questionTextContent;
+        if (!tempDiv.textContent?.trim()){
+            toast({ title: "Lỗi", description: "Nội dung câu hỏi trắc nghiệm không được để trống.", variant: "destructive" });
+            return;
+        }
+      } else {
         toast({ title: "Lỗi", description: "Nội dung câu hỏi trắc nghiệm không được để trống.", variant: "destructive" });
         return;
       }
+
+
       if (ALL_OPTION_LABELS.some(label => !multipleChoiceData.options[label].trim())) {
         toast({ title: "Lỗi", description: "Vui lòng nhập nội dung cho tất cả các lựa chọn A, B, C, D.", variant: "destructive" });
         return;
@@ -134,7 +185,7 @@ export default function QuestionBankPage() {
         curriculumType: selectedCurriculumType as CurriculumType,
         testBankType: selectedTestBankType as TestBankType,
         questionType: "Nhiều lựa chọn",
-        text: multipleChoiceData.text, // Save HTML content from ReactQuill
+        text: questionTextContent, // Save HTML content from Quill
         options: ALL_OPTION_LABELS.map(label => ({
           id: label,
           text: multipleChoiceData.options[label].trim(),
@@ -179,7 +230,7 @@ export default function QuestionBankPage() {
         id: nanoid(),
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-      } as QuestionBankEntry; 
+      } as QuestionBankEntry;
 
       console.log("Saving Question:", JSON.stringify(fullQuestionData, null, 2));
       toast({ title: "Đã Lưu (Console)", description: "Câu hỏi đã được log ra console. Chức năng lưu vào DB sẽ được triển khai sau." });
@@ -188,24 +239,6 @@ export default function QuestionBankPage() {
       toast({ title: "Lỗi", description: "Không thể xác định dạng câu hỏi để lưu.", variant: "destructive" });
     }
   };
-
-  const quillModules = useMemo(() => ({
-    toolbar: [
-      [{ 'header': [1, 2, 3, false] }],
-      ['bold', 'italic', 'underline', 'strike'],
-      [{'list': 'ordered'}, {'list': 'bullet'}],
-      ['link'], // Removed image button
-      ['clean']
-    ],
-  }), []);
-
-  const quillFormats = useMemo(() => ([
-    'header',
-    'bold', 'italic', 'underline', 'strike',
-    'list', 'bullet',
-    'link',
-  ]), []);
-
 
   const renderQuestionForm = () => {
     if (!selectedQuestionType) {
@@ -217,20 +250,11 @@ export default function QuestionBankPage() {
         return (
           <div className="space-y-4">
             <div>
-              <Label htmlFor="mc-question-text">Nội dung câu hỏi</Label>
-              {/* Replace Textarea with ReactQuill */}
-              {typeof window !== 'undefined' && ReactQuill && (
-                <ReactQuill
-                  ref={quillRef} // Assign the ref
-                  theme="snow"
-                  value={multipleChoiceData.text}
-                  onChange={handleMultipleChoiceTextChange}
-                  modules={quillModules}
-                  formats={quillFormats}
-                  placeholder="Nhập nội dung câu hỏi ở đây..."
-                  className="bg-card" // Ensure consistent background
-                />
-              )}
+              <Label htmlFor="mc-question-editor-label">Nội dung câu hỏi</Label>
+              {/* Div for Quill editor to attach to */}
+              <div id="mc-question-editor" ref={editorRef} className="bg-card border rounded-md min-h-[150px]">
+                {/* Quill will populate this div */}
+              </div>
             </div>
             {ALL_OPTION_LABELS.map(label => (
               <div key={label}>
@@ -375,10 +399,7 @@ export default function QuestionBankPage() {
             </CardFooter>
           </Card>
         )}
-
       </div>
     </DashboardLayout>
   );
 }
-
-    
