@@ -58,7 +58,7 @@ export default function BaiKiemTraPage() {
     mutationFn: (data: { quizData: Omit<Quiz, 'id' | 'createdAt' | 'questions'>, questions: Omit<Question, 'id'>[] }) =>
       saveQuiz(data.quizData, data.questions),
     onSuccess: () => {
-      toast({ title: "Thành công!", description: "Bài kiểm tra đã được lưu." });
+      toast({ title: "Thành công!", description: "Đề kiểm tra đã được lưu." });
       queryClient.invalidateQueries({ queryKey: ['quizzes'] });
       setIsCreateQuizModalOpen(false);
       setNewQuizTitle('');
@@ -68,7 +68,7 @@ export default function BaiKiemTraPage() {
     },
     onError: (error: Error) => {
       toast({
-        title: "Lỗi khi lưu bài kiểm tra",
+        title: "Lỗi khi lưu đề kiểm tra",
         description: error.message,
         variant: "destructive",
       });
@@ -118,11 +118,11 @@ export default function BaiKiemTraPage() {
 
   const handleSaveQuiz = () => {
     if (!newQuizTitle.trim()) {
-      toast({ title: "Lỗi", description: "Tiêu đề bài kiểm tra không được để trống.", variant: "destructive" });
+      toast({ title: "Lỗi", description: "Tiêu đề đề kiểm tra không được để trống.", variant: "destructive" });
       return;
     }
     if (currentQuestions.length === 0) {
-      toast({ title: "Lỗi", description: "Bài kiểm tra phải có ít nhất một câu hỏi.", variant: "destructive" });
+      toast({ title: "Lỗi", description: "Đề kiểm tra phải có ít nhất một câu hỏi.", variant: "destructive" });
       return;
     }
     saveQuizMutation.mutate({
@@ -251,17 +251,19 @@ export default function BaiKiemTraPage() {
                     <ScrollArea className="max-h-60 border rounded-md p-3 space-y-2 bg-background">
                       {currentQuestions.map((q, index) => (
                         <div key={index} className="p-2 border rounded-md text-sm">
-                          <p className="font-medium">Câu {index + 1}: {q.text}</p>
-                          <ul className="list-disc list-inside pl-4">
+                          <div className="flex justify-between items-start">
+                            <p className="font-medium flex-1">Câu {index + 1}: {q.text}</p>
+                            <Button variant="ghost" size="icon" onClick={() => handleRemoveQuestion(index)} className="h-7 w-7 shrink-0">
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
+                          <ul className="list-disc list-inside pl-4 mt-1">
                             {q.options.map(opt => (
                               <li key={opt.id} className={opt.id === q.correctOptionId ? 'font-bold text-green-600' : ''}>
                                 {opt.id}: {opt.text}
                               </li>
                             ))}
                           </ul>
-                          <Button variant="ghost" size="icon" onClick={() => handleRemoveQuestion(index)} className="mt-1 h-7 w-7 float-right">
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
                         </div>
                       ))}
                     </ScrollArea>
@@ -286,5 +288,3 @@ export default function BaiKiemTraPage() {
     </DashboardLayout>
   );
 }
-
-    
