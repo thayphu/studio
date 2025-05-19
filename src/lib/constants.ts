@@ -1,6 +1,6 @@
 
 import type { LucideIcon } from 'lucide-react';
-import { Users, CreditCard, UserCheck, BarChart3, Search, School, ClipboardList, Award } from 'lucide-react'; // Added Award
+import { Users, CreditCard, UserCheck, BarChart3, Search, School, ClipboardList, Award, FileQuestion } from 'lucide-react'; // Added FileQuestion
 
 interface NavLink {
   href: string;
@@ -14,8 +14,9 @@ export const NAV_LINKS: NavLink[] = [
   { href: "/hoc-phi", label: "Học phí", icon: CreditCard },
   { href: "/diem-danh", label: "Điểm danh", icon: UserCheck },
   { href: "/phieu-lien-lac", label: "Phiếu liên lạc", icon: ClipboardList },
+  { href: "/bai-kiem-tra", label: "Bài kiểm tra", icon: FileQuestion }, // Added Bài kiểm tra
   { href: "/bao-cao", label: "Báo cáo", icon: BarChart3 },
-  { href: "/xep-hang", label: "Xếp hạng", icon: Award }, // Added Xep Hang
+  { href: "/xep-hang", label: "Xếp hạng", icon: Award },
 ];
 
 export const PARENT_PORTAL_LINK = {
