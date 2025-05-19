@@ -1,15 +1,15 @@
 
 "use client";
 
-import { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle as ShadCNCardTitleOriginal, CardDescription as ShadCNCardDescriptionOriginal } from '@/components/ui/card'; // Added CardHeader here
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader as ShadDialogHeaderOriginal, DialogTitle as ShadDialogTitleOriginal, DialogDescription as ShadDialogDescriptionOriginal, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Loader2, AlertCircle, FileText, CalendarCheck2, BookCopy, Star, ClipboardList } from 'lucide-react';
+import { Search, Loader2, AlertCircle, FileText, CalendarCheck2, BookCopy, Star, ClipboardList, UserCircle, School } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type { HocSinh, PhieuLienLacRecord, TestFormatPLC, HomeworkStatusPLC } from '@/lib/types';
 import { getStudentById } from '@/services/hocSinhService';
@@ -20,8 +20,8 @@ import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
 
-const CardTitle = ShadCNCardTitleOriginal;
-const CardDescription = ShadCNCardDescriptionOriginal;
+
+// Re-alias to avoid potential conflicts if these were used elsewhere with different intent
 const DialogHeader = ShadDialogHeaderOriginal;
 const DialogTitle = ShadDialogTitleOriginal;
 const DialogDescription = ShadDialogDescriptionOriginal;
@@ -122,14 +122,14 @@ interface SlipDetailItemProps {
 const SlipDetailItem: React.FC<SlipDetailItemProps> = ({ label, children, labelClassName, valueClassName, fullWidth = false }) => {
   if (fullWidth) {
     return (
-      <div className="text-sm">
+      <div className="text-sm leading-snug">
         <strong className={cn("font-medium text-muted-foreground mr-2 block mb-0.5", labelClassName)}>{label}</strong>
         <div className={cn("font-medium text-left text-foreground", valueClassName)}>{children || <span className="text-muted-foreground italic">Không có</span>}</div>
       </div>
     );
   }
   return (
-    <div className="flex flex-col sm:flex-row sm:items-start text-sm">
+    <div className="flex flex-col sm:flex-row sm:items-start text-sm leading-snug py-0.5">
       <strong className={cn("font-medium text-muted-foreground mr-2 w-full sm:w-[130px] shrink-0 text-left mb-0.5 sm:mb-0", labelClassName)}>{label}</strong>
       <span className={cn("font-medium flex-1 text-left text-foreground", valueClassName)}>{children || <span className="text-muted-foreground italic">Không có</span>}</span>
     </div>
@@ -240,12 +240,14 @@ export default function AcademicResultsPortal() {
           <div className="space-y-8">
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Thông tin học sinh</CardTitle>
+                <CardTitle className="text-lg flex items-center"><UserCircle className="mr-2 h-5 w-5 text-primary"/>Thông tin học sinh</CardTitle>
               </CardHeader>
               <CardContent className="text-sm">
-                <p><strong className="text-muted-foreground">Họ và tên:</strong> {searchedStudent.hoTen}</p>
-                <p><strong className="text-muted-foreground">Mã HS:</strong> {searchedStudent.id}</p>
-                <p><strong className="text-muted-foreground">Lớp:</strong> {searchedStudent.tenLop || "N/A"}</p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-4 gap-y-2">
+                  <div><strong className="text-muted-foreground block sm:inline">Họ và tên:</strong> {searchedStudent.hoTen}</div>
+                  <div><strong className="text-muted-foreground block sm:inline">Mã HS:</strong> {searchedStudent.id}</div>
+                  <div><strong className="text-muted-foreground block sm:inline">Lớp:</strong> {searchedStudent.tenLop || "N/A"}</div>
+                </div>
               </CardContent>
             </Card>
 
@@ -276,6 +278,7 @@ export default function AcademicResultsPortal() {
                           </TableHeader>
                           <TableBody>
                             {sortedDailySlips.map((slip) => {
+                              if(!slip) return null; // Should not happen, but good for safety
                               const masteryDetails = calculateMasteryDetailsForDisplay(slip.testFormat, slip.score);
                               const homeworkDisplay = getHomeworkStatusTextAndColorForParent(slip.homeworkStatus);
                               return (
@@ -319,7 +322,7 @@ export default function AcademicResultsPortal() {
       {selectedDailySlip && searchedStudent && (
         <Dialog open={isDailySlipDetailModalOpen} onOpenChange={setIsDailySlipDetailModalOpen}>
           <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col p-0">
-            <ScrollArea className="flex-grow">
+            <ScrollArea className="flex-grow"> 
               <div ref={slipDialogContentRef} className="bg-background font-sans p-4 space-y-0.5 leading-normal">
                  <DialogHeader className="p-0 pt-2 pb-1 text-center sticky top-0 z-10 bg-background">
                     <DialogTitle className="text-2xl font-bold uppercase text-primary text-center">
@@ -372,9 +375,9 @@ export default function AcademicResultsPortal() {
 
                   <Separator className="my-1"/>
                   <div className="text-sm font-medium leading-snug mt-1.5">
-                    {(selectedDailySlip.vocabularyToReview && selectedDailySlip.vocabularyToReview.trim() !== "") ? (
+                    {(selectedDailySlip.vocabularyToReview && selectedDailySlip.vocabularyToReview.trim() !== "") || (selectedDailySlip.remarks && selectedDailySlip.remarks.trim() !== "") ? (
                         <>
-                            <p>Quý Phụ huynh nhắc nhở các em viết lại những từ vựng chưa thuộc.</p>
+                            <p>Quý Phụ huynh nhắc nhở các em viết lại những từ vựng chưa thuộc (nếu có) và xem lại nhận xét.</p>
                             <p className="mt-1"><strong>Trân trọng.</strong></p>
                         </>
                     ) : (
@@ -383,7 +386,7 @@ export default function AcademicResultsPortal() {
                   </div>
               </div>
             </ScrollArea>
-            <DialogFooter className="p-2 border-t sm:justify-end bg-background">
+            <DialogFooter className="p-2 border-t sm:justify-between bg-background">
               <DialogClose asChild>
                   <Button type="button" variant="outline" size="sm">Đóng</Button>
               </DialogClose>
