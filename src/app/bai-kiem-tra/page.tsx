@@ -2,9 +2,7 @@
 "use client";
 
 import React, { useState, useCallback, useRef, useMemo, useEffect } from 'react';
-// Quill.js will be loaded from CDN, so no direct import of ReactQuill here.
-// Ensure 'quill/dist/quill.snow.css' is imported if you use a local Quill instance,
-// but for CDN, it's linked in layout.tsx.
+// Quill.js is loaded from CDN in layout.tsx
 
 import DashboardLayout from '../dashboard-layout';
 import { Button } from '@/components/ui/button';
@@ -79,18 +77,22 @@ export default function QuestionBankPage() {
   }, []);
 
   const resetQuestionForms = useCallback(() => {
+    // For Quill, setting multipleChoiceData.text to "" will trigger the useEffect to clear it
     setMultipleChoiceData(initialNewMultipleChoiceState);
-    if (quillInstanceRef.current) {
-      quillInstanceRef.current.setText(''); // Clear Quill editor content
-    }
     setTrueFalseData(initialTrueFalseState);
     setEssayData(initialEssayState);
+    // If Quill instance exists and selected type is MC, it should clear via useEffect.
+    // Explicitly clearing here might be redundant or cause issues if Quill isn't fully ready.
+    // if (quillInstanceRef.current && selectedQuestionType === "Nhiều lựa chọn") {
+    //   quillInstanceRef.current.setText('');
+    // }
   }, []);
 
   // Initialize Quill Editor
   useEffect(() => {
     if (selectedQuestionType === "Nhiều lựa chọn" && editorRef.current && typeof window !== 'undefined' && (window as any).Quill) {
-      if (!quillInstanceRef.current) { // Initialize only once
+      if (!quillInstanceRef.current) { // Initialize only once or if instance was cleared
+        console.log("[BaiKiemTraPage] Initializing Quill editor on #mc-question-editor");
         const quill = new (window as any).Quill(editorRef.current, {
           theme: 'snow',
           modules: {
@@ -110,36 +112,59 @@ export default function QuestionBankPage() {
           ],
           placeholder: 'Nhập nội dung câu hỏi ở đây...',
         });
-
-        quill.on('text-change', () => {
-          setMultipleChoiceData(prev => ({ ...prev, text: quill.root.innerHTML }));
-        });
         
-        // Set initial content if any
-        if (multipleChoiceData.text) {
-            const delta = quill.clipboard.convert(multipleChoiceData.text);
-            quill.setContents(delta, 'silent');
-        } else {
-            quill.setText('');
+        quill.on('text-change', (delta: any, oldDelta: any, source: string) => {
+          if (source === 'user') { // Only update state if change comes from user
+            const newHtml = quill.root.innerHTML;
+            console.log("[BaiKiemTraPage] Quill text-change by user, new HTML:", newHtml.substring(0,50) + "...");
+            setMultipleChoiceData(prev => ({ ...prev, text: newHtml }));
+          }
+        });
+        quillInstanceRef.current = quill;
+        
+        // Set initial content if multipleChoiceData.text already has something (e.g., from a previous state)
+        // This is important if the form was pre-filled or if `resetQuestionForms` was called
+        // and this effect ran *after* `multipleChoiceData.text` was set by `resetQuestionForms`.
+        if (multipleChoiceData.text && quill.root.innerHTML !== multipleChoiceData.text) {
+          console.log("[BaiKiemTraPage] Quill: Setting initial content from multipleChoiceData.text after init");
+          const delta = quill.clipboard.convert(multipleChoiceData.text);
+          quill.setContents(delta, 'silent');
+        } else if (!multipleChoiceData.text) {
+          quill.setText('');
         }
 
-
-        quillInstanceRef.current = quill;
       }
-    } else if (quillInstanceRef.current && selectedQuestionType !== "Nhiều lựa chọn") {
-      // Clean up Quill instance if question type changes or component unmounts
-      // A more robust cleanup might be needed for complex scenarios
+    } else if (selectedQuestionType !== "Nhiều lựa chọn" && quillInstanceRef.current) {
+      console.log("[BaiKiemTraPage] Cleaning up Quill editor because question type changed.");
+      // More robust cleanup might involve disabling the editor first if the API supports it.
       quillInstanceRef.current = null; 
-      if(editorRef.current) editorRef.current.innerHTML = ''; // Clear the div
+      if(editorRef.current) {
+        editorRef.current.innerHTML = ''; // Clear the div manually
+      }
     }
 
-    // Basic cleanup for when the component unmounts
-    return () => {
-        // This cleanup might not be perfect for Quill, as it's initialized outside React's direct control.
-        // For a production app, more sophisticated cleanup or a React-specific Quill wrapper might be better.
-        quillInstanceRef.current = null;
-    };
-  }, [selectedQuestionType, multipleChoiceData.text]); // Rerun if question type changes or to set initial text
+  }, [selectedQuestionType]); // Runs when question type changes or editorRef becomes available
+
+
+  // Effect to synchronize external changes of multipleChoiceData.text (e.g., from form reset) to Quill editor
+  useEffect(() => {
+    if (quillInstanceRef.current && selectedQuestionType === "Nhiều lựa chọn") {
+      // Only update Quill if its content is different from the state
+      // and the change wasn't initiated by Quill itself (to avoid loops)
+      if (quillInstanceRef.current.root.innerHTML !== multipleChoiceData.text) {
+        console.log("[BaiKiemTraPage] External change to multipleChoiceData.text, updating Quill editor content to:", multipleChoiceData.text.substring(0,50) + "...");
+        if (multipleChoiceData.text === "") {
+          quillInstanceRef.current.setText('');
+        } else {
+          // When setting HTML programmatically, it's often better to convert it to Delta first
+          // if the HTML might not be perfectly clean Quill-generated HTML.
+          const delta = quillInstanceRef.current.clipboard.convert(multipleChoiceData.text);
+          quillInstanceRef.current.setContents(delta, 'silent');
+        }
+      }
+    }
+  }, [multipleChoiceData.text, selectedQuestionType]);
+
 
   const handleSaveQuestion = () => {
     if (!selectedGradeLevel || !selectedCurriculumType || !selectedTestBankType || !selectedQuestionType) {
@@ -151,6 +176,7 @@ export default function QuestionBankPage() {
     let questionTextContent = '';
 
     if (selectedQuestionType === "Nhiều lựa chọn") {
+      // Get content from Quill instance if available, otherwise from state (though state should be up-to-date)
       if (quillInstanceRef.current) {
         questionTextContent = quillInstanceRef.current.root.innerHTML;
         const plainText = quillInstanceRef.current.getText().trim();
@@ -158,7 +184,7 @@ export default function QuestionBankPage() {
             toast({ title: "Lỗi", description: "Nội dung câu hỏi trắc nghiệm không được để trống.", variant: "destructive" });
             return;
         }
-      } else if (multipleChoiceData.text) { // Fallback if Quill not ready
+      } else if (multipleChoiceData.text) { // Fallback if Quill not ready or somehow null
         questionTextContent = multipleChoiceData.text;
         const tempDiv = document.createElement('div');
         tempDiv.innerHTML = questionTextContent;
@@ -170,7 +196,6 @@ export default function QuestionBankPage() {
         toast({ title: "Lỗi", description: "Nội dung câu hỏi trắc nghiệm không được để trống.", variant: "destructive" });
         return;
       }
-
 
       if (ALL_OPTION_LABELS.some(label => !multipleChoiceData.options[label].trim())) {
         toast({ title: "Lỗi", description: "Vui lòng nhập nội dung cho tất cả các lựa chọn A, B, C, D.", variant: "destructive" });
@@ -232,7 +257,7 @@ export default function QuestionBankPage() {
         updatedAt: new Date().toISOString(),
       } as QuestionBankEntry;
 
-      console.log("Saving Question:", JSON.stringify(fullQuestionData, null, 2));
+      console.log("[BaiKiemTraPage] Saving Question:", JSON.stringify(fullQuestionData, null, 2));
       toast({ title: "Đã Lưu (Console)", description: "Câu hỏi đã được log ra console. Chức năng lưu vào DB sẽ được triển khai sau." });
       resetQuestionForms();
     } else {
@@ -371,7 +396,17 @@ export default function QuestionBankPage() {
             </div>
             <div>
               <Label htmlFor="question-type-select">Dạng câu hỏi</Label>
-              <Select value={selectedQuestionType} onValueChange={(val) => { setSelectedQuestionType(val as QuestionType); resetQuestionForms(); }}>
+              <Select value={selectedQuestionType} onValueChange={(val) => { 
+                const newType = val as QuestionType;
+                // If switching away from MC, ensure Quill instance is handled if it exists
+                if (selectedQuestionType === "Nhiều lựa chọn" && newType !== "Nhiều lựa chọn" && quillInstanceRef.current) {
+                  console.log("[BaiKiemTraPage] Question type changed from MC, clearing Quill editor if exists.");
+                  // The main useEffect for Quill init will handle cleanup logic based on selectedQuestionType.
+                  // We might not need to do anything extra here if that useEffect is robust.
+                }
+                setSelectedQuestionType(newType); 
+                resetQuestionForms(); 
+               }}>
                 <SelectTrigger id="question-type-select"><SelectValue placeholder="Chọn dạng câu hỏi" /></SelectTrigger>
                 <SelectContent>
                   {ALL_QUESTION_TYPES.map(type => <SelectItem key={type} value={type}>{type}</SelectItem>)}
@@ -403,3 +438,5 @@ export default function QuestionBankPage() {
     </DashboardLayout>
   );
 }
+
+    
