@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card'; // Added CardFooter
 import { PlusCircle, Save, ListChecks } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type { 
@@ -310,3 +310,4 @@ export default function QuestionBankPage() {
     </DashboardLayout>
   );
 }
+
