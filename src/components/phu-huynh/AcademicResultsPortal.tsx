@@ -1,10 +1,10 @@
 
 "use client";
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react'; // Ensure useRef is imported here
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle as ShadCardTitle, CardDescription as ShadCardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader as ShadCardHeaderOriginal, CardTitle as ShadCNCardTitleOriginal, CardDescription as ShadCNCardDescriptionOriginal } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader as ShadDialogHeaderOriginal, DialogTitle as ShadDialogTitleOriginal, DialogDescription as ShadDialogDescriptionOriginal, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -20,9 +20,11 @@ import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
 
-
-const CardTitle = ShadCardTitle;
-const CardDescription = ShadCardDescription;
+const CardTitle = ShadCNCardTitleOriginal;
+const CardDescription = ShadCNCardDescriptionOriginal;
+const DialogHeader = ShadDialogHeaderOriginal;
+const DialogTitle = ShadDialogTitleOriginal;
+const DialogDescription = ShadDialogDescriptionOriginal;
 
 
 const calculateMasteryDetailsForDisplay = (testFormat?: TestFormatPLC, scoreInput?: string | number | null): { text: string; isTrulyMastered: boolean } => {
@@ -109,7 +111,6 @@ const getHomeworkStatusTextAndColorForParent = (status?: HomeworkStatusPLC): {te
     return {text: status || "Không có bài tập", className: "text-muted-foreground"};
 };
 
-
 interface SlipDetailItemProps {
   label: string;
   children: React.ReactNode;
@@ -146,7 +147,7 @@ export default function AcademicResultsPortal() {
 
   const [isDailySlipDetailModalOpen, setIsDailySlipDetailModalOpen] = useState(false);
   const [selectedDailySlip, setSelectedDailySlip] = useState<PhieuLienLacRecord | null>(null);
-  const slipDialogContentRef = useRef<HTMLDivElement>(null);
+  const slipDialogContentRef = useRef<HTMLDivElement>(null); // Ensure useRef is imported and used
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -195,9 +196,9 @@ export default function AcademicResultsPortal() {
   return (
     <Card className="shadow-xl overflow-hidden rounded-xl">
       <CardHeader className="bg-primary/10 p-6">
-        <ShadCardTitle className="text-2xl font-semibold text-primary flex items-center">
+        <CardTitle className="text-2xl font-semibold text-primary flex items-center">
           <FileText className="mr-3 h-7 w-7" /> Tra cứu Kết quả học tập & Phiếu liên lạc
-        </ShadCardTitle>
+        </CardTitle>
       </CardHeader>
       <CardContent className="p-6 sm:p-8">
         <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-3 mb-8">
@@ -225,6 +226,7 @@ export default function AcademicResultsPortal() {
           <div className="text-destructive text-center py-6 border border-destructive/30 bg-destructive/5 p-4 rounded-md">
             <AlertCircle className="mx-auto h-10 w-10 mb-2" />
             <p className="font-semibold">{searchError}</p>
+            {searchError.includes("index") && <p className="text-xs mt-1">Vui lòng liên hệ quản trị viên để kiểm tra cấu hình cơ sở dữ liệu.</p>}
           </div>
         )}
 
@@ -232,7 +234,7 @@ export default function AcademicResultsPortal() {
           <div className="space-y-8">
             <Card>
               <CardHeader>
-                <ShadCardTitle className="text-lg">Thông tin học sinh</ShadCardTitle>
+                <CardTitle className="text-lg">Thông tin học sinh</CardTitle>
               </CardHeader>
               <CardContent className="text-sm">
                 <p><strong className="text-muted-foreground">Họ và tên:</strong> {searchedStudent.hoTen}</p>
@@ -249,8 +251,8 @@ export default function AcademicResultsPortal() {
               <TabsContent value="daily-slips">
                 <Card>
                   <CardHeader>
-                    <ShadCardTitle className="text-lg flex items-center"><CalendarCheck2 className="mr-2 h-5 w-5 text-primary"/>Phiếu liên lạc hàng ngày</ShadCardTitle>
-                    <ShadCardDescription>Danh sách các nhận xét và kết quả học tập theo từng ngày. Nhấp vào một hàng để xem chi tiết.</ShadCardDescription>
+                    <CardTitle className="text-lg flex items-center"><CalendarCheck2 className="mr-2 h-5 w-5 text-primary"/>Phiếu liên lạc hàng ngày</CardTitle>
+                    <CardDescription>Danh sách các nhận xét và kết quả học tập theo từng ngày. Nhấp vào một hàng để xem chi tiết.</CardDescription>
                   </CardHeader>
                   <CardContent>
                     {dailySlips.length > 0 ? (
@@ -275,11 +277,11 @@ export default function AcademicResultsPortal() {
                                   <TableCell>{format(parseISO(slip.date), "dd/MM/yy", { locale: vi })}</TableCell>
                                   <TableCell>{slip.testFormat || "N/A"}</TableCell>
                                   <TableCell>{renderScoreDisplayForParent(slip.score)}</TableCell>
-                                  <TableCell className={cn(masteryDetails.isTrulyMastered ? "text-blue-600 dark:text-blue-400" : "text-orange-500 dark:text-orange-400", "font-medium")}>
+                                  <TableCell className={cn(masteryDetails.isTrulyMastered ? "text-blue-600 dark:text-blue-400" : "text-orange-500 dark:text-orange-400", "font-medium text-xs")}>
                                     {masteryDetails.text}
                                   </TableCell>
-                                  <TableCell className={cn(homeworkDisplay.className)}>{homeworkDisplay.text}</TableCell>
-                                  <TableCell className="text-xs">{slip.remarks || "Không có"}</TableCell>
+                                  <TableCell className={cn(homeworkDisplay.className, "text-xs")}>{homeworkDisplay.text}</TableCell>
+                                  <TableCell className="text-xs truncate max-w-xs">{slip.remarks || "Không có"}</TableCell>
                                 </TableRow>
                               );
                             })}
@@ -295,8 +297,8 @@ export default function AcademicResultsPortal() {
               <TabsContent value="periodic-slips">
                  <Card>
                   <CardHeader>
-                    <ShadCardTitle className="text-lg flex items-center"><BookCopy className="mr-2 h-5 w-5 text-primary"/>Phiếu liên lạc theo chu kỳ</ShadCardTitle>
-                    <ShadCardDescription>Tổng hợp kết quả học tập theo từng chu kỳ của lớp.</ShadCardDescription>
+                    <CardTitle className="text-lg flex items-center"><BookCopy className="mr-2 h-5 w-5 text-primary"/>Phiếu liên lạc theo chu kỳ</CardTitle>
+                    <CardDescription>Tổng hợp kết quả học tập theo từng chu kỳ của lớp.</CardDescription>
                   </CardHeader>
                   <CardContent>
                     <p className="text-muted-foreground italic">Tính năng xem phiếu liên lạc tổng hợp theo chu kỳ đang được phát triển. Vui lòng xem các phiếu hàng ngày ở tab kế bên.</p>
@@ -308,22 +310,21 @@ export default function AcademicResultsPortal() {
         )}
       </CardContent>
 
-      {/* Dialog for Daily Slip Detail */}
       {selectedDailySlip && searchedStudent && (
         <Dialog open={isDailySlipDetailModalOpen} onOpenChange={setIsDailySlipDetailModalOpen}>
           <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col p-0">
             <ScrollArea className="flex-grow">
               <div ref={slipDialogContentRef} className="bg-background font-sans p-4 pt-2 space-y-1 leading-normal">
-                 <ShadDialogHeaderOriginal className="p-0 pt-4 pb-2 text-center sticky top-0 z-10 bg-background">
-                    <ShadDialogTitleOriginal className="text-2xl font-bold uppercase text-primary text-center">
+                 <DialogHeader className="p-0 pt-4 pb-2 text-center sticky top-0 z-10 bg-background">
+                    <DialogTitle className="text-2xl font-bold uppercase text-primary text-center">
                         PHIẾU LIÊN LẠC
-                    </ShadDialogTitleOriginal>
+                    </DialogTitle>
                     {selectedDailySlip.date && (
-                        <ShadDialogDescriptionOriginal className="text-sm text-center">
+                        <DialogDescription className="text-sm text-center">
                         Ngày: {format(parse(selectedDailySlip.date, 'yyyy-MM-dd', new Date()), "dd/MM/yyyy", { locale: vi })}
-                        </ShadDialogDescriptionOriginal>
+                        </DialogDescription>
                     )}
-                  </ShadDialogHeaderOriginal>
+                  </DialogHeader>
                 
                   <div className="space-y-0.5 text-sm mt-2">
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4">
@@ -387,3 +388,6 @@ export default function AcademicResultsPortal() {
     </Card>
   );
 }
+
+
+    
