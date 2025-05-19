@@ -1,4 +1,5 @@
 
+
 export type DayOfWeek = 'Thứ 2' | 'Thứ 3' | 'Thứ 4' | 'Thứ 5' | 'Thứ 6' | 'Thứ 7' | 'Chủ Nhật';
 export const ALL_DAYS_OF_WEEK: DayOfWeek[] = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ Nhật'];
 
@@ -87,10 +88,10 @@ export interface GiaoVienVangRecord {
 }
 
 // Types for PhieuLienLac (PLC)
-export type TestFormatPLC = "KT bài cũ" | "KT 15 phút" | "KT 45 Phút" | "Làm bài tập" | "KT miệng";
+export type TestFormatPLC = "KT bài cũ" | "KT 15 phút" | "KT 45 Phút" | "Làm bài tập" | "KT miệng" | "";
 export const ALL_TEST_FORMATS_PLC: TestFormatPLC[] = ["KT bài cũ", "KT miệng", "KT 15 phút", "KT 45 Phút", "Làm bài tập"];
 
-export type HomeworkStatusPLC = "Đã làm bài đầy đủ" | "Chỉ làm bài 1 phần" | "Chỉ làm 2/3 bài" | "Không làm bài";
+export type HomeworkStatusPLC = "Đã làm bài đầy đủ" | "Chỉ làm bài 1 phần" | "Chỉ làm 2/3 bài" | "Không làm bài" | "";
 export const ALL_HOMEWORK_STATUSES_PLC: HomeworkStatusPLC[] = ["Đã làm bài đầy đủ", "Chỉ làm bài 1 phần", "Chỉ làm 2/3 bài", "Không làm bài"];
 
 export interface PhieuLienLacRecord {
@@ -119,27 +120,26 @@ export interface StudentSlipInput {
   homeworkStatus?: HomeworkStatusPLC;
   vocabularyToReview?: string;
   remarks?: string;
+  // These might not be directly part of student-specific input if they are common
   homeworkAssignmentVocabulary?: string;
   homeworkAssignmentTasks?: string;
 }
 
-// Types for Test Scores (used for Ranking page)
+// This type is used for the ranking page.
+// It can be populated from PhieuLienLacRecord or a dedicated TestScore collection.
 export interface TestScoreRecord {
   id: string; // Firestore document ID
   studentId: string;
-  classId: string;
-  testDate: string; // YYYY-MM-DD
-  score?: number | null;
-  // Add other fields from the old TestScoreRecord if they are needed for ranking
-  // For now, only score is essential for ranking.
+  classId: string; // Important for class-based ranking
+  testDate: string; // YYYY-MM-DD format
+  score: number; // Ensuring score is always number for ranking logic
+  // Optional fields, not strictly needed for current ranking logic but good for type definition
   // testName?: string;
   // masteredLesson?: boolean;
-  // vocabularyToReview?: string;
-  // generalRemarks?: string;
-  // homeworkStatus?: HomeworkStatus;
-  createdAt?: string; // ISO string from Firestore timestamp
-  updatedAt?: string; // ISO string from Firestore timestamp
+  // createdAt?: string; 
+  // updatedAt?: string;
 }
+
 
 export interface StudentRankingInfo {
   studentId: string;

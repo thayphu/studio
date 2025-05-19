@@ -2,45 +2,50 @@
 'use server';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, Timestamp, DocumentData } from 'firebase/firestore';
-import type { TestScoreRecord } from '@/lib/types';
+import type { PhieuLienLacRecord, TestScoreRecord } from '@/lib/types'; // Import PhieuLienLacRecord
 
-const TEST_SCORES_COLLECTION = 'testScores';
+const PHIEU_LIEN_LAC_COLLECTION = 'phieuLienLacRecords';
 
 /**
- * Fetches all test score records from Firestore.
+ * Fetches all test score relevant data from phieuLienLacRecords for ranking.
+ * It extracts studentId, classId, and score.
  */
 export const getAllTestScores = async (): Promise<TestScoreRecord[]> => {
-  console.log(`[testScoreService] Fetching all test scores from Firestore collection: ${TEST_SCORES_COLLECTION}`);
+  console.log(`[testScoreService] Fetching all scores from Firestore collection: ${PHIEU_LIEN_LAC_COLLECTION} for ranking`);
   try {
-    const querySnapshot = await getDocs(collection(db, TEST_SCORES_COLLECTION));
-    const records: TestScoreRecord[] = querySnapshot.docs.map((docSnap) => {
-      const data = docSnap.data() as DocumentData;
-      return {
-        id: docSnap.id,
-        studentId: data.studentId,
-        classId: data.classId,
-        testDate: data.testDate, // Assuming testDate is stored as YYYY-MM-DD string
-        score: data.score === undefined || data.score === null ? null : Number(data.score),
-        // other fields from TestScoreRecord if they exist in Firestore
-        createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate().toISOString() : undefined,
-        updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate().toISOString() : undefined,
-      } as TestScoreRecord;
+    const querySnapshot = await getDocs(collection(db, PHIEU_LIEN_LAC_COLLECTION));
+    const records: TestScoreRecord[] = [];
+
+    querySnapshot.forEach((docSnap) => {
+      const data = docSnap.data() as PhieuLienLacRecord; // Cast to PhieuLienLacRecord
+      
+      // Ensure score is a valid number, otherwise treat as 0 for ranking purposes
+      const score = (typeof data.score === 'number' && !isNaN(data.score)) ? data.score : 0;
+
+      if (data.studentId) { // Only include records with a studentId
+        records.push({
+          id: docSnap.id, // Keep the original document ID
+          studentId: data.studentId,
+          classId: data.classId || '', // Ensure classId is a string, even if undefined in source
+          score: score,
+          // testDate is not strictly needed for current ranking logic (sum of all scores)
+          // but can be kept if TestScoreRecord type requires it.
+          testDate: data.date, // Assuming 'date' field in PhieuLienLacRecord is YYYY-MM-DD
+          // Other fields from TestScoreRecord like testName, masteredLesson etc.
+          // are not present in PhieuLienLacRecord or not relevant for simple score summing.
+        });
+      }
     });
-    console.log(`[testScoreService] Fetched ${records.length} total test score records.`);
+
+    console.log(`[testScoreService] Fetched and processed ${records.length} score entries from ${PHIEU_LIEN_LAC_COLLECTION}.`);
     return records;
   } catch (error) {
-    console.error(`[testScoreService] CRITICAL_FIREBASE_ERROR when fetching all test scores:`, error);
+    console.error(`[testScoreService] CRITICAL_FIREBASE_ERROR when fetching scores from ${PHIEU_LIEN_LAC_COLLECTION}:`, error);
     if ((error as any)?.code === 'permission-denied') {
-       console.error(`[testScoreService] PERMISSION_DENIED for getAllTestScores. Check Firestore Security Rules for collection '${TEST_SCORES_COLLECTION}'.`);
+       console.error(`[testScoreService] PERMISSION_DENIED for getAllTestScores on ${PHIEU_LIEN_LAC_COLLECTION}. Check Firestore Security Rules.`);
     }
     // It's important to re-throw or handle this appropriately
     // The client-side useQuery will see this error.
-    throw new Error('Failed to fetch all test scores. Check YOUR SERVER CONSOLE (Firebase Studio terminal) for specific Firebase errors (e.g., missing index, permissions).');
+    throw new Error(`Failed to fetch scores from ${PHIEU_LIEN_LAC_COLLECTION}. Check YOUR SERVER CONSOLE (Firebase Studio terminal) for specific Firebase errors (e.g., missing index, permissions).`);
   }
 };
-
-// Keep other functions from the old testScoreService.ts if they are still relevant or might be reused.
-// For now, only getAllTestScores is strictly needed for the basic ranking page.
-// If saveTestScores and getTestScoresForClassOnDate are needed for data entry for ranking,
-// they would need to be restored/re-implemented here.
-// Since the "Kiểm Tra" tab was removed, I'm assuming we only need to read existing scores for ranking.
