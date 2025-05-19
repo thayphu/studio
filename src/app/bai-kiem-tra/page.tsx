@@ -15,11 +15,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { PlusCircle, Save, ListChecks } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import type { 
-  GradeLevel, CurriculumType, TestBankType, QuestionType, MultipleChoiceOption, OptionLabel, QuestionBankEntry 
+import type {
+  GradeLevel, CurriculumType, TestBankType, QuestionType, MultipleChoiceOption, OptionLabel, QuestionBankEntry
 } from '@/lib/types';
-import { 
-  ALL_GRADE_LEVELS, ALL_CURRICULUM_TYPES, ALL_TEST_BANK_TYPES, ALL_QUESTION_TYPES, ALL_OPTION_LABELS 
+import {
+  ALL_GRADE_LEVELS, ALL_CURRICULUM_TYPES, ALL_TEST_BANK_TYPES, ALL_QUESTION_TYPES, ALL_OPTION_LABELS
 } from '@/lib/types';
 import { nanoid } from 'nanoid';
 
@@ -58,7 +58,7 @@ const initialEssayState: EssayFormState = {
 
 export default function QuestionBankPage() {
   const { toast } = useToast();
-  const quillRef = useRef<any>(null); 
+  const quillRef = useRef<any>(null);
 
   const [selectedGradeLevel, setSelectedGradeLevel] = useState<GradeLevel | ''>('');
   const [selectedCurriculumType, setSelectedCurriculumType] = useState<CurriculumType | ''>('');
@@ -69,12 +69,16 @@ export default function QuestionBankPage() {
   const [trueFalseData, setTrueFalseData] = useState<TrueFalseFormState>(initialTrueFalseState);
   const [essayData, setEssayData] = useState<EssayFormState>(initialEssayState);
 
+  const handleMultipleChoiceTextChange = useCallback((content: string) => {
+    setMultipleChoiceData(prev => ({ ...prev, text: content }));
+  }, []); // setMultipleChoiceData is stable from useState
+
   const resetQuestionForms = useCallback(() => {
     setMultipleChoiceData(initialMultipleChoiceState);
     setTrueFalseData(initialTrueFalseState);
     setEssayData(initialEssayState);
     if (quillRef.current && quillRef.current.getEditor()) {
-      quillRef.current.getEditor().setText(''); 
+      quillRef.current.getEditor().setText('');
     }
   }, []);
 
@@ -108,7 +112,7 @@ export default function QuestionBankPage() {
         curriculumType: selectedCurriculumType as CurriculumType,
         testBankType: selectedTestBankType as TestBankType,
         questionType: "Nhiều lựa chọn",
-        text: multipleChoiceData.text, 
+        text: multipleChoiceData.text,
         options: ALL_OPTION_LABELS.map(label => ({
           id: label,
           text: multipleChoiceData.options[label].trim(),
@@ -143,22 +147,22 @@ export default function QuestionBankPage() {
         testBankType: selectedTestBankType as TestBankType,
         questionType: "Tự luận",
         text: essayData.text.trim(),
-        modelAnswer: essayData.modelAnswer.trim(), 
+        modelAnswer: essayData.modelAnswer.trim(),
       };
     }
 
     if (questionEntry) {
       const fullQuestionData: QuestionBankEntry = {
         ...questionEntry,
-        id: nanoid(), 
+        id: nanoid(),
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-      } as QuestionBankEntry; 
+      } as QuestionBankEntry;
 
       console.log("Saving Question:", JSON.stringify(fullQuestionData, null, 2));
       // TODO: Implement actual saving to Firestore via a service
       toast({ title: "Đã Lưu (Console)", description: "Câu hỏi đã được log ra console. Chức năng lưu vào DB sẽ được triển khai sau." });
-      resetQuestionForms(); 
+      resetQuestionForms();
     } else {
       toast({ title: "Lỗi", description: "Không thể xác định dạng câu hỏi để lưu.", variant: "destructive" });
     }
@@ -169,7 +173,7 @@ export default function QuestionBankPage() {
       [{ 'header': [1, 2, false] }],
       ['bold', 'italic', 'underline','strike', 'blockquote'],
       [{'list': 'ordered'}, {'list': 'bullet'}, {'indent': '-1'}, {'indent': '+1'}],
-      ['link'], 
+      ['link'],
       ['clean']
     ],
   }), []);
@@ -178,7 +182,7 @@ export default function QuestionBankPage() {
     'header',
     'bold', 'italic', 'underline', 'strike', 'blockquote',
     'list', 'bullet', 'indent',
-    'link', 
+    'link',
   ]), []);
 
   const renderQuestionForm = () => {
@@ -192,32 +196,32 @@ export default function QuestionBankPage() {
           <div className="space-y-4">
             <div>
               <Label htmlFor="mc-question-text">Nội dung câu hỏi</Label>
-              {typeof window !== 'undefined' && ReactQuill && ( 
-                <ReactQuill 
+              {typeof window !== 'undefined' && ReactQuill && (
+                <ReactQuill
                   ref={quillRef}
-                  theme="snow" 
-                  value={multipleChoiceData.text} 
-                  onChange={(content) => setMultipleChoiceData(prev => ({ ...prev, text: content }))}
+                  theme="snow"
+                  value={multipleChoiceData.text}
+                  onChange={handleMultipleChoiceTextChange} // Use memoized handler
                   modules={quillModules}
                   formats={quillFormats}
                   placeholder="Nhập nội dung câu hỏi ở đây..."
-                  className="bg-card" 
+                  className="bg-card"
                 />
               )}
             </div>
             {ALL_OPTION_LABELS.map(label => (
               <div key={label}>
                 <Label htmlFor={`mc-option-${label}`}>Lựa chọn {label}</Label>
-                <Input 
-                  id={`mc-option-${label}`} 
-                  value={multipleChoiceData.options[label]} 
-                  onChange={(e) => 
-                    setMultipleChoiceData(prev => ({ 
-                      ...prev, 
-                      options: { ...prev.options, [label]: e.target.value } 
+                <Input
+                  id={`mc-option-${label}`}
+                  value={multipleChoiceData.options[label]}
+                  onChange={(e) =>
+                    setMultipleChoiceData(prev => ({
+                      ...prev,
+                      options: { ...prev.options, [label]: e.target.value }
                     }))
-                  } 
-                  placeholder={`Nội dung lựa chọn ${label}`} 
+                  }
+                  placeholder={`Nội dung lựa chọn ${label}`}
                 />
               </div>
             ))}
@@ -353,7 +357,7 @@ export default function QuestionBankPage() {
             </CardFooter>
           </Card>
         )}
-        
+
       </div>
     </DashboardLayout>
   );
