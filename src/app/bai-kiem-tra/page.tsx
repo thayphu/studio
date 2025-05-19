@@ -278,7 +278,7 @@ export default function BaiKiemTraPage() {
               </DialogClose>
               <Button onClick={handleSaveQuiz} disabled={saveQuizMutation.isPending}>
                 {saveQuizMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Lưu Bài kiểm tra
+                Lưu Đề kiểm tra
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -288,3 +288,5 @@ export default function BaiKiemTraPage() {
     </DashboardLayout>
   );
 }
+
+    
