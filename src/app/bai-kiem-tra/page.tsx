@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useCallback, useRef } from 'react'; // Added useRef
+import React, { useState, useCallback, useRef, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import 'react-quill/dist/quill.snow.css'; // Import Quill styles
 
@@ -58,7 +58,7 @@ const initialEssayState: EssayFormState = {
 
 export default function QuestionBankPage() {
   const { toast } = useToast();
-  const quillRef = useRef(null); // Create a ref for ReactQuill
+  const quillRef = useRef<any>(null); 
 
   const [selectedGradeLevel, setSelectedGradeLevel] = useState<GradeLevel | ''>('');
   const [selectedCurriculumType, setSelectedCurriculumType] = useState<CurriculumType | ''>('');
@@ -73,6 +73,9 @@ export default function QuestionBankPage() {
     setMultipleChoiceData(initialMultipleChoiceState);
     setTrueFalseData(initialTrueFalseState);
     setEssayData(initialEssayState);
+    if (quillRef.current && quillRef.current.getEditor()) {
+      quillRef.current.getEditor().setText(''); 
+    }
   }, []);
 
   const handleSaveQuestion = () => {
@@ -105,7 +108,7 @@ export default function QuestionBankPage() {
         curriculumType: selectedCurriculumType as CurriculumType,
         testBankType: selectedTestBankType as TestBankType,
         questionType: "Nhiều lựa chọn",
-        text: multipleChoiceData.text, // Save HTML content
+        text: multipleChoiceData.text, 
         options: ALL_OPTION_LABELS.map(label => ({
           id: label,
           text: multipleChoiceData.options[label].trim(),
@@ -161,7 +164,7 @@ export default function QuestionBankPage() {
     }
   };
 
-  const quillModules = {
+  const quillModules = useMemo(() => ({
     toolbar: [
       [{ 'header': [1, 2, false] }],
       ['bold', 'italic', 'underline','strike', 'blockquote'],
@@ -169,14 +172,14 @@ export default function QuestionBankPage() {
       ['link'], 
       ['clean']
     ],
-  };
+  }), []);
 
-  const quillFormats = [
+  const quillFormats = useMemo(() => ([
     'header',
     'bold', 'italic', 'underline', 'strike', 'blockquote',
     'list', 'bullet', 'indent',
     'link', 
-  ];
+  ]), []);
 
   const renderQuestionForm = () => {
     if (!selectedQuestionType) {
@@ -189,9 +192,9 @@ export default function QuestionBankPage() {
           <div className="space-y-4">
             <div>
               <Label htmlFor="mc-question-text">Nội dung câu hỏi</Label>
-              {typeof window !== 'undefined' && (
+              {typeof window !== 'undefined' && ReactQuill && ( 
                 <ReactQuill 
-                  ref={quillRef} // Pass the ref here
+                  ref={quillRef}
                   theme="snow" 
                   value={multipleChoiceData.text} 
                   onChange={(content) => setMultipleChoiceData(prev => ({ ...prev, text: content }))}
@@ -205,7 +208,17 @@ export default function QuestionBankPage() {
             {ALL_OPTION_LABELS.map(label => (
               <div key={label}>
                 <Label htmlFor={`mc-option-${label}`}>Lựa chọn {label}</Label>
-                <Input id={`mc-option-${label}`} value={multipleChoiceData.options[label]} onChange={(e) => setMultipleChoiceData(prev => ({ ...prev, options: { ...prev.options, [label]: e.target.value } }))} placeholder={`Nội dung lựa chọn ${label}`} />
+                <Input 
+                  id={`mc-option-${label}`} 
+                  value={multipleChoiceData.options[label]} 
+                  onChange={(e) => 
+                    setMultipleChoiceData(prev => ({ 
+                      ...prev, 
+                      options: { ...prev.options, [label]: e.target.value } 
+                    }))
+                  } 
+                  placeholder={`Nội dung lựa chọn ${label}`} 
+                />
               </div>
             ))}
             <div>
