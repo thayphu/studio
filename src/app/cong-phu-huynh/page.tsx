@@ -5,11 +5,12 @@ import { useState, useMemo } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import StudentLookupPortal from '@/components/phu-huynh/StudentLookupPortal';
+import AcademicResultsPortal from '@/components/phu-huynh/AcademicResultsPortal'; // New import
 import { useQuery } from '@tanstack/react-query';
 import { getClasses } from '@/services/lopHocService';
 import type { LopHoc } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
-import { School, CalendarDays, Clock, MapPin, AlertCircle, Home } from 'lucide-react';
+import { School, CalendarDays, Clock, MapPin, AlertCircle, BookOpen, FileText } from 'lucide-react'; // Added BookOpen, FileText
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 
@@ -56,10 +57,11 @@ export default function MainParentPortalPage() {
       </header>
 
       <main className="max-w-5xl mx-auto">
-        <Tabs defaultValue="tra-cuu" className="w-full">
-          <TabsList className="grid w-full sm:w-auto sm:max-w-md grid-cols-2 mb-6 bg-primary/10 p-1 rounded-lg mx-auto">
+        <Tabs defaultValue="tra-cuu-hoc-sinh" className="w-full">
+          <TabsList className="grid w-full sm:w-auto sm:max-w-lg grid-cols-3 mb-6 bg-primary/10 p-1 rounded-lg mx-auto">
             <TabsTrigger value="lich-hoc" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-primary/20 hover:text-primary focus-visible:ring-primary/50">Lịch học</TabsTrigger>
-            <TabsTrigger value="tra-cuu" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-primary/20 hover:text-primary focus-visible:ring-primary/50">Tra cứu HS</TabsTrigger>
+            <TabsTrigger value="tra-cuu-hoc-sinh" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-primary/20 hover:text-primary focus-visible:ring-primary/50">Tra cứu HS</TabsTrigger>
+            <TabsTrigger value="ket-qua-hoc-tap" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-primary/20 hover:text-primary focus-visible:ring-primary/50">Kết quả học tập</TabsTrigger>
           </TabsList>
 
           <TabsContent value="lich-hoc">
@@ -73,7 +75,7 @@ export default function MainParentPortalPage() {
               <CardContent>
                 {isLoadingClasses && (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {[...Array(3)].map((_, i) => <ParentViewClassCardSkeleton key={`skel-${i}`} />)}
+                    {[...Array(3)].map((_, i) => <ParentViewClassCardSkeleton key={`skel-cls-${i}`} />)}
                   </div>
                 )}
                 {isErrorClasses && (
@@ -116,8 +118,12 @@ export default function MainParentPortalPage() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="tra-cuu">
+          <TabsContent value="tra-cuu-hoc-sinh">
             <StudentLookupPortal />
+          </TabsContent>
+
+          <TabsContent value="ket-qua-hoc-tap">
+            <AcademicResultsPortal />
           </TabsContent>
         </Tabs>
       </main>
