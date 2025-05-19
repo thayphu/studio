@@ -1,10 +1,10 @@
 
 "use client";
 
-import { useState, useMemo, useRef } from 'react'; // Ensure useRef is imported here
+import { useState, useMemo, useRef } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader as ShadCardHeaderOriginal, CardTitle as ShadCNCardTitleOriginal, CardDescription as ShadCNCardDescriptionOriginal } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle as ShadCNCardTitleOriginal, CardDescription as ShadCNCardDescriptionOriginal } from '@/components/ui/card'; // Added CardHeader here
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader as ShadDialogHeaderOriginal, DialogTitle as ShadDialogTitleOriginal, DialogDescription as ShadDialogDescriptionOriginal, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -147,7 +147,7 @@ export default function AcademicResultsPortal() {
 
   const [isDailySlipDetailModalOpen, setIsDailySlipDetailModalOpen] = useState(false);
   const [selectedDailySlip, setSelectedDailySlip] = useState<PhieuLienLacRecord | null>(null);
-  const slipDialogContentRef = useRef<HTMLDivElement>(null); // Ensure useRef is imported and used
+  const slipDialogContentRef = useRef<HTMLDivElement>(null);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -178,7 +178,12 @@ export default function AcademicResultsPortal() {
       console.error("[AcademicResultsPortal] Error searching:", error);
       const errorMessage = (error as Error).message || "Đã có lỗi xảy ra khi tìm kiếm.";
       setSearchError(errorMessage);
-      toast({ title: "Lỗi tra cứu", description: errorMessage, variant: "destructive" });
+      toast({ 
+        title: "Lỗi tra cứu", 
+        description: `${errorMessage}. Kiểm tra console server để biết lỗi chi tiết từ Firebase (ví dụ: thiếu Index).`, 
+        variant: "destructive",
+        duration: 7000 
+      });
     } finally {
       setIsLoading(false);
     }
@@ -227,6 +232,7 @@ export default function AcademicResultsPortal() {
             <AlertCircle className="mx-auto h-10 w-10 mb-2" />
             <p className="font-semibold">{searchError}</p>
             {searchError.includes("index") && <p className="text-xs mt-1">Vui lòng liên hệ quản trị viên để kiểm tra cấu hình cơ sở dữ liệu.</p>}
+             {searchError.includes("Firebase") && <p className="text-xs mt-1">Vui lòng kiểm tra console server để biết lỗi chi tiết.</p>}
           </div>
         )}
 
@@ -314,19 +320,19 @@ export default function AcademicResultsPortal() {
         <Dialog open={isDailySlipDetailModalOpen} onOpenChange={setIsDailySlipDetailModalOpen}>
           <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col p-0">
             <ScrollArea className="flex-grow">
-              <div ref={slipDialogContentRef} className="bg-background font-sans p-4 pt-2 space-y-1 leading-normal">
-                 <DialogHeader className="p-0 pt-4 pb-2 text-center sticky top-0 z-10 bg-background">
+              <div ref={slipDialogContentRef} className="bg-background font-sans p-4 space-y-0.5 leading-normal">
+                 <DialogHeader className="p-0 pt-2 pb-1 text-center sticky top-0 z-10 bg-background">
                     <DialogTitle className="text-2xl font-bold uppercase text-primary text-center">
                         PHIẾU LIÊN LẠC
                     </DialogTitle>
                     {selectedDailySlip.date && (
-                        <DialogDescription className="text-sm text-center">
+                        <DialogDescription className="text-sm text-center text-muted-foreground">
                         Ngày: {format(parse(selectedDailySlip.date, 'yyyy-MM-dd', new Date()), "dd/MM/yyyy", { locale: vi })}
                         </DialogDescription>
                     )}
                   </DialogHeader>
                 
-                  <div className="space-y-0.5 text-sm mt-2">
+                  <div className="space-y-0.5 text-sm mt-1">
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4">
                         <p className="text-left"><strong className="font-medium text-muted-foreground mr-1">Họ và tên:</strong> <span className="text-indigo-700 font-semibold text-base">{searchedStudent.hoTen}</span></p>
                         <p className="text-left"><strong className="font-medium text-muted-foreground mr-1">Lớp:</strong> <span className="font-medium text-base">{searchedStudent.tenLop || 'N/A'}</span></p>
@@ -334,9 +340,9 @@ export default function AcademicResultsPortal() {
                         <p className="text-left"><strong className="font-medium text-muted-foreground mr-1">Ngày KT:</strong> <span className="font-medium text-base">{format(parse(selectedDailySlip.date, 'yyyy-MM-dd', new Date()), "dd/MM/yyyy", { locale: vi })}</span></p>
                      </div>
                   </div>
-                  <Separator className="my-1.5" />
+                  <Separator className="my-1" />
                   
-                  <h3 className="text-md font-semibold text-foreground mt-2 mb-1">Kết quả học tập:</h3>
+                  <h3 className="text-md font-semibold text-foreground mt-1.5 mb-0.5">Kết quả học tập:</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 text-sm">
                     <div className="space-y-0.5">
                       <SlipDetailItem label="Hình thức KT:">{selectedDailySlip.testFormat || "N/A"}</SlipDetailItem>
@@ -355,17 +361,17 @@ export default function AcademicResultsPortal() {
                        </SlipDetailItem>
                     </div>
                   </div>
-                  <Separator className="my-1.5"/>
+                  <Separator className="my-1"/>
                   <SlipDetailItem label="Từ vựng cần học lại:" fullWidth>{selectedDailySlip.vocabularyToReview}</SlipDetailItem>
                   <SlipDetailItem label="Nhận xét:" fullWidth>{selectedDailySlip.remarks}</SlipDetailItem>
 
-                  <Separator className="my-1.5"/>
-                  <h3 className="text-md font-semibold text-red-600 dark:text-red-400 mt-2 mb-1">Hướng dẫn Bài tập về nhà:</h3>
+                  <Separator className="my-1"/>
+                  <h3 className="text-md font-semibold text-red-600 dark:text-red-400 mt-1.5 mb-0.5">Hướng dẫn Bài tập về nhà:</h3>
                   <SlipDetailItem label="Từ vựng cần học:" fullWidth>{selectedDailySlip.homeworkAssignmentVocabulary}</SlipDetailItem>
                   <SlipDetailItem label="Bài tập làm tại nhà:" fullWidth>{selectedDailySlip.homeworkAssignmentTasks}</SlipDetailItem>
 
-                  <Separator className="my-1.5"/>
-                  <div className="text-sm font-medium leading-snug mt-2">
+                  <Separator className="my-1"/>
+                  <div className="text-sm font-medium leading-snug mt-1.5">
                     {(selectedDailySlip.vocabularyToReview && selectedDailySlip.vocabularyToReview.trim() !== "") ? (
                         <>
                             <p>Quý Phụ huynh nhắc nhở các em viết lại những từ vựng chưa thuộc.</p>
@@ -388,6 +394,3 @@ export default function AcademicResultsPortal() {
     </Card>
   );
 }
-
-
-    
