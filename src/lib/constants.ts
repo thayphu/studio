@@ -1,6 +1,6 @@
 
 import type { LucideIcon } from 'lucide-react';
-import { Users, CreditCard, UserCheck, BarChart3, Search, School, ClipboardList, Award, FileQuestion } from 'lucide-react'; // Added FileQuestion
+import { Users, CreditCard, UserCheck, BarChart3, Search, School, ClipboardList, Award, FileQuestion, Home } from 'lucide-react';
 
 interface NavLink {
   href: string;
@@ -14,24 +14,22 @@ export const NAV_LINKS: NavLink[] = [
   { href: "/hoc-phi", label: "Học phí", icon: CreditCard },
   { href: "/diem-danh", label: "Điểm danh", icon: UserCheck },
   { href: "/phieu-lien-lac", label: "Phiếu liên lạc", icon: ClipboardList },
-  { href: "/bai-kiem-tra", label: "Đề kiểm tra", icon: FileQuestion },
+  // { href: "/bai-kiem-tra", label: "Đề kiểm tra", icon: FileQuestion }, // Feature removed
   { href: "/bao-cao", label: "Báo cáo", icon: BarChart3 },
   { href: "/xep-hang", label: "Xếp hạng", icon: Award },
 ];
 
 export const PARENT_PORTAL_LINK = {
-  href: "/phu-huynh",
+  href: "/cong-phu-huynh", // Updated link
   label: "Cổng thông tin Phụ huynh",
   icon: Search
 };
-
-// Admin Credentials are now removed from here and should be managed via Firebase Authentication.
 
 // Vietnamese Texts
 export const TEXTS_VI = {
   appName: "HoEdu Solution",
   loginTitle: "Đăng nhập quản trị",
-  usernameLabel: "Email", // Changed from Tên đăng nhập to Email
+  usernameLabel: "Email",
   passwordLabel: "Mật khẩu",
   loginButton: "Đăng nhập",
   logoutButton: "Đăng xuất",
