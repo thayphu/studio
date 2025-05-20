@@ -10,17 +10,17 @@ import {
   CardContent,
   CardFooter,
   CardHeader,
-  CardTitle,
-  CardDescription,
+  CardTitle as ShadCNCardTitleOriginal, // Original import
+  CardDescription as ShadCNCardDescriptionOriginal, // Original import
 } from '@/components/ui/card';
 import {
   Dialog,
   DialogClose,
   DialogContent,
-  DialogDescription as ShadDialogDescription,
+  DialogDescription as ShadDialogDescriptionOriginal,
   DialogFooter,
-  DialogHeader as ShadDialogHeader,
-  DialogTitle as ShadDialogTitle,
+  DialogHeader as ShadDialogHeaderOriginal,
+  DialogTitle as ShadDialogTitleOriginal,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -34,7 +34,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { getClasses } from '@/services/lopHocService';
 import { getStudentsByClassId } from '@/services/hocSinhService';
-import { savePhieuLienLacRecords, getPhieuLienLacRecordsForClassOnDate, getPhieuLienLacRecordsForStudentInRange, updatePeriodicSummaryForSlip } from '@/services/phieuLienLacService';
+import { savePhieuLienLacRecords, getPhieuLienLacRecordsForClassOnDate, getPhieuLienLacRecordsForStudentInRange, updatePeriodicSummaryForSlip, getAllSlipsWithPeriodicRemarksForClass } from '@/services/phieuLienLacService';
 import type { LopHoc, HocSinh, PhieuLienLacRecord, StudentSlipInput, TestFormatPLC, HomeworkStatusPLC, OptionLabel } from '@/lib/types';
 import { ALL_TEST_FORMATS_PLC, ALL_HOMEWORK_STATUSES_PLC, ALL_OPTION_LABELS } from '@/lib/types';
 import { format, parse, parseISO, isValid, addMonths, addWeeks, subDays, getDay, startOfMonth, endOfMonth } from 'date-fns';
@@ -42,7 +42,18 @@ import { vi } from 'date-fns/locale';
 import { CalendarIcon, ClipboardList, Edit, Printer, Save, Trash2, Star, Loader2, AlertCircle, BookCopy, CheckCircle, FileText } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { cn, dayOfWeekToNumber } from '@/lib/utils';
+import html2canvas from 'html2canvas';
 import DashboardLayout from '../dashboard-layout';
+
+// Use direct imports for Card components to avoid aliasing confusion
+const CardHeader = ShadCNCardHeaderOriginal;
+const CardTitle = ShadCNCardTitleOriginal;
+const CardDescription = ShadCNCardDescriptionOriginal;
+
+const DialogHeader = ShadDialogHeaderOriginal;
+const DialogTitle = ShadDialogTitleOriginal;
+const DialogDescription = ShadDialogDescriptionOriginal;
+
 
 const isSlipInputEmpty = (entry: StudentSlipInput | undefined): boolean => {
   if (!entry) return true;
@@ -53,6 +64,7 @@ const isSlipInputEmpty = (entry: StudentSlipInput | undefined): boolean => {
     (entry.vocabularyToReview === undefined || String(entry.vocabularyToReview).trim() === '') &&
     (entry.remarks === undefined || String(entry.remarks).trim() === '')
   );
+  console.log(`[PLLPage] isSlipInputEmpty for entry:`, entry, `Result: ${isEmpty}`);
   return isEmpty;
 };
 
@@ -103,6 +115,7 @@ export default function PhieuLienLacPage() {
   const [dailySlipActiveTab, setDailySlipActiveTab] = useState<'nhap-phieu' | 'lich-su-nhap'>('nhap-phieu');
   const [periodicSlipActiveTab, setPeriodicSlipActiveTab] = useState<'nhan-xet' | 'lich-su-chu-ky'>('nhan-xet');
 
+
   const [commonHomeworkVocabulary, setCommonHomeworkVocabulary] = useState<string>("");
   const [commonHomeworkTasks, setCommonHomeworkTasks] = useState<string>("");
 
@@ -150,26 +163,32 @@ export default function PhieuLienLacPage() {
     queryKey: ['existingPhieuLienLac', selectedClassId, memoizedFormattedSelectedDateKey],
     queryFn: () => {
       if (!selectedClassId || !selectedDate || !memoizedFormattedSelectedDateKey) {
-        console.log("[PLLPage] existingPhieuLienLac query: Skipping due to missing classId, selectedDate, or formattedKey.");
         return Promise.resolve([]);
       }
-      console.log(`[PLLPage] existingPhieuLienLac query: Fetching for class ${selectedClassId}, date key ${memoizedFormattedSelectedDateKey}`);
       return getPhieuLienLacRecordsForClassOnDate(selectedClassId, selectedDate);
     },
     enabled: !!selectedClassId && !!selectedDate && !!memoizedFormattedSelectedDateKey && isClient,
   });
+
+  const { data: allSlipsWithPeriodicRemarks = [], isLoading: isLoadingAllSlipsWithRemarks, isError: isErrorAllSlipsWithRemarks } = useQuery<PhieuLienLacRecord[], Error>({
+      queryKey: ['allSlipsWithPeriodicRemarks', selectedClassId],
+      queryFn: () => getAllSlipsWithPeriodicRemarksForClass(selectedClassId),
+      enabled: !!selectedClassId && isClient && mainActiveTab === 'theo-chu-ky',
+      staleTime: 60000 * 2, 
+  });
   
- useEffect(() => {
+  useEffect(() => {
     const currentTimestamp = new Date().toLocaleTimeString();
-    console.log(`[PLLPage] Main useEffect triggered. Timestamp: ${currentTimestamp}. DateKey: ${memoizedFormattedSelectedDateKey}, ClassId: ${selectedClassId}, isClient: ${isClient}, isLoadingStudents: ${isLoadingStudents}, isLoadingExistingSlips: ${isLoadingExistingSlips}`);
-    console.log(`[PLLPage] Main useEffect: editingStudentId: ${editingStudentId}, initialLoadedStudentSlipIds (current):`, initialLoadedStudentSlipIds);
+    console.log(`[PLLPage] Main useEffect triggered. DateKey: ${memoizedFormattedSelectedDateKey}, ClassId: ${selectedClassId}, isClient: ${isClient}, isLoadingStudents: ${isLoadingStudents}, isLoadingExistingSlips: ${isLoadingExistingSlips}`);
+    console.log(`[PLLPage] Main useEffect: Dependencies: existingSlipsData count: ${existingSlipsData?.length}, studentsInSelectedClass count: ${studentsInSelectedClass?.length}`);
+    console.log(`[PLLPage] Main useEffect: editingStudentId: ${editingStudentId}, current studentSlipInputs keys:`, Object.keys(studentSlipInputs));
 
     if (!isClient || isLoadingStudents || isLoadingExistingSlips || !selectedDate || !selectedClassId || !studentsInSelectedClass) {
-      console.log("[PLLPage] Main useEffect: Skipping state update due to loading/missing data or not client-ready. StudentsInSelectedClass:", studentsInSelectedClass, "ExistingSlipsData:", existingSlipsData);
+      console.log("[PLLPage] Main useEffect: Skipping state update due to loading/missing data or not client-ready.");
       return;
     }
 
-    const newInputsFromEffect: Record<string, StudentSlipInput> = {};
+    const newInputsToSet: Record<string, StudentSlipInput> = {};
     const newInitialLoadedIdsFromEffect = new Set<string>();
     let commonVocabFromDb = "";
     let commonTasksFromDb = "";
@@ -194,6 +213,7 @@ export default function PhieuLienLacPage() {
         };
         
         if (student.id === editingStudentId && currentLocalInput) {
+          console.log(`[PLLPage] Main useEffect: Student ${student.id} is being edited. Preserving local input:`, currentLocalInput);
           entryForStudent = currentLocalInput;
         } else {
           entryForStudent = entryFromDb;
@@ -208,8 +228,12 @@ export default function PhieuLienLacPage() {
             commonTasksFromDb = existingDbSlip.homeworkAssignmentTasks || "";
             commonHwInitializedFromDb = true;
         }
-      } else {
+      } else { 
         if (student.id === editingStudentId && currentLocalInput) {
+            console.log(`[PLLPage] Main useEffect: Student ${student.id} is new & being edited. Preserving local input:`, currentLocalInput);
+            entryForStudent = currentLocalInput;
+        } else if (currentLocalInput && !initialLoadedStudentSlipIds.has(student.id) && !isSlipInputEmpty(currentLocalInput)){
+            console.log(`[PLLPage] Main useEffect: Student ${student.id} is new, not editing, but has non-empty local input. Preserving:`, currentLocalInput);
             entryForStudent = currentLocalInput;
         } else {
             const masteryDetailsForEmpty = calculateMasteryDetailsForPLL(undefined, '');
@@ -221,32 +245,32 @@ export default function PhieuLienLacPage() {
             };
         }
       }
-      newInputsFromEffect[student.id] = entryForStudent;
+      newInputsToSet[student.id] = entryForStudent;
     });
     
     if (commonHwInitializedFromDb) {
         if (commonHomeworkVocabulary !== commonVocabFromDb) setCommonHomeworkVocabulary(commonVocabFromDb);
         if (commonHomeworkTasks !== commonTasksFromDb) setCommonHomeworkTasks(commonTasksFromDb);
-        Object.keys(newInputsFromEffect).forEach(studentId => {
-          if(newInputsFromEffect[studentId]) { 
-            newInputsFromEffect[studentId].homeworkAssignmentVocabulary = commonVocabFromDb;
-            newInputsFromEffect[studentId].homeworkAssignmentTasks = commonTasksFromDb;
+        Object.keys(newInputsToSet).forEach(studentId => {
+          if(newInputsToSet[studentId]) { 
+            newInputsToSet[studentId].homeworkAssignmentVocabulary = commonVocabFromDb;
+            newInputsToSet[studentId].homeworkAssignmentTasks = commonTasksFromDb;
           }
         });
     } else if (existingSlipsData.length === 0 && !isLoadingExistingSlips) {
         if (commonHomeworkVocabulary !== "") setCommonHomeworkVocabulary("");
         if (commonHomeworkTasks !== "") setCommonHomeworkTasks("");
-         Object.keys(newInputsFromEffect).forEach(studentId => {
-            if(newInputsFromEffect[studentId]) {
-                newInputsFromEffect[studentId].homeworkAssignmentVocabulary = "";
-                newInputsFromEffect[studentId].homeworkAssignmentTasks = "";
+         Object.keys(newInputsToSet).forEach(studentId => {
+            if(newInputsToSet[studentId]) {
+                newInputsToSet[studentId].homeworkAssignmentVocabulary = "";
+                newInputsToSet[studentId].homeworkAssignmentTasks = "";
             }
         });
     }
 
-    if (JSON.stringify(studentSlipInputs) !== JSON.stringify(newInputsFromEffect)) {
-        console.log("[PLLPage] Main useEffect: studentSlipInputs changed. Updating state. Old:", studentSlipInputs, "New:", newInputsFromEffect);
-        setStudentSlipInputs(newInputsFromEffect);
+    if (JSON.stringify(studentSlipInputs) !== JSON.stringify(newInputsToSet)) {
+        console.log("[PLLPage] Main useEffect: studentSlipInputs changed. Updating state. Old keys:", Object.keys(studentSlipInputs), "New keys:", Object.keys(newInputsToSet));
+        setStudentSlipInputs(newInputsToSet);
     } else {
         console.log("[PLLPage] Main useEffect: studentSlipInputs are the same. Skipping state update.");
     }
@@ -257,11 +281,8 @@ export default function PhieuLienLacPage() {
     } else {
         console.log("[PLLPage] Main useEffect: initialLoadedStudentSlipIds are the same. Skipping state update.");
     }
-     if (editingStudentId && !newInitialLoadedIdsFromEffect.has(editingStudentId) && isSlipInputEmpty(newInputsFromEffect[editingStudentId])) {
-      console.log(`[PLLPage] Main useEffect: editingStudentId ${editingStudentId} is no longer in newInitialLoaded or its entry is empty. Resetting editingStudentId.`);
-      setEditingStudentId(null);
-    }
-  }, [existingSlipsData, studentsInSelectedClass, isLoadingStudents, isLoadingExistingSlips, isClient, memoizedFormattedSelectedDateKey, commonHomeworkVocabulary, commonHomeworkTasks, editingStudentId]);
+
+  }, [existingSlipsData, studentsInSelectedClass, isLoadingExistingSlips, isLoadingStudents, isClient, memoizedFormattedSelectedDateKey, commonHomeworkVocabulary, commonHomeworkTasks, editingStudentId]);
 
 
   useEffect(() => {
@@ -281,8 +302,9 @@ export default function PhieuLienLacPage() {
     if(selectedClassId) {
       console.log(`[PLLPage] Date/Class Change: Refetching students for class ${selectedClassId}`);
       refetchStudentsInClass(); 
+      queryClient.invalidateQueries({ queryKey: ['allSlipsWithPeriodicRemarks', selectedClassId] });
     }
-  }, [memoizedFormattedSelectedDateKey, selectedClassId, isClient, queryClient, refetchStudentsInClass]);
+  }, [memoizedFormattedSelectedDateKey, selectedClassId, isClient]);
 
 
   const handleSlipInputChange = useCallback((studentId: string, field: keyof StudentSlipInput, value: any) => {
@@ -313,30 +335,64 @@ export default function PhieuLienLacPage() {
   }, [commonHomeworkVocabulary, commonHomeworkTasks]);
 
  const studentsForHistoryTab = useMemo(() => {
-    console.log(`[PLLPage] Recalculating studentsForHistoryTab. InitialLoadedIDs:`, initialLoadedStudentSlipIds, `EditingStudentId: ${editingStudentId}`);
+    console.log(`[PLLPage] studentsForHistoryTab useMemo. initialLoadedStudentSlipIds:`, initialLoadedStudentSlipIds, `editingStudentId: ${editingStudentId}`);
     if (isLoadingStudents || !studentsInSelectedClass || isLoadingExistingSlips) return [];
     const result = studentsInSelectedClass.filter(student => 
         initialLoadedStudentSlipIds.has(student.id) && 
         student.id !== editingStudentId &&
         !isSlipInputEmpty(studentSlipInputs[student.id])
     );
-    console.log(`[PLLPage] Result for studentsForHistoryTab (count: ${result.length}):`, result.map(s => s.hoTen));
+    console.log(`[PLLPage] Result for studentsForHistoryTab (count: ${result.length}):`, result.map(s => s.id));
     return result;
   }, [studentsInSelectedClass, studentSlipInputs, initialLoadedStudentSlipIds, editingStudentId, isLoadingStudents, isLoadingExistingSlips]);
 
   const studentsForEntryTab = useMemo(() => {
-    console.log(`[PLLPage] Recalculating studentsForEntryTab. EditingStudentId: ${editingStudentId}`);
+    console.log(`[PLLPage] studentsForEntryTab useMemo. editingStudentId: ${editingStudentId}, initialLoadedStudentSlipIds:`, initialLoadedStudentSlipIds);
     if (isLoadingStudents || !studentsInSelectedClass) return [];
     if (editingStudentId) {
       const studentBeingEdited = studentsInSelectedClass.find(s => s.id === editingStudentId);
+      console.log(`[PLLPage] Students for EntryTab (editing student ${editingStudentId}):`, studentBeingEdited ? [studentBeingEdited.id] : []);
       return studentBeingEdited ? [studentBeingEdited] : [];
     }
-    // Students not in history (i.e., new entries or empty existing ones)
+    
     const historyStudentIds = new Set(studentsForHistoryTab.map(s => s.id));
     const result = studentsInSelectedClass.filter(student => !historyStudentIds.has(student.id));
-    console.log(`[PLLPage] Students for EntryTab (not editing, count: ${result.length}):`, result.map(s => s.hoTen));
+    console.log(`[PLLPage] Students for EntryTab (not editing, count: ${result.length}):`, result.map(s => s.id));
     return result;
   }, [studentsInSelectedClass, studentsForHistoryTab, editingStudentId, isLoadingStudents]);
+
+  const studentsToListInPeriodicTabs = useMemo(() => {
+    if (isLoadingStudents || !studentsInSelectedClass) return [];
+    console.log("[PLLPage] studentsToListInPeriodicTabs calculated, count:", studentsInSelectedClass.length);
+    return studentsInSelectedClass;
+  }, [studentsInSelectedClass, isLoadingStudents]);
+
+  const studentsForNhanXetChuKyTab = useMemo(() => {
+    if (isLoadingStudents || isLoadingAllSlipsWithRemarks || !studentsInSelectedClass) return [];
+    const studentIdsWithRemarks = new Set(allSlipsWithPeriodicRemarks.map(slip => slip.studentId));
+    const result = studentsInSelectedClass.filter(student => !studentIdsWithRemarks.has(student.id));
+    console.log("[PLLPage] studentsForNhanXetChuKyTab calculated, count:", result.length);
+    return result;
+  }, [studentsInSelectedClass, allSlipsWithPeriodicRemarks, isLoadingStudents, isLoadingAllSlipsWithRemarks]);
+
+  const studentsForLichSuChuKyTab = useMemo(() => {
+    if (isLoadingStudents || isLoadingAllSlipsWithRemarks || !studentsInSelectedClass) return [];
+    const studentIdsWithRemarks = new Set(allSlipsWithPeriodicRemarks.map(slip => slip.studentId));
+    
+    const result = studentsInSelectedClass
+      .filter(student => studentIdsWithRemarks.has(student.id))
+      .map(student => {
+        const latestRemarkSlip = allSlipsWithPeriodicRemarks
+          .filter(slip => slip.studentId === student.id)
+          .sort((a, b) => parseISO(b.date).getTime() - parseISO(a.date).getTime())[0];
+        return {
+          ...student,
+          lastSlipDateWithRemark: latestRemarkSlip ? latestRemarkSlip.date : undefined,
+        };
+      });
+    console.log("[PLLPage] studentsForLichSuChuKyTab calculated, count:", result.length);
+    return result;
+  }, [studentsInSelectedClass, allSlipsWithPeriodicRemarks, isLoadingStudents, isLoadingAllSlipsWithRemarks]);
 
 
   const saveSlipsMutation = useMutation({
@@ -388,13 +444,10 @@ export default function PhieuLienLacPage() {
     }
 
     const recordsToSave: Array<Omit<PhieuLienLacRecord, 'id' | 'createdAt' | 'updatedAt' | 'periodicSummaryRemark'>> = [];
-    const studentsToProcess = editingStudentId 
-      ? studentsInSelectedClass.filter(s => s.id === editingStudentId) 
-      : studentsInSelectedClass; 
-
-    studentsToProcess.forEach(student => {
+    
+    studentsInSelectedClass.forEach(student => { 
       const input = studentSlipInputs[student.id];
-      if (input) { 
+      if (input && (initialLoadedStudentSlipIds.has(student.id) || !isSlipInputEmpty(input) || student.id === editingStudentId) ) { 
         const masteryDetails = calculateMasteryDetailsForPLL(input.testFormat, input.score);
         let scoreToSave: number | null = null;
         if(input.score !== undefined && input.score !== null && String(input.score).trim() !== '') {
@@ -419,13 +472,13 @@ export default function PhieuLienLacPage() {
         recordsToSave.push(recordPayload);
       }
     });
-    console.log("[PLLPage] handleSaveAllSlips: Records to save:", recordsToSave);
-    if (recordsToSave.length === 0 && !editingStudentId) {
+    console.log("[PLLPage] handleSaveAllSlips: Records to save:", recordsToSave.map(r => ({studentId: r.studentId, testFormat: r.testFormat, score: r.score, remarks: r.remarks})));
+    if (recordsToSave.length === 0) {
         toast({ title: "Không có gì để lưu", description: "Vui lòng nhập thông tin phiếu liên lạc hoặc thực hiện thay đổi." });
         return;
     }
     saveSlipsMutation.mutate(recordsToSave);
-  }, [selectedClassId, selectedDate, classes, studentsInSelectedClass, studentSlipInputs, editingStudentId, saveSlipsMutation, toast, memoizedFormattedSelectedDateKey, commonHomeworkVocabulary, commonHomeworkTasks]);
+  }, [selectedClassId, selectedDate, classes, studentsInSelectedClass, studentSlipInputs, editingStudentId, saveSlipsMutation, toast, memoizedFormattedSelectedDateKey, commonHomeworkVocabulary, commonHomeworkTasks, initialLoadedStudentSlipIds]);
 
   const handleEditSlip = useCallback((studentId: string) => {
     console.log(`[PLLPage] handleEditSlip called for studentId: ${studentId}`);
@@ -446,11 +499,13 @@ export default function PhieuLienLacPage() {
         homeworkAssignmentTasks: commonHomeworkTasks, 
       }
     }));
-    setInitialLoadedStudentSlipIds(prev => {
+    
+    setInitialLoadedStudentSlipIds(prev => { 
       const updated = new Set(prev);
       updated.delete(studentId);
       return updated;
     });
+
     setEditingStudentId(studentId); 
     setDailySlipActiveTab("nhap-phieu");
     toast({ description: `Đã làm rỗng dữ liệu phiếu liên lạc cục bộ cho ${studentName}. Nhấn "Lưu" để cập nhật vào hệ thống.` });
@@ -581,9 +636,9 @@ export default function PhieuLienLacPage() {
   };
 
   const saveButtonText = useMemo(() => {
-     if (editingStudentId) return "Lưu Thay Đổi Phiếu Này";
+     if (editingStudentId && mainActiveTab === 'theo-ngay') return "Lưu Thay Đổi Phiếu Này";
     return "Lưu Tất Cả";
-  }, [editingStudentId]);
+  }, [editingStudentId, mainActiveTab]);
 
   const canSaveChanges = useMemo(() => {
     console.log("[PLLPage] canSaveChanges useMemo. editingStudentId:", editingStudentId, "saveSlipsMutation.isPending:", saveSlipsMutation.isPending);
@@ -627,13 +682,13 @@ export default function PhieuLienLacPage() {
     const studentsToProcess = studentsInSelectedClass.filter(s => !initialLoadedStudentSlipIds.has(s.id) || (studentSlipInputs[s.id] && !isSlipInputEmpty(studentSlipInputs[s.id])));
     const hasNewOrModifiedEntries = studentsToProcess.some(student => {
       const input = studentSlipInputs[student.id];
-      if (!input) return false; // Should not happen if student is in studentsToProcess
-      if (!initialLoadedStudentSlipIds.has(student.id)) { // New entry
+      if (!input) return false; 
+      if (!initialLoadedStudentSlipIds.has(student.id)) { 
         return !isSlipInputEmpty(input);
       }
-      // Existing entry, check if modified from what might be in existingSlipsData or if common HW changed
+      
       const originalSlip = existingSlipsData?.find(es => es.studentId === student.id);
-      if (!originalSlip) return !isSlipInputEmpty(input); // If somehow not in existing, treat as new if not empty
+      if (!originalSlip) return !isSlipInputEmpty(input); 
 
       const masteryDetails = calculateMasteryDetailsForPLL(input.testFormat, input.score);
       const originalScore = originalSlip.score === null || originalSlip.score === undefined ? '' : String(originalSlip.score);
@@ -660,6 +715,7 @@ export default function PhieuLienLacPage() {
       toast({ title: "Thành công!", description: "Nhận xét tổng hợp đã được lưu." });
       if (periodicSlipStudent?.id && selectedClassId){
         queryClient.invalidateQueries({ queryKey: ['phieuLienLacRecordsForStudent', periodicSlipStudent.id, selectedClassId] }); 
+        queryClient.invalidateQueries({ queryKey: ['allSlipsWithPeriodicRemarks', selectedClassId] });
       }
       setAllDailySlipsForPeriodic(prevSlips => 
         prevSlips.map(slip => slip.id === variables.slipId ? { ...slip, periodicSummaryRemark: variables.summaryRemark } : slip)
@@ -701,47 +757,68 @@ export default function PhieuLienLacPage() {
         return;
       }
 
-      const startDateString = student.ngayThanhToanGanNhat || student.ngayDangKy;
-      if (!startDateString) {
-        toast({ title: "Thiếu thông tin", description: "Không có ngày bắt đầu chu kỳ để tính toán.", variant: "warning"});
-        setIsLoadingPeriodicSlipRecords(false);
-        return;
+      let cycleStartDate: Date;
+      if (student.ngayThanhToanGanNhat && isValid(parseISO(student.ngayThanhToanGanNhat))) {
+          cycleStartDate = parseISO(student.ngayThanhToanGanNhat);
+      } else if (student.ngayDangKy && isValid(parseISO(student.ngayDangKy))) {
+          cycleStartDate = parseISO(student.ngayDangKy);
+      } else {
+          toast({ title: "Thiếu thông tin", description: "Không có ngày bắt đầu chu kỳ (ngày đăng ký/ngày thanh toán gần nhất) để tính toán.", variant: "warning"});
+          setIsLoadingPeriodicSlipRecords(false);
+          return;
       }
       
-      let cycleStartDate = parseISO(startDateString);
       let calculatedEndDate: Date | null = null;
-      let recordsToDisplay: PhieuLienLacRecord[] = [];
+      const classScheduleDays = (studentClass.lichHoc || []).map(day => dayOfWeekToNumber(day)).filter(dayNum => dayNum !== undefined) as number[];
 
       if (studentClass.chuKyDongPhi === "1 tháng") {
-        cycleStartDate = startOfMonth(cycleStartDate); // Start from beginning of the payment month
         calculatedEndDate = endOfMonth(cycleStartDate);
-      } else if (studentClass.chuKyDongPhi === "8 buổi" || studentClass.chuKyDongPhi === "10 buổi") {
+      } else if ((studentClass.chuKyDongPhi === "8 buổi" || studentClass.chuKyDongPhi === "10 buổi") && classScheduleDays.length > 0) {
           const sessionsNeeded = studentClass.chuKyDongPhi === "8 buổi" ? 8 : 10;
-          const sessionsPerWeek = studentClass.lichHoc.length;
-          if (sessionsPerWeek > 0) {
-              const weeksToEstimate = Math.ceil(sessionsNeeded / sessionsPerWeek) + 2; 
-              calculatedEndDate = addWeeks(cycleStartDate, weeksToEstimate); 
+          let sessionsCounted = 0;
+          let currentDate = new Date(cycleStartDate);
+          let actualEndDate = new Date(cycleStartDate);
+
+          for(let i=0; i < 365 && sessionsCounted < sessionsNeeded; i++) { 
+            if(classScheduleDays.includes(getDay(currentDate))) {
+              sessionsCounted++;
+              actualEndDate = new Date(currentDate);
+            }
+            if(sessionsCounted < sessionsNeeded) {
+              currentDate = addDays(currentDate, 1);
+            }
           }
+          if(sessionsCounted === sessionsNeeded) {
+            calculatedEndDate = actualEndDate;
+          } else {
+             console.warn(`[PLLPage] Could not accurately determine end date for ${studentClass.chuKyDongPhi} cycle. Using estimated range.`);
+             const weeksToEstimate = Math.ceil(sessionsNeeded / (classScheduleDays.length || 1)) + 2; 
+             calculatedEndDate = addWeeks(cycleStartDate, weeksToEstimate); 
+          }
+
       } else if (studentClass.chuKyDongPhi === "Theo ngày") {
-          calculatedEndDate = cycleStartDate;
+          calculatedEndDate = new Date(cycleStartDate);
+      } else { 
+          console.warn(`[PLLPage] Unknown cycle type or no schedule days for periodic slip. Using generic 2-month range.`);
+          calculatedEndDate = addMonths(cycleStartDate, 2); 
       }
       
-      console.log(`[PLLPage] Calculated date range for periodic slip: Start ${format(cycleStartDate, 'yyyy-MM-dd')}, Estimated End ${calculatedEndDate ? format(calculatedEndDate, 'yyyy-MM-dd') : 'N/A'}`);
+      console.log(`[PLLPage] Calculated date range for periodic slip: Start ${format(cycleStartDate, 'yyyy-MM-dd')}, End ${calculatedEndDate ? format(calculatedEndDate, 'yyyy-MM-dd') : 'N/A'}`);
 
-      const allStudentSlipsInClass = await getPhieuLienLacRecordsForStudentInRange(student.id, student.lopId, cycleStartDate, calculatedEndDate || undefined);
+      const allStudentSlipsInRange = await getPhieuLienLacRecordsForStudentInRange(
+        student.id, 
+        student.lopId, 
+        format(cycleStartDate, 'yyyy-MM-dd'), 
+        calculatedEndDate ? format(calculatedEndDate, 'yyyy-MM-dd') : undefined
+      );
       
-      setAllDailySlipsForPeriodic(allStudentSlipsInClass);
+      setAllDailySlipsForPeriodic(allStudentSlipsInRange);
       
-      if (allStudentSlipsInClass.length > 0) {
-        const lastSlipInFilteredData = [...allStudentSlipsInClass].sort((a,b) => parseISO(a.date).getTime() - parseISO(b.date).getTime()).pop();
+      if (allStudentSlipsInRange.length > 0) {
+        const lastSlipInFilteredData = [...allStudentSlipsInRange].sort((a,b) => parseISO(a.date).getTime() - parseISO(b.date).getTime()).pop();
         if (lastSlipInFilteredData?.periodicSummaryRemark) {
-          console.log(`[PLLPage] Found existing periodic summary remark for last slip ${lastSlipInFilteredData.id}: "${lastSlipInFilteredData.periodicSummaryRemark}"`);
           setPeriodicSlipSummaryRemark(lastSlipInFilteredData.periodicSummaryRemark);
-        } else {
-          console.log(`[PLLPage] No existing periodic summary remark found for last slip ${lastSlipInFilteredData?.id}.`);
         }
-      } else {
-        console.log(`[PLLPage] No daily slips found for student ${student.id} to populate periodic view for the calculated range.`);
       }
       setIsPeriodicSlipModalOpen(true);
     } catch (error) {
@@ -808,7 +885,7 @@ export default function PhieuLienLacPage() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="date-select-pll">Chọn Ngày</Label>
+              <Label htmlFor="date-select-pll">Chọn Ngày (cho phiếu hàng ngày)</Label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
@@ -830,7 +907,7 @@ export default function PhieuLienLacPage() {
         </Card>
         
         <Tabs value={mainActiveTab} onValueChange={(value) => setMainActiveTab(value as 'theo-ngay' | 'theo-chu-ky')} className="w-full">
-          <TabsList className="grid w-full sm:w-auto sm:max-w-md grid-cols-2 mb-6 bg-primary/10 p-1 rounded-lg">
+          <TabsList className="grid w-full sm:w-auto md:grid-cols-2 sm:max-w-sm grid-cols-2 mb-6 bg-primary/10 p-1 rounded-lg">
             <TabsTrigger value="theo-ngay" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-primary/20 hover:text-primary focus-visible:ring-primary/50">Theo ngày</TabsTrigger>
             <TabsTrigger value="theo-chu-ky" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-primary/20 hover:text-primary focus-visible:ring-primary/50">Theo chu kỳ</TabsTrigger>
           </TabsList>
@@ -953,7 +1030,7 @@ export default function PhieuLienLacPage() {
                     </TabsContent>
                   </Tabs>
                 </CardHeader> 
-                {(mainActiveTab === 'theo-ngay' && (dailySlipActiveTab === 'nhap-phieu' || (dailySlipActiveTab === 'lich-su-nhap' && editingStudentId) )) && selectedClassId && selectedDate && (
+                {mainActiveTab === 'theo-ngay' && (dailySlipActiveTab === 'nhap-phieu' || editingStudentId) && selectedClassId && selectedDate && (
                   <CardFooter className="border-t pt-6">
                     <Button onClick={handleSaveAllSlips} disabled={saveSlipsMutation.isPending || !canSaveChanges}>
                       {saveSlipsMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -973,27 +1050,33 @@ export default function PhieuLienLacPage() {
               <CardHeader>
                 <CardTitle>Thông tin chung phiếu theo chu kỳ</CardTitle>
                 <CardDescription>
-                  Lớp: {selectedClassDetails?.tenLop || <Skeleton className="h-5 w-24 inline-block" />} | Ngày hệ thống: {format(new Date(), "dd/MM/yyyy", {locale: vi})}
+                  Lớp: {selectedClassDetails?.tenLop || <Skeleton className="h-5 w-24 inline-block" />} | Ngày hệ thống: {selectedDate ? format(selectedDate, "dd/MM/yyyy", {locale: vi}) : <Skeleton className="h-5 w-20 inline-block" />}
                 </CardDescription>
               </CardHeader>
             </Card>
+
             <Card className="shadow-md">
               <CardHeader>
                 <Tabs value={periodicSlipActiveTab} onValueChange={(value) => setPeriodicSlipActiveTab(value as 'nhan-xet' | 'lich-su-chu-ky')}>
-                   <TabsList className="grid w-full sm:w-auto grid-cols-2 mb-4 bg-primary/10 p-1 rounded-lg">
-                    <TabsTrigger value="nhan-xet" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-primary/20 hover:text-primary focus-visible:ring-primary/50">Nhận xét Chu Kỳ</TabsTrigger>
-                    <TabsTrigger value="lich-su-chu-ky" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-primary/20 hover:text-primary focus-visible:ring-primary/50">Lịch Sử Phiếu Chu Kỳ</TabsTrigger>
+                   <TabsList className="grid w-full sm:w-auto md:grid-cols-2 sm:max-w-sm grid-cols-2 mb-4 bg-primary/10 p-1 rounded-lg">
+                    <TabsTrigger value="nhan-xet" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-primary/20 hover:text-primary focus-visible:ring-primary/50">Nhận xét Chu Kỳ ({studentsForNhanXetChuKyTab.length})</TabsTrigger>
+                    <TabsTrigger value="lich-su-chu-ky" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md hover:bg-primary/20 hover:text-primary focus-visible:ring-primary/50">Lịch Sử Phiếu Chu Kỳ ({studentsForLichSuChuKyTab.length})</TabsTrigger>
                   </TabsList>
                   <TabsContent value="nhan-xet">
-                    {(isLoadingStudents) && <div className="p-4 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto" /> Đang tải học sinh...</div>}
-                    {!(isLoadingStudents) && studentsInSelectedClass.length === 0 && <p className="text-muted-foreground p-4 text-center">Lớp này chưa có học sinh hoặc chưa chọn lớp.</p>}
-                    {!(isLoadingStudents) && studentsInSelectedClass.length > 0 && (
+                    {(isLoadingStudents || isLoadingAllSlipsWithRemarks) && <div className="p-4 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto" /> Đang tải học sinh...</div>}
+                    {!(isLoadingStudents || isLoadingAllSlipsWithRemarks) && !selectedClassId && <p className="text-muted-foreground p-4 text-center">Vui lòng chọn lớp để xem.</p>}
+                    {!(isLoadingStudents || isLoadingAllSlipsWithRemarks) && selectedClassId && studentsToListInPeriodicTabs.length === 0 && <p className="text-muted-foreground p-4 text-center">Lớp này chưa có học sinh.</p>}
+                    {!(isLoadingStudents || isLoadingAllSlipsWithRemarks) && selectedClassId && studentsForNhanXetChuKyTab.length === 0 && studentsToListInPeriodicTabs.length > 0 && (
+                        <p className="text-muted-foreground p-4 text-center">Tất cả học sinh trong lớp đã có nhận xét cho chu kỳ gần nhất, hoặc chưa có dữ liệu phiếu hàng ngày.</p>
+                    )}
+                    {!(isLoadingStudents || isLoadingAllSlipsWithRemarks) && studentsForNhanXetChuKyTab.length > 0 && (
                       <ScrollArea className="max-h-[60vh] pr-2">
-                        <Table><TableHeader><TableRow><TableHead className="w-[50px]">STT</TableHead><TableHead>Họ và tên</TableHead><TableHead className="text-right w-[220px]">Hành động</TableHead></TableRow></TableHeader>
+                        <Table><TableHeader><TableRow><TableHead className="w-[50px]">STT</TableHead><TableHead>Họ và tên</TableHead><TableHead>Mã HS</TableHead><TableHead className="text-right w-[220px]">Hành động</TableHead></TableRow></TableHeader>
                           <TableBody>
-                            {studentsInSelectedClass.map((student, index) => (
+                            {studentsForNhanXetChuKyTab.map((student, index) => (
                               <TableRow key={`periodic-remark-${student.id}`}>
                                 <TableCell>{index + 1}</TableCell><TableCell className="font-medium">{student.hoTen}</TableCell>
+                                <TableCell>{student.id}</TableCell>
                                 <TableCell className="text-right">
                                   <Button variant="outline" size="sm" onClick={() => handleOpenPeriodicSlipDialog(student)} aria-label="Thêm/Sửa Nhận Xét Chu Kỳ" disabled={isLoadingPeriodicSlipRecords && periodicSlipStudent?.id === student.id}>
                                     {isLoadingPeriodicSlipRecords && periodicSlipStudent?.id === student.id ? <Loader2 className="animate-spin h-4 w-4 mr-2"/> : <FileText className="h-4 w-4 mr-2" />}
@@ -1008,17 +1091,27 @@ export default function PhieuLienLacPage() {
                     )}
                   </TabsContent>
                   <TabsContent value="lich-su-chu-ky">
-                     {(isLoadingStudents) && <div className="p-4 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto" /> Đang tải học sinh...</div>}
-                    {!(isLoadingStudents) && studentsInSelectedClass.length === 0 && <p className="text-muted-foreground p-4 text-center">Lớp này chưa có học sinh hoặc chưa chọn lớp.</p>}
-                    {!(isLoadingStudents) && studentsInSelectedClass.length > 0 && (
+                    {(isLoadingStudents || isLoadingAllSlipsWithRemarks) && <div className="p-4 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto" /> Đang tải học sinh...</div>}
+                    {!(isLoadingStudents || isLoadingAllSlipsWithRemarks) && !selectedClassId && <p className="text-muted-foreground p-4 text-center">Vui lòng chọn lớp để xem.</p>}
+                    {!(isLoadingStudents || isLoadingAllSlipsWithRemarks) && selectedClassId && studentsToListInPeriodicTabs.length === 0 && <p className="text-muted-foreground p-4 text-center">Lớp này chưa có học sinh.</p>}
+                    {!(isLoadingStudents || isLoadingAllSlipsWithRemarks) && selectedClassId && studentsForLichSuChuKyTab.length === 0 && studentsToListInPeriodicTabs.length > 0 && (
+                        <p className="text-muted-foreground p-4 text-center">Chưa có học sinh nào có nhận xét chu kỳ được lưu.</p>
+                    )}
+                    {!(isLoadingStudents || isLoadingAllSlipsWithRemarks) && studentsForLichSuChuKyTab.length > 0 && (
                       <ScrollArea className="max-h-[60vh] pr-2">
                         <Table><TableHeader><TableRow><TableHead className="w-[50px]">STT</TableHead><TableHead>Họ và tên</TableHead><TableHead>Mã HS</TableHead><TableHead>Lớp</TableHead><TableHead>Chu kỳ</TableHead><TableHead className="text-right w-[180px]">Hành động</TableHead></TableRow></TableHeader>
                           <TableBody>
-                            {studentsInSelectedClass.map((student, index) => ( // Placeholder: should filter for students with existing periodic slips
+                            {studentsForLichSuChuKyTab.map((student, index) => {
+                               const cycleStartDateString = student.ngayThanhToanGanNhat || student.ngayDangKy;
+                               let displayCycle = selectedClassDetails?.chuKyDongPhi || 'N/A';
+                               if (student.lastSlipDateWithRemark && cycleStartDateString && isValid(parseISO(cycleStartDateString)) && isValid(parse(student.lastSlipDateWithRemark, 'yyyy-MM-dd', new Date()))) {
+                                  displayCycle = `${format(parseISO(cycleStartDateString), 'dd/MM/yy')} - ${format(parse(student.lastSlipDateWithRemark, 'yyyy-MM-dd', new Date()), 'dd/MM/yy')}`;
+                               }
+                              return (
                               <TableRow key={`periodic-history-${student.id}`}>
                                 <TableCell>{index + 1}</TableCell><TableCell className="font-medium">{student.hoTen}</TableCell>
                                 <TableCell>{student.id}</TableCell><TableCell>{selectedClassDetails?.tenLop || 'N/A'}</TableCell>
-                                <TableCell>{selectedClassDetails?.chuKyDongPhi || 'N/A'}</TableCell>
+                                <TableCell>{displayCycle}</TableCell>
                                 <TableCell className="text-right">
                                    <div className="flex gap-2 justify-end">
                                     <Button variant="outline" size="icon" onClick={() => handleOpenPeriodicSlipDialog(student)} aria-label="Sửa Nhận Xét Chu Kỳ" disabled={isLoadingPeriodicSlipRecords && periodicSlipStudent?.id === student.id}><Edit className="h-4 w-4"/></Button>
@@ -1027,7 +1120,7 @@ export default function PhieuLienLacPage() {
                                   </div>
                                 </TableCell>
                               </TableRow>
-                            ))}
+                            )})}
                           </TableBody>
                         </Table>
                       </ScrollArea>
@@ -1043,44 +1136,44 @@ export default function PhieuLienLacPage() {
         {/* Daily Slip Detail Dialog */}
         <Dialog open={isSlipModalOpen} onOpenChange={(open) => {setIsSlipModalOpen(open); if(!open) setCurrentSlipData(null);}}>
           <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col p-0">
-            <ScrollArea className="flex-grow">
-              <div ref={slipDialogContentRef} className="bg-background font-sans p-4 space-y-0.5 leading-tight">
-                <ShadDialogHeader className="p-0 pt-2 pb-1 text-center sticky top-0 z-10 bg-background"> 
-                  <ShadDialogTitle className="text-2xl font-bold uppercase text-primary text-center">PHIẾU LIÊN LẠC</ShadDialogTitle>
-                  {currentSlipData?.date && (<ShadDialogDescription className="text-sm text-center text-muted-foreground">Ngày: {isValid(parse(currentSlipData.date, 'yyyy-MM-dd', new Date())) ? format(parse(currentSlipData.date, 'yyyy-MM-dd', new Date()), "dd/MM/yyyy", { locale: vi }) : "N/A"}</ShadDialogDescription>)}
-                </ShadDialogHeader>
+            <ScrollArea className="flex-grow"> 
+              <div ref={slipDialogContentRef} className="bg-background font-sans p-4 space-y-0.5 leading-normal"> 
+                <DialogHeader className="p-0 pt-2 pb-1 text-center sticky top-0 z-10 bg-background"> 
+                  <DialogTitle className="text-2xl font-bold uppercase text-primary text-center">PHIẾU LIÊN LẠC</DialogTitle>
+                  {currentSlipData?.date && (<DialogDescription className="text-sm text-center text-muted-foreground">Ngày: {isValid(parse(currentSlipData.date, 'yyyy-MM-dd', new Date())) ? format(parse(currentSlipData.date, 'yyyy-MM-dd', new Date()), "dd/MM/yyyy", { locale: vi }) : "N/A"}</DialogDescription>)}
+                </DialogHeader>
                 {currentSlipData ? (
-                <div className="space-y-0.5 text-sm leading-snug mt-1">
-                    <div className="grid grid-cols-2 gap-x-4 mb-1">
-                      <p><strong className="font-medium text-muted-foreground mr-1">Họ và tên:</strong> <span className="text-indigo-700 font-semibold text-base">{currentSlipData.studentName}</span></p>
-                      <p><strong className="font-medium text-muted-foreground mr-1">Lớp:</strong> <span className="font-medium text-base">{currentSlipData.className}</span></p>
-                      <p><strong className="font-medium text-muted-foreground mr-1">Mã HS:</strong> <span className="font-medium text-base">{currentSlipData.studentId}</span></p>
-                      <p><strong className="font-medium text-muted-foreground mr-1">Ngày KT:</strong> <span className="font-medium text-base">{isValid(parse(currentSlipData.date, 'yyyy-MM-dd', new Date())) ? format(parse(currentSlipData.date, 'yyyy-MM-dd', new Date()), "dd/MM/yyyy", { locale: vi }) : "N/A"}</span></p>
+                <div className="space-y-2 text-sm mt-2 leading-normal"> 
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 mb-1">
+                      <p className="text-left"><strong className="font-medium text-muted-foreground mr-1">Họ và tên:</strong> <span className="text-indigo-700 font-semibold text-base">{currentSlipData.studentName}</span></p>
+                      <p className="text-left"><strong className="font-medium text-muted-foreground mr-1">Lớp:</strong> <span className="font-medium text-base">{currentSlipData.className}</span></p>
+                      <p className="text-left"><strong className="font-medium text-muted-foreground mr-1">Mã HS:</strong> <span className="font-medium text-base">{currentSlipData.studentId}</span></p>
+                      <p className="text-left"><strong className="font-medium text-muted-foreground mr-1">Ngày KT:</strong> <span className="font-medium text-base">{isValid(parse(currentSlipData.date, 'yyyy-MM-dd', new Date())) ? format(parse(currentSlipData.date, 'yyyy-MM-dd', new Date()), "dd/MM/yyyy", { locale: vi }) : "N/A"}</span></p>
                     </div>
                     <Separator className="my-1.5"/>
                     <h3 className="text-md font-semibold text-foreground mt-2 mb-0.5">Kết quả học tập:</h3>
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 text-sm">
-                        <div className="space-y-0.5">
-                          <div className="flex"><strong className="font-medium text-muted-foreground mr-2 w-[120px] shrink-0 text-left">Hình thức KT:</strong> <span className="font-medium flex-1 text-left">{currentSlipData.testFormat || "N/A"}</span></div>
-                          <div className="flex"><strong className="font-medium text-muted-foreground mr-2 w-[120px] shrink-0 text-left">Thuộc bài:</strong> <span className={cn("font-medium flex-1 text-left", getLessonMasteryTextAndColor(currentSlipData.lessonMasteryText, calculateMasteryDetailsForPLL(currentSlipData.testFormat, currentSlipData.score).isTrulyMastered).className)}>{currentSlipData.lessonMasteryText || "Chưa đánh giá"}</span></div>
+                        <div className="space-y-0.5"> 
+                          <div className="flex text-left"><strong className="font-medium text-muted-foreground mr-2 w-[120px] shrink-0">Hình thức KT:</strong> <span className="font-medium flex-1">{currentSlipData.testFormat || "N/A"}</span></div>
+                          <div className="flex text-left"><strong className="font-medium text-muted-foreground mr-2 w-[120px] shrink-0">Thuộc bài:</strong> <span className={cn("font-medium flex-1", getLessonMasteryTextAndColor(currentSlipData.lessonMasteryText, calculateMasteryDetailsForPLL(currentSlipData.testFormat, currentSlipData.score).isTrulyMastered).className)}>{currentSlipData.lessonMasteryText || "Chưa đánh giá"}</span></div>
                         </div>
-                        <div className="space-y-0.5">
-                          <div className="flex"><strong className="font-medium text-muted-foreground mr-2 w-[120px] shrink-0 text-left">Điểm số:</strong> <span className="flex-1 text-left">{renderScoreDisplay(currentSlipData.score)}</span></div>
-                          <div className="flex"><strong className="font-medium text-muted-foreground mr-2 w-[120px] shrink-0 text-left">Bài tập về nhà:</strong> <span className={cn("font-medium flex-1 text-left", getHomeworkStatusTextAndColor(currentSlipData.homeworkStatus).className)}>{currentSlipData.homeworkStatus ? getHomeworkStatusTextAndColor(currentSlipData.homeworkStatus).text : "Không có bài tập về nhà"}</span></div>
+                        <div className="space-y-0.5"> 
+                          <div className="flex text-left"><strong className="font-medium text-muted-foreground mr-2 w-[120px] shrink-0">Điểm số:</strong> <span className="flex-1">{renderScoreDisplay(currentSlipData.score)}</span></div>
+                          <div className="flex text-left"><strong className="font-medium text-muted-foreground mr-2 w-[120px] shrink-0">Bài tập về nhà:</strong> <span className={cn("font-medium flex-1", getHomeworkStatusTextAndColor(currentSlipData.homeworkStatus).className)}>{currentSlipData.homeworkStatus ? getHomeworkStatusTextAndColor(currentSlipData.homeworkStatus).text : "Không có bài tập về nhà"}</span></div>
                         </div>
                     </div>
                     <Separator className="my-1.5"/>
                     <SlipDetailItem label="Từ vựng cần học lại:">{currentSlipData.vocabularyToReview}</SlipDetailItem>
                     <SlipDetailItem label="Nhận xét:">{currentSlipData.remarks}</SlipDetailItem>
                     <Separator className="my-1.5"/>
-                    <h3 className="text-md font-semibold text-red-600 dark:text-red-400 mt-1.5 mb-0.5">Hướng dẫn Bài tập về nhà:</h3>
+                    <h3 className="text-md font-semibold text-red-600 dark:text-red-400 mt-2 mb-0.5">Hướng dẫn Bài tập về nhà:</h3>
                     <SlipDetailItem label="Từ vựng cần học:">{currentSlipData.homeworkAssignmentVocabulary}</SlipDetailItem>
                     <SlipDetailItem label="Bài tập làm tại nhà:">{currentSlipData.homeworkAssignmentTasks}</SlipDetailItem>
                     <Separator className="my-1.5"/>
-                    <div className="text-sm font-medium leading-normal mt-1.5 space-y-1">
-                        {currentSlipData.vocabularyToReview && currentSlipData.vocabularyToReview.trim() !== "" && (
-                            <p>Quý Phụ huynh nhắc nhở các em viết lại những từ vựng chưa thuộc.</p>
-                        )}
+                    <div className="text-sm font-medium leading-normal mt-2 space-y-0.5"> 
+                        {(currentSlipData.vocabularyToReview && currentSlipData.vocabularyToReview.trim() !== "") || (currentSlipData.remarks && currentSlipData.remarks.toLowerCase().includes("nhắc nhở")) ? (
+                            <p>Quý Phụ huynh nhắc nhở các em viết lại những từ vựng chưa thuộc và/hoặc hoàn thành các nội dung được giáo viên dặn dò.</p>
+                        ) : null}
                         <p><strong>Trân trọng.</strong></p>
                     </div>
                 </div>
@@ -1100,13 +1193,13 @@ export default function PhieuLienLacPage() {
         {/* Periodic Slip Dialog */}
         <Dialog open={isPeriodicSlipModalOpen} onOpenChange={(open) => { setIsPeriodicSlipModalOpen(open); if (!open) {setPeriodicSlipStudent(null); setAllDailySlipsForPeriodic([]); setPeriodicSlipSummaryRemark("");}}}>
           <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col p-0">
+             <DialogHeader className="p-4 pb-0 sticky top-0 z-10 bg-background border-b">
+                  <Image src="/logo.png" alt="HoEdu Solution Logo" width={60} height={60} style={{ height: 'auto' }} className="mx-auto mb-1" priority data-ai-hint="app logo education"/>
+                  <DialogTitle className="text-xl font-bold uppercase text-primary text-center">PHIẾU LIÊN LẠC CHU KỲ</DialogTitle>
+                  <DialogDescription className="text-xs text-center text-muted-foreground">Ngày xuất: {format(new Date(), "dd/MM/yyyy", { locale: vi })}</DialogDescription>
+              </DialogHeader>
             <ScrollArea className="flex-grow">
               <div ref={periodicSlipDialogContentRef} className="bg-background font-sans p-4 space-y-1 leading-snug">
-                <ShadDialogHeader className="p-0 pt-2 pb-1 text-center sticky top-0 z-10 bg-background">
-                    <Image src="/logo.png" alt="HoEdu Solution Logo" width={60} height={60} style={{ height: 'auto' }} className="mx-auto mb-1" priority data-ai-hint="app logo education"/>
-                    <ShadDialogTitle className="text-xl font-bold uppercase text-primary text-center">PHIẾU LIÊN LẠC CHU KỲ</ShadDialogTitle>
-                    <ShadDialogDescription className="text-xs text-center text-muted-foreground">Ngày xuất: {format(new Date(), "dd/MM/yyyy", { locale: vi })}</ShadDialogDescription>
-                </ShadDialogHeader>
                 {isLoadingPeriodicSlipRecords && <div className="text-center p-10"><Loader2 className="h-8 w-8 animate-spin mx-auto"/> Đang tải dữ liệu...</div>}
                 {!isLoadingPeriodicSlipRecords && periodicSlipStudent && currentClassForPeriodicSlip && (
                     <div className="space-y-1.5 text-sm mt-0 leading-snug">
@@ -1155,17 +1248,17 @@ export default function PhieuLienLacPage() {
               </div>
             </ScrollArea>
             <DialogFooter className="p-2 border-t sm:justify-between bg-background">
+                  <DialogClose asChild><Button type="button" variant="outline" size="sm">Đóng</Button></DialogClose>
                   <div className="flex gap-2">
-                      <DialogClose asChild><Button type="button" variant="outline" size="sm">Đóng</Button></DialogClose>
                       <Button onClick={handleSavePeriodicRemark} size="sm" disabled={savePeriodicRemarkMutation.isPending || !periodicSlipStudent || allDailySlipsForPeriodic.length === 0}>
                           {savePeriodicRemarkMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                           Lưu Nhận Xét
                       </Button>
+                      <Button onClick={() => handleExportSlipImage(periodicSlipDialogContentRef, periodicSlipStudent?.hoTen ? `${periodicSlipStudent.hoTen}_ChuKy` : 'PhieuChuKy', periodicSlipDateRangeText)} disabled={isLoadingPeriodicSlipRecords || !periodicSlipStudent || (typeof html2canvas === 'undefined' || html2canvas === null)} size="sm">
+                          {(typeof html2canvas === 'undefined' || html2canvas === null) && !isLoadingPeriodicSlipRecords && periodicSlipStudent ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Printer className="mr-2 h-4 w-4" />}
+                          {(typeof html2canvas === 'undefined' || html2canvas === null) && !isLoadingPeriodicSlipRecords && periodicSlipStudent ? "Đang tải..." : "Xuất file ảnh"}
+                      </Button>
                   </div>
-                  <Button onClick={() => handleExportSlipImage(periodicSlipDialogContentRef, periodicSlipStudent?.hoTen ? `${periodicSlipStudent.hoTen}_ChuKy` : 'PhieuChuKy', periodicSlipDateRangeText)} disabled={isLoadingPeriodicSlipRecords || !periodicSlipStudent || (typeof html2canvas === 'undefined' || html2canvas === null)} size="sm">
-                      {(typeof html2canvas === 'undefined' || html2canvas === null) && !isLoadingPeriodicSlipRecords && periodicSlipStudent ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Printer className="mr-2 h-4 w-4" />}
-                      {(typeof html2canvas === 'undefined' || html2canvas === null) && !isLoadingPeriodicSlipRecords && periodicSlipStudent ? "Đang tải..." : "Xuất file ảnh"}
-                  </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -1180,16 +1273,25 @@ interface SlipDetailItemProps {
   children: React.ReactNode;
   labelClassName?: string;
   valueClassName?: string;
+  fullWidth?: boolean;
 }
 
-const SlipDetailItem: React.FC<SlipDetailItemProps> = ({ label, children, labelClassName, valueClassName }) => {
+const SlipDetailItem: React.FC<SlipDetailItemProps> = ({ label, children, labelClassName, valueClassName, fullWidth = false }) => {
+  if (fullWidth) {
     return (
       <div className="text-sm leading-normal pb-0.5 mt-1"> 
-        <strong className={cn("font-medium text-muted-foreground mr-2 block mb-0.5 text-left w-[140px] shrink-0", labelClassName)}>{label}</strong>
+        <strong className={cn("font-medium text-muted-foreground mr-2 block mb-0.5 text-left", labelClassName)}>{label}</strong>
         <div className={cn("font-medium text-left text-foreground", valueClassName)}>{children || <span className="text-muted-foreground italic">Không có</span>}</div>
       </div>
     );
-  };
+  }
+  return (
+    <div className="flex flex-col sm:flex-row sm:items-start text-sm leading-snug py-0">
+      <strong className={cn("font-medium text-muted-foreground mr-2 w-full sm:w-[140px] shrink-0 text-left mb-0.5 sm:mb-0", labelClassName)}>{label}</strong>
+      <span className={cn("font-medium flex-1 text-left text-foreground", valueClassName)}>{children || <span className="text-muted-foreground italic">Không có</span>}</span>
+    </div>
+  );
+};
 
 const Separator = React.forwardRef<
   React.ElementRef<"div">,
@@ -1197,10 +1299,8 @@ const Separator = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <div
     ref={ref}
-    className={cn("shrink-0 bg-border h-[1px] w-full my-1.5", className)} 
+    className={cn("shrink-0 bg-border h-[1px] w-full my-1", className)} 
     {...props}
   />
 ));
 Separator.displayName = "DialogSeparator";
-
-    
