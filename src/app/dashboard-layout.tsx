@@ -3,6 +3,7 @@
 
 import type { ReactNode } from 'react';
 import Link from 'next/link';
+import Image from 'next/image'; // Import next/image
 import { usePathname, useRouter } from 'next/navigation';
 import { LogOut, Settings, Loader2 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -29,7 +30,7 @@ import {
 } from '@/components/ui/sidebar';
 import { NAV_LINKS, PARENT_PORTAL_LINK, TEXTS_VI } from '@/lib/constants';
 import { cn } from '@/lib/utils';
-import React, { useEffect, useCallback, useMemo, useState, useRef } from 'react'; 
+import React, { useEffect, useCallback, useMemo, useState, useRef } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { getAuth, signOut, onAuthStateChanged, type User } from "firebase/auth";
 import { app } from "@/lib/firebase";
@@ -126,8 +127,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
 
   useEffect(() => {
-    console.log("DashboardLayout mounted or updated - " + new Date().toLocaleTimeString()); 
-  }, []); 
+    console.log("DashboardLayout mounted or updated - " + new Date().toLocaleTimeString());
+  }, []);
 
   const handleParentPortalClick = useCallback(() => {
     window.open(PARENT_PORTAL_LINK.href, '_blank');
@@ -136,6 +137,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const handleAccountSettingsClick = () => {
     setIsChangePasswordDialogOpen(true);
   };
+
+  const parentPortalTooltipProps = useMemo(() => ({
+    children: PARENT_PORTAL_LINK.label,
+    side: "right" as const,
+    align: "center" as const,
+  }), []);
   
   return (
     <SidebarProvider defaultOpen>
@@ -143,9 +150,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         <Sidebar collapsible="icon" className="border-r">
           <SidebarHeader className="p-4 flex items-center justify-between">
             <Link href="/lop-hoc" className="flex items-center gap-2">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-8 h-8 text-primary">
-                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
-              </svg>
+              <Image src="/logo.png" alt="HoEdu Solution Logo" width={32} height={32} data-ai-hint="app logo" />
               <h1 className="text-xl font-semibold text-primary">
                 {TEXTS_VI.appName}
               </h1>
@@ -154,7 +159,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           <SidebarContent className="p-2">
             <SidebarMenu>
               {NAV_LINKS.map((link) => {
-                const tooltipContent = link.label; 
+                const tooltipContent = link.label;
                 return (
                   <SidebarMenuItem key={link.href}>
                     <SidebarMenuButton

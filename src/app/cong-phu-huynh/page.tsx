@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useMemo } from 'react';
+import Image from 'next/image'; // Import next/image
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import StudentLookupPortal from '@/components/phu-huynh/StudentLookupPortal';
@@ -10,7 +11,7 @@ import { useQuery } from '@tanstack/react-query';
 import { getClasses } from '@/services/lopHocService';
 import type { LopHoc } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
-import { School, CalendarDays, Clock, MapPin, AlertCircle, BookOpen, FileText } from 'lucide-react'; // Added BookOpen, FileText
+import { School, CalendarDays, Clock, MapPin, AlertCircle, BookOpen, FileText } from 'lucide-react'; 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 
@@ -44,9 +45,7 @@ export default function MainParentPortalPage() {
     <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-secondary/10 py-8 px-4 sm:px-6 lg:px-8">
       <header className="mb-10 text-center">
         <Link href="/" className="inline-block mb-4">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-16 h-16 text-primary mx-auto">
-            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
-          </svg>
+          <Image src="/logo.png" alt="HoEdu Solution Logo" width={64} height={64} className="mx-auto" data-ai-hint="app logo education" />
         </Link>
         <h1 className="text-4xl font-extrabold text-primary sm:text-5xl">
           HoEdu Solution

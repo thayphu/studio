@@ -11,7 +11,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import React, { useRef } from 'react';
-import html2canvas from 'html2canvas'; // Import html2canvas
+import html2canvas from 'html2canvas'; 
+import Image from 'next/image'; // Import next/image
 
 interface ReceiptTemplateProps {
   student: HocSinh | null;
@@ -141,12 +142,16 @@ export default function ReceiptTemplate({ student, receiptNumber, paidAmount, cl
         toast({ title: "Lỗi", description: "Không có thông tin học sinh.", variant: "destructive" });
         return;
     }
+     if (typeof html2canvas === 'undefined') {
+        toast({ title: "Lỗi Xuất Ảnh", description: "Vui lòng đảm bảo html2canvas đã được cài đặt và server đã khởi động lại.", variant: "destructive"});
+        return;
+    }
 
     try {
       const canvas = await html2canvas(receiptRef.current, {
         scale: 2,
         useCORS: true,
-        backgroundColor: '#ffffff', // Ensure background is white for transparency issues
+        backgroundColor: '#ffffff', 
       });
       const image = canvas.toDataURL('image/png', 1.0);
       const link = document.createElement('a');
@@ -163,7 +168,7 @@ export default function ReceiptTemplate({ student, receiptNumber, paidAmount, cl
       console.error("Error exporting receipt to image:", error);
       toast({
         title: "Lỗi khi xuất biên nhận",
-        description: "Đã có lỗi xảy ra khi xuất biên nhận sang file ảnh. Vui lòng thử lại hoặc kiểm tra xem thư viện html2canvas đã được cài đặt đúng cách chưa.",
+        description: (error as Error).message || "Có lỗi xảy ra khi xuất biên nhận.",
         variant: "destructive",
       });
     }
@@ -177,11 +182,12 @@ export default function ReceiptTemplate({ student, receiptNumber, paidAmount, cl
         </Button>
       </div>
       <div ref={receiptRef} className="bg-card p-6 sm:p-8 rounded-lg shadow-lg max-w-2xl mx-auto font-sans text-sm">
-        <div className="text-center flex-grow mb-6">
-          <div className="inline-block bg-accent text-accent-foreground px-6 py-2 rounded-md">
-            <h1 className="text-2xl font-bold uppercase">Biên nhận</h1>
-          </div>
-          <p className="text-lg font-bold text-red-600 mt-2">No. {receiptNumber}</p>
+        <div className="text-center mb-4">
+            <Image src="/logo.png" alt="HoEdu Solution Logo" width={80} height={80} className="mx-auto mb-2" data-ai-hint="app logo education" />
+            <div className="inline-block bg-accent text-accent-foreground px-6 py-2 rounded-md">
+                <h1 className="text-2xl font-bold uppercase">Biên nhận</h1>
+            </div>
+            <p className="text-lg font-bold text-red-600 mt-2">No. {receiptNumber}</p>
         </div>
 
         <div className="mb-6 text-center">
@@ -197,8 +203,8 @@ export default function ReceiptTemplate({ student, receiptNumber, paidAmount, cl
 
         <div className="mb-6 text-lg">
           <h2 className="text-xl font-semibold mb-2 text-foreground sr-only">Thông tin học sinh</h2>
-           <div className="grid grid-cols-2 gap-x-4">
-                <div><span className="font-medium text-foreground">Họ và tên:</span> <span className="text-indigo-700 font-semibold">{student.hoTen}</span></div>
+           <div className="grid grid-cols-3 gap-x-4">
+                <div className="col-span-2"><span className="font-medium text-foreground">Họ và tên:</span> <span className="text-indigo-700 font-semibold">{student.hoTen}</span></div>
                 <div><span className="font-medium text-foreground">Lớp:</span> {student.tenLop || 'N/A'}</div>
             </div>
              <div className="grid grid-cols-2 gap-x-4 mt-1">
@@ -233,19 +239,19 @@ export default function ReceiptTemplate({ student, receiptNumber, paidAmount, cl
               <span>Chi phí khác:</span>
               <span className="font-medium">{formatCurrencyVND(0)}</span>
             </div>
-            <div className="ml-4 text-xs text-foreground"><em>Diễn giải: </em></div>
+            <div className="ml-4 text-xs "><em>Diễn giải: </em></div>
 
             <div className="flex justify-between">
               <span>Học phí linh hoạt:</span>
               <span className="font-medium">{formatCurrencyVND(0)}</span>
             </div>
-            <div className="ml-4 text-xs text-foreground"><em>Số buổi tương ứng: </em></div>
+            <div className="ml-4 text-xs "><em>Số buổi tương ứng: </em></div>
 
             <div className="flex justify-between">
               <span>Khấu trừ:</span>
               <span className="font-medium">{formatCurrencyVND(0)}</span>
             </div>
-            <div className="ml-4 text-xs text-foreground"><em>Lý do: </em></div>
+            <div className="ml-4 text-xs "><em>Lý do: </em></div>
           </div>
         </div>
 
@@ -254,26 +260,15 @@ export default function ReceiptTemplate({ student, receiptNumber, paidAmount, cl
         <div className="mb-6">
           <h2 className="text-lg font-semibold mb-2 text-foreground">Thống kê điểm danh (Chu kỳ này)</h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <StatCard icon={<CheckCircle className="h-6 w-6 text-green-500" />} label="Có mặt" value={attendanceStats.present} color="bg-green-50 border-green-200" />
-            <StatCard icon={<XCircle className="h-6 w-6 text-red-500" />} label="Vắng mặt" value={attendanceStats.absent} color="bg-red-50 border-red-200" />
-            <StatCard icon={<AlertTriangle className="h-6 w-6 text-yellow-500" />} label="GV vắng" value={attendanceStats.teacherAbsent} color="bg-yellow-50 border-yellow-200" />
+            <StatCard icon={<CheckCircle className="h-6 w-6 text-green-500" />} label="Có mặt" value="--" color="bg-green-50 border-green-200" />
+            <StatCard icon={<XCircle className="h-6 w-6 text-red-500" />} label="Vắng mặt" value="--" color="bg-red-50 border-red-200" />
+            <StatCard icon={<AlertTriangle className="h-6 w-6 text-yellow-500" />} label="GV vắng" value="--" color="bg-yellow-50 border-yellow-200" />
           </div>
         </div>
 
         <div className="mb-6">
           <h2 className="text-lg font-semibold mb-2 text-foreground">Lịch sử điểm danh (Chu kỳ này)</h2>
-          {attendanceHistory.length > 0 ? (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-              {attendanceHistory.map((item, index) => (
-                <div key={index} className={`p-2 rounded-md text-center text-xs ${item.color}`}>
-                  <p className="font-semibold">{item.date}</p>
-                  <p>{item.status}</p>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-muted-foreground italic">Chưa có lịch sử điểm danh cho chu kỳ này.</p>
-          )}
+          <p className="text-muted-foreground italic">Chưa có lịch sử điểm danh cho chu kỳ này.</p>
         </div>
 
         <Separator className="my-6" />
@@ -348,5 +343,3 @@ const format = (date: Date, formatString: string): string => {
    if (formatString === "yyyy") return String(date.getFullYear());
   return date.toLocaleDateString('vi-VN');
 };
-
-    
