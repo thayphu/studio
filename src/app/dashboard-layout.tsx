@@ -3,7 +3,7 @@
 
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import Image from 'next/image'; // Use next/image
+import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { LogOut, Settings, Loader2 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -30,7 +30,7 @@ import {
 } from '@/components/ui/sidebar';
 import { NAV_LINKS, PARENT_PORTAL_LINK, TEXTS_VI } from '@/lib/constants';
 import { cn } from '@/lib/utils';
-import React, { useEffect, useCallback, useMemo, useState, useRef } from 'react';
+import React, { useEffect, useCallback, useState, useRef } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { getAuth, signOut, onAuthStateChanged, type User } from "firebase/auth";
 import { app } from "@/lib/firebase";
@@ -47,7 +47,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const router = useRouter();
   const { toast } = useToast();
   const auth = getAuth(app);
-  const [currentUser, setCurrentUser] = useState<User | null>(auth.currentUser);
+
+  const [authInitialized, setAuthInitialized] = useState(false);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isChangePasswordDialogOpen, setIsChangePasswordDialogOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
@@ -69,7 +71,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         description: "Đã có lỗi xảy ra khi đăng xuất. Vui lòng thử lại.",
         variant: "destructive",
       });
-      router.push('/login'); // Fallback redirect
+      router.push('/login'); 
     } finally {
       setIsLoggingOut(false);
     }
@@ -79,43 +81,49 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     if (inactivityTimerRef.current) {
       clearTimeout(inactivityTimerRef.current);
     }
-    if (currentUser) { // Only set timer if user is logged in
+    if (auth.currentUser) { // Check auth.currentUser directly
       inactivityTimerRef.current = setTimeout(() => {
         toast({
           title: "Phiên sắp hết hạn",
           description: "Bạn sẽ tự động đăng xuất sau một phút nữa nếu không có hoạt động.",
           variant: "default",
-          duration: 60000, // Show for 1 minute
+          duration: 60000,
         });
-        // Set another shorter timer for actual logout
         setTimeout(() => {
-          if (auth.currentUser) { // Check again if user is still logged in
+          if (auth.currentUser) { 
              handleLogout(true);
           }
-        }, 60000); // 1 minute warning
-      }, INACTIVITY_TIMEOUT_MS - 60000); // Trigger warning 1 min before actual timeout
+        }, 60000); 
+      }, INACTIVITY_TIMEOUT_MS - 60000); 
     }
-  }, [currentUser, handleLogout, toast, auth]);
+  }, [auth, handleLogout, toast]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
+      console.log("DashboardLayout: Auth state changed. User:", user ? user.uid : null, "Path:", pathname);
       setCurrentUser(user);
+      setAuthInitialized(true); // Auth state is now determined
       if (user) {
         resetInactivityTimer();
-      } else if (inactivityTimerRef.current) {
-        clearTimeout(inactivityTimerRef.current);
+      } else {
+        if (inactivityTimerRef.current) {
+          clearTimeout(inactivityTimerRef.current);
+        }
+        // Redirect if not on public pages and auth is initialized
+        if (!['/login', '/forgot-password', '/cong-phu-huynh'].includes(pathname)) {
+          console.log("DashboardLayout: No user found, redirecting to /login from path:", pathname);
+          router.push('/login');
+        }
       }
     });
     return () => unsubscribe();
-  }, [auth, resetInactivityTimer]);
+  }, [auth, resetInactivityTimer, router, pathname]); // Pathname ensures effect re-runs on route change to check auth
 
   useEffect(() => {
     if (typeof window !== 'undefined' && currentUser) {
       const activityEvents: (keyof WindowEventMap)[] = ['mousemove', 'mousedown', 'keypress', 'scroll', 'touchstart'];
       activityEvents.forEach(event => window.addEventListener(event, resetInactivityTimer));
-
-      resetInactivityTimer(); // Initial timer start
-
+      resetInactivityTimer(); 
       return () => {
         activityEvents.forEach(event => window.removeEventListener(event, resetInactivityTimer));
         if (inactivityTimerRef.current) {
@@ -125,11 +133,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     }
   }, [resetInactivityTimer, currentUser]);
 
-
-  useEffect(() => {
-    console.log("DashboardLayout mounted or updated - " + new Date().toLocaleTimeString());
-  }, []);
-
   const handleParentPortalClick = useCallback(() => {
     window.open(PARENT_PORTAL_LINK.href, '_blank');
   }, []);
@@ -137,7 +140,32 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const handleAccountSettingsClick = () => {
     setIsChangePasswordDialogOpen(true);
   };
+
+  if (!authInitialized) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="ml-3 text-lg text-muted-foreground">Đang tải dữ liệu người dùng...</p>
+      </div>
+    );
+  }
+
+  // This check is an additional safeguard. The useEffect above should handle redirection.
+  // If auth is initialized, there's no user, and we are on a protected route, show redirecting message.
+  if (authInitialized && !currentUser && !['/login', '/forgot-password', '/cong-phu-huynh'].includes(pathname)) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="ml-3 text-lg text-muted-foreground">Đang chuyển hướng đến trang đăng nhập...</p>
+      </div>
+    );
+  }
   
+  // If user is null but we are on a public page (login, forgot-password, parent portal), allow children to render.
+  // This allows login page, etc., to use parts of a layout if needed, though usually they don't.
+  // For this app, login and forgot password are full pages, and parent portal is also separate.
+  // The key is that if currentUser is null AND we are on a protected path, the above conditions handle it.
+
   return (
     <SidebarProvider defaultOpen>
       <div className="flex min-h-screen bg-background">
@@ -151,6 +179,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 height={32} 
                 style={{ height: 'auto' }}
                 priority
+                data-ai-hint="app logo"
               />
               <h1 className="text-xl font-semibold text-primary">
                 {TEXTS_VI.appName}
@@ -169,7 +198,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                       className={cn(
                         pathname.startsWith(link.href) ? "bg-primary/10 text-primary hover:bg-primary/20" : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                       )}
-                      tooltip={tooltipContent}
+                      tooltip={tooltipContent} 
                     >
                       <Link href={link.href}>
                         <link.icon className="h-5 w-5" />
@@ -186,7 +215,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               <SidebarMenuItem>
                 <SidebarMenuButton
                   asChild
-                  tooltip={PARENT_PORTAL_LINK.label}
+                  tooltip={PARENT_PORTAL_LINK.label} 
                   className="cursor-pointer hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                   onClick={handleParentPortalClick}
                 >
