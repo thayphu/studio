@@ -46,13 +46,14 @@ export default function MainParentPortalPage() {
       <header className="mb-10 text-center">
         <Link href="/" className="inline-block mb-4">
           <Image 
-            src="/logo.png" // Use the logo from public folder
+            src="/logo.png" 
             alt="HoEdu Solution Logo" 
-            width={64} 
-            height={64} 
+            width={80} 
+            height={80} 
             style={{ height: 'auto' }} 
             className="mx-auto" 
             priority
+            data-ai-hint="app logo education"
           />
         </Link>
         <h1 className="text-4xl font-extrabold text-primary sm:text-5xl">
