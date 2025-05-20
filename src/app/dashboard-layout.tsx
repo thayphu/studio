@@ -137,12 +137,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const handleAccountSettingsClick = () => {
     setIsChangePasswordDialogOpen(true);
   };
-
-  const parentPortalTooltipProps = useMemo(() => ({
-    children: PARENT_PORTAL_LINK.label,
-    side: "right" as const,
-    align: "center" as const,
-  }), []);
   
   return (
     <SidebarProvider defaultOpen>
@@ -150,7 +144,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         <Sidebar collapsible="icon" className="border-r">
           <SidebarHeader className="p-4 flex items-center justify-between">
             <Link href="/lop-hoc" className="flex items-center gap-2">
-              <Image src="/logo.png" alt="HoEdu Solution Logo" width={32} height={32} data-ai-hint="app logo" />
+              <Image src="/logo.png" alt="HoEdu Solution Logo" width={32} height={32} style={{ height: 'auto' }} data-ai-hint="app logo" />
               <h1 className="text-xl font-semibold text-primary">
                 {TEXTS_VI.appName}
               </h1>

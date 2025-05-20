@@ -143,7 +143,8 @@ export default function ReceiptTemplate({ student, receiptNumber, paidAmount, cl
         return;
     }
      if (typeof html2canvas === 'undefined') {
-        toast({ title: "Lỗi Xuất Ảnh", description: "Vui lòng đảm bảo html2canvas đã được cài đặt và server đã khởi động lại.", variant: "destructive"});
+        toast({ title: "Lỗi Xuất Ảnh", description: "Thư viện html2canvas chưa được tải. Vui lòng cài đặt và khởi động lại server.", variant: "destructive", duration: 7000});
+        console.error("html2canvas is not defined. Please ensure it's installed (npm install html2canvas) and the dev server is restarted.");
         return;
     }
 
@@ -183,7 +184,7 @@ export default function ReceiptTemplate({ student, receiptNumber, paidAmount, cl
       </div>
       <div ref={receiptRef} className="bg-card p-6 sm:p-8 rounded-lg shadow-lg max-w-2xl mx-auto font-sans text-sm">
         <div className="text-center mb-4">
-            <Image src="/logo.png" alt="HoEdu Solution Logo" width={80} height={80} className="mx-auto mb-2" data-ai-hint="app logo education" />
+            <Image src="/logo.png" alt="HoEdu Solution Logo" width={80} height={80} style={{ height: 'auto' }} className="mx-auto mb-2" data-ai-hint="app logo education" />
             <div className="inline-block bg-accent text-accent-foreground px-6 py-2 rounded-md">
                 <h1 className="text-2xl font-bold uppercase">Biên nhận</h1>
             </div>
@@ -203,8 +204,8 @@ export default function ReceiptTemplate({ student, receiptNumber, paidAmount, cl
 
         <div className="mb-6 text-lg">
           <h2 className="text-xl font-semibold mb-2 text-foreground sr-only">Thông tin học sinh</h2>
-           <div className="grid grid-cols-3 gap-x-4">
-                <div className="col-span-2"><span className="font-medium text-foreground">Họ và tên:</span> <span className="text-indigo-700 font-semibold">{student.hoTen}</span></div>
+           <div className="grid grid-cols-2 gap-x-4">
+                <div><span className="font-medium text-foreground">Họ và tên:</span> <span className="text-indigo-700 font-semibold">{student.hoTen}</span></div>
                 <div><span className="font-medium text-foreground">Lớp:</span> {student.tenLop || 'N/A'}</div>
             </div>
              <div className="grid grid-cols-2 gap-x-4 mt-1">
