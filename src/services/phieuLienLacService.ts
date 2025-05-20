@@ -14,11 +14,11 @@ import {
   orderBy,
   limit,
   DocumentData,
-  updateDoc, 
-  startAt,
-  endAt
+  updateDoc,
+  // startAt, // Not currently used but could be for pagination
+  // endAt // Not currently used but could be for pagination
 } from 'firebase/firestore';
-import type { PhieuLienLacRecord } from '@/lib/types';
+import type { PhieuLienLacRecord, StudentSlipInput } from '@/lib/types';
 import { format, parseISO } from 'date-fns';
 
 const PHIEU_LIEN_LAC_COLLECTION = 'phieuLienLacRecords';
@@ -34,7 +34,9 @@ export const savePhieuLienLacRecords = async (
     console.log('[phieuLienLacService] No records to save.');
     return;
   }
-  console.log('[phieuLienLacService] Attempting to save/update Phieu Lien Lac records:', records.map(r => ({student: r.studentId, date: r.date, score: r.score, commonVocab: r.homeworkAssignmentVocabulary, commonTasks: r.homeworkAssignmentTasks })));
+  console.log('[phieuLienLacService] Attempting to save/update Phieu Lien Lac records. Count:', records.length);
+  // console.log('[phieuLienLacService] Sample record data:', records[0] ? {student: records[0].studentId, date: records[0].date, score: records[0].score, testFormat: records[0].testFormat, homework: records[0].homeworkStatus, vocab: records[0].vocabularyToReview, remarks: records[0].remarks, commonVocab: records[0].homeworkAssignmentVocabulary, commonTasks: records[0].homeworkAssignmentTasks } : "No records");
+
 
   const batch = writeBatch(db);
 
@@ -48,7 +50,7 @@ export const savePhieuLienLacRecords = async (
       collection(db, PHIEU_LIEN_LAC_COLLECTION),
       where('studentId', '==', record.studentId),
       where('classId', '==', record.classId),
-      where('date', '==', record.date),
+      where('date', '==', record.date), // Ensure date is in YYYY-MM-DD format
       limit(1)
     );
 
@@ -57,17 +59,16 @@ export const savePhieuLienLacRecords = async (
       const querySnapshot = await getDocs(q);
       // console.log(`[phieuLienLacService] Existing slip querySnapshot size for student ${record.studentId} on ${record.date}: ${querySnapshot.size}`);
 
-      // Prepare data for Firestore, ensuring undefined is handled for optional fields
-      const dataToSave: Partial<PhieuLienLacRecord> & { studentId: string; classId: string; date: string; updatedAt: any; createdAt?: any } = {
+      const dataToSave: any = { // Use 'any' temporarily for flexible field assignment
         studentId: record.studentId,
         studentName: record.studentName || '',
         classId: record.classId,
         className: record.className || '',
-        date: record.date,
-        testFormat: record.testFormat || undefined, 
+        date: record.date, // Should be YYYY-MM-DD format
+        testFormat: record.testFormat || "", // Store empty string if undefined
         score: record.score === undefined || record.score === null ? null : Number(record.score),
         lessonMasteryText: record.lessonMasteryText || '',
-        homeworkStatus: record.homeworkStatus || undefined, 
+        homeworkStatus: record.homeworkStatus || "", // Store empty string if undefined
         vocabularyToReview: record.vocabularyToReview || '',
         remarks: record.remarks || '',
         homeworkAssignmentVocabulary: record.homeworkAssignmentVocabulary || '',
@@ -75,9 +76,10 @@ export const savePhieuLienLacRecords = async (
         updatedAt: serverTimestamp(),
       };
       
-      if (dataToSave.testFormat === "") dataToSave.testFormat = undefined;
-      if (dataToSave.homeworkStatus === "") dataToSave.homeworkStatus = undefined;
-
+      // Ensure undefined optional fields are not sent or are converted to null/empty string
+      if (dataToSave.testFormat === undefined) dataToSave.testFormat = "";
+      if (dataToSave.homeworkStatus === undefined) dataToSave.homeworkStatus = "";
+      if (dataToSave.score === undefined) dataToSave.score = null; // Firestore handles null for numbers
 
       // console.log(`[phieuLienLacService] Data to save for student ${record.studentId} on ${record.date}:`, JSON.parse(JSON.stringify(dataToSave)));
 
@@ -85,8 +87,8 @@ export const savePhieuLienLacRecords = async (
       if (!querySnapshot.empty) {
         const existingDoc = querySnapshot.docs[0];
         // console.log(`[phieuLienLacService] Updating existing Phieu Lien Lac record ${existingDoc.id} for student ${record.studentId} on ${record.date}`);
-        // Keep existing periodicSummaryRemark if it exists and not explicitly cleared
         const existingData = existingDoc.data();
+        // Preserve periodicSummaryRemark if it exists and not explicitly being cleared
         if (existingData.periodicSummaryRemark && dataToSave.periodicSummaryRemark === undefined) {
             dataToSave.periodicSummaryRemark = existingData.periodicSummaryRemark;
         }
@@ -98,7 +100,7 @@ export const savePhieuLienLacRecords = async (
         batch.set(newDocRef, dataToSave);
       }
     } catch (error) {
-      console.error(`[phieuLienLacService] CRITICAL_FIREBASE_ERROR while processing record for student ${record.studentId} on ${record.date}:`, error);
+      console.error(`[phieuLienLacService] Error processing record for student ${record.studentId} on ${record.date}:`, error);
       if ((error as any)?.code === 'failed-precondition' && (error as any)?.message.includes('index')) {
         console.error(`[phieuLienLacService] Firestore Precondition Failed (likely missing index) for query: studentId == ${record.studentId}, classId == ${record.classId}, date == ${record.date}. Check YOUR SERVER CONSOLE (Firebase Studio terminal) for index creation link.`);
       } else if ((error as any)?.code === 'permission-denied') {
@@ -160,7 +162,7 @@ export const getPhieuLienLacRecordsForClassOnDate = async (
         updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate().toISOString() : undefined,
       };
     });
-    // console.log(`[phieuLienLacService] Fetched ${records.length} Phieu Lien Lac records for class ${classId} on ${formattedDate}. Records:`, records);
+    console.log(`[phieuLienLacService] Fetched ${records.length} Phieu Lien Lac records for class ${classId} on ${formattedDate}.`);
     return records;
   } catch (error) {
     console.error(`[phieuLienLacService] CRITICAL_FIREBASE_ERROR when fetching Phieu Lien Lac records for class ${classId} on ${formattedDate}:`, error);
@@ -182,21 +184,29 @@ export const getPhieuLienLacRecordsForStudentInRange = async (
   startDate?: string, // YYYY-MM-DD
   endDate?: string    // YYYY-MM-DD
 ): Promise<PhieuLienLacRecord[]> => {
-  console.log(`[phieuLienLacService] Fetching Phieu Lien Lac records for student ${studentId} in class ${classId}. Range: ${startDate} to ${endDate}`);
+  console.log(`[phieuLienLacService] Fetching Phieu Lien Lac records for student ${studentId} in class ${classId}. Range: ${startDate || 'any'} to ${endDate || 'any'}`);
 
-  let q = query(
-    collection(db, PHIEU_LIEN_LAC_COLLECTION),
+  let qConstraints: any[] = [ // Use 'any[]' to allow conditional pushing of where/orderBy
     where('studentId', '==', studentId),
     where('classId', '==', classId)
-  );
+  ];
 
   if (startDate) {
-    q = query(q, where('date', '>=', startDate));
+    qConstraints.push(where('date', '>=', startDate));
   }
   if (endDate) {
-    q = query(q, where('date', '<=', endDate));
+    qConstraints.push(where('date', '<=', endDate));
   }
-  q = query(q, orderBy('date', 'asc'));
+  
+  // Add orderBy('date', 'asc') only if no other orderBy is present or if it's compatible
+  // For simplicity, assuming 'date' is the primary sort. If other sorts are needed, this needs adjustment.
+  qConstraints.push(orderBy('date', 'asc'));
+
+
+  const q = query(
+    collection(db, PHIEU_LIEN_LAC_COLLECTION),
+    ...qConstraints
+  );
 
 
   try {
@@ -228,10 +238,15 @@ export const getPhieuLienLacRecordsForStudentInRange = async (
   } catch (error) {
     console.error(`[phieuLienLacService] CRITICAL_FIREBASE_ERROR when fetching Phieu Lien Lac records for student ${studentId} in class ${classId}:`, error);
     if ((error as any)?.code === 'failed-precondition') {
-      console.error(`[phieuLienLacService] Firestore Precondition Failed for getPhieuLienLacRecordsForStudentInRange: This usually means a required Firestore index is missing. Query might need index on studentId (ASC), classId (ASC), date (ASC) and potentially other date range comparisons. Check YOUR SERVER CONSOLE for a link to create the index.`);
+      let indexFields = "studentId (ASC), classId (ASC), date (ASC)";
+      // More specific index suggestions can be complex to generate without knowing exact query patterns.
+      // The Firebase error message in the server console is the most reliable source for the exact index needed.
+      console.error(`[phieuLienLacService] Firestore Precondition Failed for getPhieuLienLacRecordsForStudentInRange: This usually means a required Firestore index is missing. Query might need index on ${indexFields}. Check YOUR SERVER CONSOLE (Firebase Studio terminal) for a link to create the index.`);
     } else if ((error as any)?.code === 'permission-denied') {
        console.error(`[phieuLienLacService] PERMISSION_DENIED for getPhieuLienLacRecordsForStudentInRange. Check Firestore Security Rules for collection '${PHIEU_LIEN_LAC_COLLECTION}'.`);
     }
+    // It's important to re-throw or handle this appropriately
+    // The client-side useQuery will see this error.
     throw new Error('Failed to fetch Phieu Lien Lac records for student. Check YOUR SERVER CONSOLE (Firebase Studio terminal) for specific Firebase errors (e.g., missing index, permissions).');
   }
 };
@@ -244,7 +259,7 @@ export const updatePeriodicSummaryForSlip = async (slipId: string, summaryRemark
     console.error("[phieuLienLacService] updatePeriodicSummaryForSlip: slipId is required.");
     throw new Error("Slip ID is required to update summary remark.");
   }
-  console.log(`[phieuLienLacService] Updating periodicSummaryRemark for slipId ${slipId}. New remark: "${summaryRemark}"`);
+  console.log(`[phieuLienLacService] Updating periodicSummaryRemark for slipId ${slipId}. New remark length: ${summaryRemark.length}`);
   const slipDocRef = doc(db, PHIEU_LIEN_LAC_COLLECTION, slipId);
   try {
     await updateDoc(slipDocRef, {
@@ -274,7 +289,9 @@ export const getAllSlipsWithPeriodicRemarksForClass = async (classId: string): P
   const q = query(
     collection(db, PHIEU_LIEN_LAC_COLLECTION),
     where('classId', '==', classId),
-    where('periodicSummaryRemark', '!=', "") // Check for non-empty string; adjust if null/undefined is used for no remark
+    where('periodicSummaryRemark', '!=', "") 
+    // No orderBy here, but Firestore might still require an index for the two where clauses.
+    // If you need ordering (e.g., by date), add orderBy('date', 'desc') and a corresponding composite index.
   );
 
   try {
@@ -306,12 +323,10 @@ export const getAllSlipsWithPeriodicRemarksForClass = async (classId: string): P
   } catch (error) {
     console.error(`[phieuLienLacService] CRITICAL_FIREBASE_ERROR when fetching slips with periodic remarks for class ${classId}:`, error);
     if ((error as any)?.code === 'failed-precondition') {
-      console.error(`[phieuLienLacService] Firestore Precondition Failed for getAllSlipsWithPeriodicRemarksForClass: Missing index for classId == ${classId} AND periodicSummaryRemark != "". Check YOUR SERVER CONSOLE for index creation link.`);
+      console.error(`[phieuLienLacService] Firestore Precondition Failed for getAllSlipsWithPeriodicRemarksForClass: Missing index for classId == ${classId} AND periodicSummaryRemark != "". Check YOUR SERVER CONSOLE (Firebase Studio terminal) for index creation link.`);
     } else if ((error as any)?.code === 'permission-denied') {
        console.error(`[phieuLienLacService] PERMISSION_DENIED for getAllSlipsWithPeriodicRemarksForClass. Check Firestore Security Rules for collection '${PHIEU_LIEN_LAC_COLLECTION}'.`);
     }
-    throw new Error('Failed to fetch slips with periodic remarks.');
+    throw new Error('Failed to fetch slips with periodic remarks. Check YOUR SERVER CONSOLE (Firebase Studio terminal) for specific Firebase errors (e.g., missing index, permissions).');
   }
 };
-
-```
