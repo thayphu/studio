@@ -5,6 +5,7 @@ import React, { useState, useMemo, useRef } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Label } from '@/components/ui/label'; // Added Label import
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader as ShadDialogHeaderOriginal, DialogTitle as ShadDialogTitleOriginal, DialogDescription as ShadDialogDescriptionOriginal, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -130,7 +131,7 @@ const SlipDetailItem: React.FC<SlipDetailItemProps> = ({ label, children, labelC
   }
   return (
     <div className="flex flex-col sm:flex-row sm:items-start text-sm leading-snug py-0.5">
-      <strong className={cn("font-medium text-muted-foreground mr-2 w-[140px] shrink-0 text-left mb-0.5 sm:mb-0", labelClassName)}>{label}</strong>
+      <strong className={cn("font-medium text-muted-foreground mr-2 w-full sm:w-[140px] shrink-0 text-left mb-0.5 sm:mb-0", labelClassName)}>{label}</strong>
       <span className={cn("font-medium flex-1 text-left text-foreground", valueClassName)}>{children || <span className="text-muted-foreground italic">Không có</span>}</span>
     </div>
   );
@@ -147,7 +148,7 @@ export default function AcademicResultsPortal() {
   const [isDailySlipDetailModalOpen, setIsDailySlipDetailModalOpen] = useState(false);
   const [selectedDailySlip, setSelectedDailySlip] = useState<PhieuLienLacRecord | null>(null);
   const dailySlipDialogContentRef = useRef<HTMLDivElement>(null);
-  const periodicSlipContentRef = useRef<HTMLDivElement>(null); // Ref for periodic slip content
+  const periodicSlipContentRef = useRef<HTMLDivElement>(null);
 
   const { data: classes = [], isLoading: isLoadingClasses } = useQuery<LopHoc[], Error>({
     queryKey: ['classes'],
@@ -212,7 +213,7 @@ export default function AcademicResultsPortal() {
   const periodicSlipDateRangeText = useMemo(() => {
     if (dailySlips.length === 0) return "Chưa có dữ liệu";
     const sortedSlipsForRange = [...dailySlips].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    if (sortedSlipsForRange.length === 0) return "Chưa có dữ liệu"; // Should not happen if dailySlips.length > 0
+    if (sortedSlipsForRange.length === 0) return "Chưa có dữ liệu";
     const firstDate = parseISO(sortedSlipsForRange[0].date);
     const lastDate = parseISO(sortedSlipsForRange[sortedSlipsForRange.length - 1].date);
     return `Từ ${format(firstDate, "dd/MM/yyyy", {locale: vi})} đến ${format(lastDate, "dd/MM/yyyy", {locale: vi})}`;
@@ -224,7 +225,7 @@ export default function AcademicResultsPortal() {
       return;
     }
     if (typeof html2canvas === 'undefined') {
-      toast({ title: "Lỗi Xuất Ảnh", description: "Thư viện html2canvas chưa được tải. Vui lòng cài đặt và khởi động lại server.", variant: "destructive"});
+      toast({ title: "Lỗi Xuất Ảnh", description: "Thư viện html2canvas chưa được tải.", variant: "destructive"});
       return;
     }
     try {
@@ -247,7 +248,7 @@ export default function AcademicResultsPortal() {
 
   return (
     <Card className="shadow-xl overflow-hidden rounded-xl">
-      <CardHeader className="bg-primary/10 p-6">
+      <CardHeader>
         <CardTitle className="text-2xl font-semibold text-primary flex items-center">
           <FileText className="mr-3 h-7 w-7" /> Tra cứu Kết quả học tập & Phiếu liên lạc
         </CardTitle>
@@ -290,7 +291,7 @@ export default function AcademicResultsPortal() {
                 <CardTitle className="text-lg flex items-center"><UserCircle className="mr-2 h-5 w-5 text-primary"/>Thông tin học sinh</CardTitle>
               </CardHeader>
               <CardContent className="text-sm">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-4 gap-y-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-2">
                   <div><strong className="text-muted-foreground">Họ và tên:</strong> {searchedStudent.hoTen}</div>
                   <div><strong className="text-muted-foreground">Mã HS:</strong> {searchedStudent.id}</div>
                   <div><strong className="text-muted-foreground">Lớp:</strong> {searchedStudent.tenLop || "N/A"}</div>
@@ -395,7 +396,7 @@ export default function AcademicResultsPortal() {
                                             const masteryDetails = calculateMasteryDetailsForDisplay(slip.testFormat, slip.score);
                                             const homeworkDisplay = getHomeworkStatusTextAndColorForParent(slip.homeworkStatus);
                                             return (
-                                            <TableRow key={slip.id}>
+                                            <TableRow key={`periodic-detail-${slip.id}`}>
                                                 <TableCell className="p-1.5 sm:p-2">{index + 1}</TableCell>
                                                 <TableCell className="p-1.5 sm:p-2">{format(parseISO(slip.date), "dd/MM/yy")}</TableCell>
                                                 <TableCell className="p-1.5 sm:p-2">{slip.testFormat || 'N/A'}</TableCell>
@@ -444,7 +445,10 @@ export default function AcademicResultsPortal() {
       </CardContent>
 
       {selectedDailySlip && searchedStudent && (
-        <Dialog open={isDailySlipDetailModalOpen} onOpenChange={setIsDailySlipDetailModalOpen}>
+        <Dialog open={isDailySlipDetailModalOpen} onOpenChange={(open) => {
+            setIsDailySlipDetailModalOpen(open);
+            if (!open) setSelectedDailySlip(null);
+        }}>
           <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col p-0">
             <ScrollArea className="flex-grow"> 
               <div ref={dailySlipDialogContentRef} className="bg-background font-sans p-4 space-y-1 leading-normal">
@@ -529,3 +533,4 @@ export default function AcademicResultsPortal() {
     </Card>
   );
 }
+
