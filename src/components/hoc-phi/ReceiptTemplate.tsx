@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import React, { useRef } from 'react';
 import html2canvas from 'html2canvas'; 
-import Image from 'next/image'; // Import next/image
+// import Image from 'next/image'; // Temporarily remove next/image for debugging
 
 interface ReceiptTemplateProps {
   student: HocSinh | null;
@@ -120,7 +120,7 @@ export default function ReceiptTemplate({ student, receiptNumber, paidAmount, cl
       const datePart = nextPaymentCycleTextRaw.substring("dự kiến từ ".length);
       return (
         <>
-          <strong className="font-semibold text-foreground">{baseText}dự kiến từ </strong>
+          <strong className="font-semibold text-foreground">{baseText}dự kiến từ </strong> 
           <strong className="text-red-600 font-semibold">{datePart}</strong>.
         </>
       );
@@ -143,7 +143,7 @@ export default function ReceiptTemplate({ student, receiptNumber, paidAmount, cl
         return;
     }
      if (typeof html2canvas === 'undefined') {
-        toast({ title: "Lỗi Xuất Ảnh", description: "Chức năng xuất ảnh đang được cấu hình, vui lòng thử lại sau hoặc đảm bảo html2canvas đã được cài đặt.", variant: "warning", duration: 7000});
+        toast({ title: "Lỗi Xuất Ảnh", description: "Chức năng xuất ảnh đang được cấu hình, vui lòng thử lại sau hoặc đảm bảo html2canvas đã được cài đặt và server đã khởi động lại.", variant: "warning", duration: 7000});
         console.error("html2canvas is not defined. Please ensure it's installed (npm install html2canvas) and the dev server is restarted.");
         return;
     }
@@ -184,8 +184,9 @@ export default function ReceiptTemplate({ student, receiptNumber, paidAmount, cl
       </div>
       <div ref={receiptRef} className="bg-card p-6 sm:p-8 rounded-lg shadow-lg max-w-2xl mx-auto font-sans text-sm">
         <div className="text-center mb-4">
-            <Image 
-              src="https://placehold.co/160x160.png" 
+            {/* Using standard img tag for debugging logo display */}
+            <img 
+              src="https://placehold.co/80x80.png" 
               alt="HoEdu Solution Logo" 
               width={80} 
               height={80} 
@@ -211,22 +212,22 @@ export default function ReceiptTemplate({ student, receiptNumber, paidAmount, cl
 
         <div className="mb-6 text-lg">
           <h2 className="text-xl font-semibold mb-2 text-foreground sr-only">Thông tin học sinh</h2>
-           <div className="grid grid-cols-2 gap-x-4">
-                <div><span className="font-medium text-foreground">Họ và tên:</span> <span className="text-indigo-700 font-semibold">{student.hoTen}</span></div>
-                <div><span className="font-medium text-foreground">Lớp:</span> {student.tenLop || 'N/A'}</div>
+            <div className="grid grid-cols-2 gap-x-4">
+              <div><span className="font-medium text-muted-foreground">Họ và tên:</span> <span className="text-indigo-700 font-semibold">{student.hoTen}</span></div>
+              <div><span className="font-medium text-muted-foreground">Lớp:</span> {student.tenLop || 'N/A'}</div>
             </div>
-             <div className="grid grid-cols-2 gap-x-4 mt-1">
-              <div><span className="font-medium text-foreground">Mã HS:</span> {student.id}</div>
+            <div className="grid grid-cols-2 gap-x-4 mt-1">
+              <div><span className="font-medium text-muted-foreground">Mã HS:</span> {student.id}</div>
               <div>
-                <span className="font-medium text-foreground">Lịch học:</span>
-                {classSchedule && classSchedule.length > 0 ? classSchedule.join(', ') : 'N/A'}
+                <span className="font-medium text-muted-foreground">Lịch học:</span>
+                <span className="font-medium text-foreground"> {classSchedule && classSchedule.length > 0 ? classSchedule.join(', ') : 'N/A'}</span>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-x-4 mt-1">
-              <div><span className="font-medium text-foreground">Ngày đăng ký:</span> {formatDate(new Date(student.ngayDangKy), "dd/MM/yyyy")}</div>
+              <div><span className="font-medium text-muted-foreground">Ngày đăng ký:</span> <span className="font-medium text-foreground">{formatDate(new Date(student.ngayDangKy), "dd/MM/yyyy")}</span></div>
               <div>
-                  <span className="font-medium text-foreground">Chu kỳ thanh toán:</span>
-                  <span className="ml-1">{student.chuKyThanhToan}.</span>
+                  <span className="font-medium text-muted-foreground">Chu kỳ thanh toán:</span>
+                  <span className="font-medium text-foreground ml-1">{student.chuKyThanhToan}.</span>
               </div>
             </div>
           <p className="mt-2">
@@ -240,26 +241,26 @@ export default function ReceiptTemplate({ student, receiptNumber, paidAmount, cl
           <h2 className="text-lg font-semibold mb-2 text-foreground">Thông tin học phí</h2>
           <div className="space-y-1 text-foreground">
             <div className="flex justify-between">
-              <span>Tổng học phí cơ bản:</span>
-              <span className="font-medium">{formatCurrencyVND(paidAmount ?? 0)}</span>
+              <span className="font-medium text-foreground">Tổng học phí cơ bản:</span>
+              <span className="font-medium text-foreground">{formatCurrencyVND(paidAmount ?? 0)}</span>
             </div>
             <div className="flex justify-between">
-              <span>Chi phí khác:</span>
-              <span className="font-medium">{formatCurrencyVND(0)}</span>
+              <span className="font-medium text-foreground">Chi phí khác:</span>
+              <span className="font-medium text-foreground">{formatCurrencyVND(0)}</span>
             </div>
-            <div className="ml-4 text-xs "><em>Diễn giải: </em></div>
+            <div className="ml-4 text-xs text-muted-foreground"><em>Diễn giải: </em></div>
 
             <div className="flex justify-between">
-              <span>Học phí linh hoạt:</span>
-              <span className="font-medium">{formatCurrencyVND(0)}</span>
+              <span className="font-medium text-foreground">Học phí linh hoạt:</span>
+              <span className="font-medium text-foreground">{formatCurrencyVND(0)}</span>
             </div>
-            <div className="ml-4 text-xs "><em>Số buổi tương ứng: </em></div>
+            <div className="ml-4 text-xs text-muted-foreground"><em>Số buổi tương ứng: </em></div>
 
             <div className="flex justify-between">
-              <span>Khấu trừ:</span>
-              <span className="font-medium">{formatCurrencyVND(0)}</span>
+              <span className="font-medium text-foreground">Khấu trừ:</span>
+              <span className="font-medium text-foreground">{formatCurrencyVND(0)}</span>
             </div>
-            <div className="ml-4 text-xs "><em>Lý do: </em></div>
+            <div className="ml-4 text-xs text-muted-foreground"><em>Lý do: </em></div>
           </div>
         </div>
 

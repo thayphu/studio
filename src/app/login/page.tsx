@@ -1,15 +1,16 @@
 
 import LoginForm from '@/components/auth/LoginForm';
 import { TEXTS_VI } from '@/lib/constants';
-import Image from 'next/image'; // Import next/image
+// import Image from 'next/image'; // Temporarily remove next/image for debugging
 
 export default function LoginPage() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-primary/20 via-background to-secondary/20 p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <Image 
-            src="https://placehold.co/128x128.png" 
+          {/* Using standard img tag for debugging logo display */}
+          <img 
+            src="https://placehold.co/64x64.png" 
             alt="HoEdu Solution Logo" 
             width={64} 
             height={64} 

@@ -18,25 +18,24 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: 'https',
-        hostname: 'img.vietqr.io', // Corrected hostname
+        hostname: 'img.vietqr.io',
         port: '',
         pathname: '/**',
       },
     ],
   },
-  // allowedDevOrigins should be a top-level property, not under experimental for newer Next.js versions
+  // For Next.js 13.5+ and newer, allowedDevOrigins is a top-level property.
+  // The structure `experimental: { allowedDevOrigins: [] }` is for older versions.
   allowedDevOrigins: [
-    // Add your Firebase Studio / Cloud Workstations preview domain here
     "9000-firebase-studio-1747305900470.cluster-zumahodzirciuujpqvsniawo3o.cloudworkstations.dev",
     "firebase-studio-1747305900470.cluster-zumahodzirciuujpqvsniawo3o.cloudworkstations.dev",
-    // Add any other origins you use for development, e.g., localhost if IDX exposes it that way
     "http://localhost:3000", // Default Next.js port
-    "http://localhost:9002", // Port from previous logs
-    "http://localhost:9003", // Port from previous logs
-    "http://localhost:9004", // Port from previous logs
+    "http://localhost:9002",
+    "http://localhost:9003",
+    "http://localhost:9004",
   ],
   experimental: {
-    // Keep other experimental features if any, but allowedDevOrigins is moved
+    // Remove allowedDevOrigins from here if it was previously nested
   },
 };
 

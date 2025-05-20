@@ -2,11 +2,11 @@
 "use client";
 
 import { useState, useMemo } from 'react';
-import Image from 'next/image'; // Import next/image
+// import Image from 'next/image'; // Temporarily remove next/image for debugging
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import StudentLookupPortal from '@/components/phu-huynh/StudentLookupPortal';
-import AcademicResultsPortal from '@/components/phu-huynh/AcademicResultsPortal'; // New import
+import AcademicResultsPortal from '@/components/phu-huynh/AcademicResultsPortal';
 import { useQuery } from '@tanstack/react-query';
 import { getClasses } from '@/services/lopHocService';
 import type { LopHoc } from '@/lib/types';
@@ -45,8 +45,9 @@ export default function MainParentPortalPage() {
     <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-secondary/10 py-8 px-4 sm:px-6 lg:px-8">
       <header className="mb-10 text-center">
         <Link href="/" className="inline-block mb-4">
-          <Image 
-            src="https://placehold.co/128x128.png" 
+          {/* Using standard img tag for debugging logo display */}
+          <img 
+            src="https://placehold.co/64x64.png" 
             alt="HoEdu Solution Logo" 
             width={64} 
             height={64} 
