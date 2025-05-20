@@ -105,13 +105,13 @@ export default function ReceiptTemplate({ student, receiptNumber, paidAmount, cl
   if (student.chuKyThanhToan === "1 tháng" && student.ngayThanhToanGanNhat) {
     const lastPaymentDate = new Date(student.ngayThanhToanGanNhat);
     lastPaymentDate.setMonth(lastPaymentDate.getMonth() + 1);
-    nextPaymentCycleTextRaw = `dự kiến từ ${format(lastPaymentDate, "dd/MM/yyyy")}`;
+    nextPaymentCycleTextRaw = `dự kiến từ ${formatDate(lastPaymentDate, "dd/MM/yyyy")}`;
   } else if ((student.chuKyThanhToan === "8 buổi" || student.chuKyThanhToan === "10 buổi")  && student.ngayThanhToanGanNhat) {
     nextPaymentCycleTextRaw = `sau khi hoàn thành ${student.chuKyThanhToan} hiện tại`;
   } else if (student.chuKyThanhToan === "Theo ngày" && student.ngayThanhToanGanNhat) {
      const lastPaymentDate = new Date(student.ngayThanhToanGanNhat);
      lastPaymentDate.setDate(lastPaymentDate.getDate() + 1);
-     nextPaymentCycleTextRaw = `dự kiến từ ${format(lastPaymentDate, "dd/MM/yyyy")}`;
+     nextPaymentCycleTextRaw = `dự kiến từ ${formatDate(lastPaymentDate, "dd/MM/yyyy")}`;
   }
 
   const renderNextPaymentCycleText = () => {
@@ -143,7 +143,7 @@ export default function ReceiptTemplate({ student, receiptNumber, paidAmount, cl
         return;
     }
      if (typeof html2canvas === 'undefined') {
-        toast({ title: "Lỗi Xuất Ảnh", description: "Thư viện html2canvas chưa được tải. Vui lòng cài đặt và khởi động lại server.", variant: "destructive", duration: 7000});
+        toast({ title: "Lỗi Xuất Ảnh", description: "Chức năng xuất ảnh đang được cấu hình, vui lòng thử lại sau hoặc đảm bảo html2canvas đã được cài đặt.", variant: "warning", duration: 7000});
         console.error("html2canvas is not defined. Please ensure it's installed (npm install html2canvas) and the dev server is restarted.");
         return;
     }
@@ -184,7 +184,14 @@ export default function ReceiptTemplate({ student, receiptNumber, paidAmount, cl
       </div>
       <div ref={receiptRef} className="bg-card p-6 sm:p-8 rounded-lg shadow-lg max-w-2xl mx-auto font-sans text-sm">
         <div className="text-center mb-4">
-            <Image src="/logo.png" alt="HoEdu Solution Logo" width={80} height={80} style={{ height: 'auto' }} className="mx-auto mb-2" data-ai-hint="app logo education" />
+            <Image 
+              src="https://placehold.co/160x160.png" 
+              alt="HoEdu Solution Logo" 
+              width={80} 
+              height={80} 
+              style={{ height: 'auto' }} 
+              className="mx-auto mb-2" 
+              data-ai-hint="app logo education" />
             <div className="inline-block bg-accent text-accent-foreground px-6 py-2 rounded-md">
                 <h1 className="text-2xl font-bold uppercase">Biên nhận</h1>
             </div>
@@ -192,7 +199,7 @@ export default function ReceiptTemplate({ student, receiptNumber, paidAmount, cl
         </div>
 
         <div className="mb-6 text-center">
-          <p className="text-sm">Ngày {format(today, "dd")} tháng {format(today, "MM")} năm {format(today, "yyyy")}</p>
+          <p className="text-sm">Ngày {formatDate(today, "dd")} tháng {formatDate(today, "MM")} năm {formatDate(today, "yyyy")}</p>
         </div>
 
         <div className="mb-6 text-center">
@@ -216,7 +223,7 @@ export default function ReceiptTemplate({ student, receiptNumber, paidAmount, cl
               </div>
             </div>
             <div className="grid grid-cols-2 gap-x-4 mt-1">
-              <div><span className="font-medium text-foreground">Ngày đăng ký:</span> {format(new Date(student.ngayDangKy), "dd/MM/yyyy")}</div>
+              <div><span className="font-medium text-foreground">Ngày đăng ký:</span> {formatDate(new Date(student.ngayDangKy), "dd/MM/yyyy")}</div>
               <div>
                   <span className="font-medium text-foreground">Chu kỳ thanh toán:</span>
                   <span className="ml-1">{student.chuKyThanhToan}.</span>
@@ -332,15 +339,20 @@ const StatCard = ({ icon, label, value, color }: StatCardProps) => (
   </div>
 );
 
-const format = (date: Date, formatString: string): string => {
+// Helper function to format date, as date-fns might not be available or preferred in all contexts
+// This is a simplified version. For robust date formatting, consider date-fns.
+const formatDate = (date: Date, formatString: string): string => {
+  if (!(date instanceof Date) || isNaN(date.valueOf())) {
+    return "N/A"; // Or handle invalid date appropriately
+  }
   if (formatString === "dd/MM/yyyy") {
     const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0'); // Month is 0-indexed
     const year = date.getFullYear();
     return `${day}/${month}/${year}`;
   }
    if (formatString === "dd") return String(date.getDate()).padStart(2, '0');
    if (formatString === "MM") return String(date.getMonth() + 1).padStart(2, '0');
    if (formatString === "yyyy") return String(date.getFullYear());
-  return date.toLocaleDateString('vi-VN');
+  return date.toLocaleDateString('vi-VN'); // Fallback to locale default
 };

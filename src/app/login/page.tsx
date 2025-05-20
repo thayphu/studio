@@ -8,7 +8,14 @@ export default function LoginPage() {
     <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-primary/20 via-background to-secondary/20 p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <Image src="/logo.png" alt="HoEdu Solution Logo" width={64} height={64} style={{ height: 'auto' }} className="mx-auto mb-4" data-ai-hint="app logo education" />
+          <Image 
+            src="https://placehold.co/128x128.png" 
+            alt="HoEdu Solution Logo" 
+            width={64} 
+            height={64} 
+            style={{ height: 'auto' }} 
+            className="mx-auto mb-4" 
+            data-ai-hint="app logo education" />
           <h1 className="text-4xl font-bold text-primary">{TEXTS_VI.appName}</h1>
           <p className="text-muted-foreground mt-2">{TEXTS_VI.loginTitle}</p>
         </div>

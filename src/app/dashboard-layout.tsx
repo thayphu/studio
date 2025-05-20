@@ -135,6 +135,10 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   }, []);
 
   const handleAccountSettingsClick = () => {
+    // toast({
+    //   title: "Thông báo",
+    //   description: "Chức năng Cài đặt tài khoản đang được phát triển.",
+    // });
     setIsChangePasswordDialogOpen(true);
   };
   
@@ -144,7 +148,13 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         <Sidebar collapsible="icon" className="border-r">
           <SidebarHeader className="p-4 flex items-center justify-between">
             <Link href="/lop-hoc" className="flex items-center gap-2">
-              <Image src="/logo.png" alt="HoEdu Solution Logo" width={32} height={32} style={{ height: 'auto' }} data-ai-hint="app logo" />
+              <Image 
+                src="https://placehold.co/64x64.png" 
+                alt="HoEdu Solution Logo" 
+                width={32} 
+                height={32} 
+                style={{ height: 'auto' }} 
+                data-ai-hint="app logo" />
               <h1 className="text-xl font-semibold text-primary">
                 {TEXTS_VI.appName}
               </h1>

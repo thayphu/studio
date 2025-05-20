@@ -45,7 +45,14 @@ export default function MainParentPortalPage() {
     <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-secondary/10 py-8 px-4 sm:px-6 lg:px-8">
       <header className="mb-10 text-center">
         <Link href="/" className="inline-block mb-4">
-          <Image src="/logo.png" alt="HoEdu Solution Logo" width={64} height={64} style={{ height: 'auto' }} className="mx-auto" data-ai-hint="app logo education" />
+          <Image 
+            src="https://placehold.co/128x128.png" 
+            alt="HoEdu Solution Logo" 
+            width={64} 
+            height={64} 
+            style={{ height: 'auto' }} 
+            className="mx-auto" 
+            data-ai-hint="app logo education" />
         </Link>
         <h1 className="text-4xl font-extrabold text-primary sm:text-5xl">
           HoEdu Solution
