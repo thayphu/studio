@@ -107,6 +107,7 @@ export interface PhieuLienLacRecord {
   remarks?: string;
   homeworkAssignmentVocabulary?: string;
   homeworkAssignmentTasks?: string;
+  periodicSummaryRemark?: string; // New field for summary remark of the cycle
   createdAt?: string;
   updatedAt?: string;
 }
@@ -120,6 +121,7 @@ export interface StudentSlipInput {
   remarks?: string;
   homeworkAssignmentVocabulary?: string;
   homeworkAssignmentTasks?: string;
+  // periodicSummaryRemark is not part of daily input, but part of the record
 }
 
 export interface StudentRankingInfo {
@@ -139,48 +141,3 @@ export interface TestScoreRecord {
   score: number; // Score from PhieuLienLacRecord
   testDate?: string; // Date from PhieuLienLacRecord
 }
-
-// Types for Quiz/Question Bank Feature - REMOVED
-// export type OptionLabel = 'A' | 'B' | 'C' | 'D';
-// export const ALL_OPTION_LABELS: OptionLabel[] = ['A', 'B', 'C', 'D'];
-
-// export interface MultipleChoiceOption {
-//   id: OptionLabel; // A, B, C, D
-//   text: string;
-// }
-
-// export type GradeLevel =
-//   | "Lớp 1" | "Lớp 2" | "Lớp 3" | "Lớp 4" | "Lớp 5"
-//   | "Lớp 6" | "Lớp 7" | "Lớp 8" | "Lớp 9"
-//   | "Lớp 10" | "Lớp 11" | "Lớp 12" | "Khác";
-
-// export const ALL_GRADE_LEVELS: GradeLevel[] = [
-//   "Lớp 1", "Lớp 2", "Lớp 3", "Lớp 4", "Lớp 5",
-//   "Lớp 6", "Lớp 7", "Lớp 8", "Lớp 9",
-//   "Lớp 10", "Lớp 11", "Lớp 12", "Khác"
-// ];
-
-// export type CurriculumType = "Global Success" | "Friends plus" | "I learn smart";
-// export const ALL_CURRICULUM_TYPES: CurriculumType[] = ["Global Success", "Friends plus", "I learn smart"];
-
-// export type TestBankType = "15 phút" | "45 phút" | "Giữa kỳ" | "Cuối kỳ";
-// export const ALL_TEST_BANK_TYPES: TestBankType[] = ["15 phút", "45 phút", "Giữa kỳ", "Cuối kỳ"];
-
-// export type QuestionType = "Nhiều lựa chọn" | "True/False" | "Tự luận";
-// export const ALL_QUESTION_TYPES: QuestionType[] = ["Nhiều lựa chọn", "True/False", "Tự luận"];
-
-// export interface QuestionBankEntry {
-//   id: string; // Firestore document ID
-//   gradeLevel: GradeLevel;
-//   curriculumType: CurriculumType;
-//   testBankType: TestBankType;
-//   questionType: QuestionType;
-//   text: string; // Question content
-//   options?: MultipleChoiceOption[]; // For multiple choice
-//   correctOptionId?: OptionLabel;   // For multiple choice
-//   correctBooleanAnswer?: boolean; // For True/False
-//   modelAnswer?: string;           // For Essay (optional)
-//   tags?: string[];                // Optional tags for further categorization
-//   createdAt: string;              // ISO string
-//   updatedAt: string;              // ISO string
-// }

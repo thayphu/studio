@@ -14,6 +14,7 @@ import {
   orderBy,
   limit,
   DocumentData,
+  updateDoc, // Import updateDoc
 } from 'firebase/firestore';
 import type { PhieuLienLacRecord } from '@/lib/types';
 import { format } from 'date-fns';
@@ -25,7 +26,7 @@ const PHIEU_LIEN_LAC_COLLECTION = 'phieuLienLacRecords';
  * It performs an "upsert" operation: updates if a record exists for the student/class/date, otherwise inserts a new one.
  */
 export const savePhieuLienLacRecords = async (
-  records: Array<Omit<PhieuLienLacRecord, 'id' | 'createdAt' | 'updatedAt'>>
+  records: Array<Omit<PhieuLienLacRecord, 'id' | 'createdAt' | 'updatedAt' | 'periodicSummaryRemark'>>
 ): Promise<void> => {
   if (!records || records.length === 0) {
     console.log('[phieuLienLacService] No records to save.');
@@ -54,21 +55,26 @@ export const savePhieuLienLacRecords = async (
       const querySnapshot = await getDocs(q);
       console.log(`[phieuLienLacService] Existing slip querySnapshot size for student ${record.studentId} on ${record.date}: ${querySnapshot.size}`);
 
+      // Prepare data for Firestore, ensuring undefined is handled for optional fields
       const dataToSave: Partial<PhieuLienLacRecord> & { studentId: string; classId: string; date: string; updatedAt: any; createdAt?: any } = {
-        ...record,
+        studentId: record.studentId,
         studentName: record.studentName || '',
+        classId: record.classId,
         className: record.className || '',
-        testFormat: record.testFormat || undefined,
+        date: record.date,
+        testFormat: record.testFormat || undefined, // Store empty string as undefined
         score: record.score === undefined || record.score === null ? null : Number(record.score),
         lessonMasteryText: record.lessonMasteryText || '',
-        homeworkStatus: record.homeworkStatus || undefined,
+        homeworkStatus: record.homeworkStatus || undefined, // Store empty string as undefined
         vocabularyToReview: record.vocabularyToReview || '',
         remarks: record.remarks || '',
         homeworkAssignmentVocabulary: record.homeworkAssignmentVocabulary || '',
         homeworkAssignmentTasks: record.homeworkAssignmentTasks || '',
+        // periodicSummaryRemark is handled by a separate function
         updatedAt: serverTimestamp(),
       };
       
+      // Ensure empty strings for optional enum types are stored as undefined
       if (dataToSave.testFormat === "") dataToSave.testFormat = undefined;
       if (dataToSave.homeworkStatus === "") dataToSave.homeworkStatus = undefined;
 
@@ -144,11 +150,12 @@ export const getPhieuLienLacRecordsForClassOnDate = async (
         remarks: data.remarks,
         homeworkAssignmentVocabulary: data.homeworkAssignmentVocabulary,
         homeworkAssignmentTasks: data.homeworkAssignmentTasks,
+        periodicSummaryRemark: data.periodicSummaryRemark,
         createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate().toISOString() : undefined,
         updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate().toISOString() : undefined,
       };
     });
-    console.log(`[phieuLienLacService] Fetched ${records.length} Phieu Lien Lac records for class ${classId} on ${formattedDate}.`);
+    console.log(`[phieuLienLacService] Fetched ${records.length} Phieu Lien Lac records for class ${classId} on ${formattedDate}. Records:`, records);
     return records;
   } catch (error) {
     console.error(`[phieuLienLacService] CRITICAL_FIREBASE_ERROR when fetching Phieu Lien Lac records for class ${classId} on ${formattedDate}:`, error);
@@ -196,6 +203,7 @@ export const getPhieuLienLacRecordsForStudentInRange = async (
         remarks: data.remarks,
         homeworkAssignmentVocabulary: data.homeworkAssignmentVocabulary,
         homeworkAssignmentTasks: data.homeworkAssignmentTasks,
+        periodicSummaryRemark: data.periodicSummaryRemark,
         createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate().toISOString() : undefined,
         updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate().toISOString() : undefined,
       };
@@ -209,6 +217,33 @@ export const getPhieuLienLacRecordsForStudentInRange = async (
     } else if ((error as any)?.code === 'permission-denied') {
        console.error(`[phieuLienLacService] PERMISSION_DENIED for getPhieuLienLacRecordsForStudentInRange. Check Firestore Security Rules for collection '${PHIEU_LIEN_LAC_COLLECTION}'.`);
     }
+    // It's important to re-throw or handle this appropriately
+    // The client-side useQuery will see this error.
     throw new Error('Failed to fetch Phieu Lien Lac records for student. Check YOUR SERVER CONSOLE (Firebase Studio terminal) for specific Firebase errors (e.g., missing index, permissions).');
+  }
+};
+
+/**
+ * Updates the periodicSummaryRemark for a specific PhieuLienLacRecord.
+ */
+export const updatePeriodicSummaryForSlip = async (slipId: string, summaryRemark: string): Promise<void> => {
+  if (!slipId) {
+    console.error("[phieuLienLacService] updatePeriodicSummaryForSlip: slipId is required.");
+    throw new Error("Slip ID is required to update summary remark.");
+  }
+  console.log(`[phieuLienLacService] Updating periodicSummaryRemark for slipId ${slipId}. New remark: "${summaryRemark}"`);
+  const slipDocRef = doc(db, PHIEU_LIEN_LAC_COLLECTION, slipId);
+  try {
+    await updateDoc(slipDocRef, {
+      periodicSummaryRemark: summaryRemark,
+      updatedAt: serverTimestamp()
+    });
+    console.log(`[phieuLienLacService] Successfully updated periodicSummaryRemark for slipId ${slipId}.`);
+  } catch (error) {
+    console.error(`[phieuLienLacService] Error updating periodicSummaryRemark for slipId ${slipId}:`, error);
+    if ((error as any)?.code === 'permission-denied') {
+       console.error(`[phieuLienLacService] PERMISSION_DENIED for updatePeriodicSummaryForSlip on slipId ${slipId}. Check Firestore Security Rules.`);
+    }
+    throw new Error("Failed to update periodic summary remark.");
   }
 };
