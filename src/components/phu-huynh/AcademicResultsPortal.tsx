@@ -9,19 +9,21 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader as ShadDialogHeaderOriginal, DialogTitle as ShadDialogTitleOriginal, DialogDescription as ShadDialogDescriptionOriginal, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Loader2, AlertCircle, FileText, CalendarCheck2, BookCopy, Star, ClipboardList, UserCircle, School } from 'lucide-react';
+import { Search, Loader2, AlertCircle, FileText, CalendarCheck2, BookCopy, Star, ClipboardList, UserCircle, School, Printer } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import type { HocSinh, PhieuLienLacRecord, TestFormatPLC, HomeworkStatusPLC } from '@/lib/types';
+import type { HocSinh, PhieuLienLacRecord, TestFormatPLC, HomeworkStatusPLC, LopHoc } from '@/lib/types';
 import { getStudentById } from '@/services/hocSinhService';
 import { getPhieuLienLacRecordsForStudentInRange } from '@/services/phieuLienLacService';
+import { getClasses } from '@/services/lopHocService'; // To get class details like chuKyDongPhi
 import { format, parseISO, parse } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
+import html2canvas from 'html2canvas';
+import { useQuery } from '@tanstack/react-query';
 
 
-// Re-alias to avoid potential conflicts if these were used elsewhere with different intent
 const DialogHeader = ShadDialogHeaderOriginal;
 const DialogTitle = ShadDialogTitleOriginal;
 const DialogDescription = ShadDialogDescriptionOriginal;
@@ -122,7 +124,7 @@ interface SlipDetailItemProps {
 const SlipDetailItem: React.FC<SlipDetailItemProps> = ({ label, children, labelClassName, valueClassName, fullWidth = false }) => {
   if (fullWidth) {
     return (
-      <div className="text-sm leading-snug">
+      <div className="text-sm leading-snug pb-0.5">
         <strong className={cn("font-medium text-muted-foreground mr-2 block mb-0.5", labelClassName)}>{label}</strong>
         <div className={cn("font-medium text-left text-foreground", valueClassName)}>{children || <span className="text-muted-foreground italic">Không có</span>}</div>
       </div>
@@ -130,7 +132,7 @@ const SlipDetailItem: React.FC<SlipDetailItemProps> = ({ label, children, labelC
   }
   return (
     <div className="flex flex-col sm:flex-row sm:items-start text-sm leading-snug py-0.5">
-      <strong className={cn("font-medium text-muted-foreground mr-2 w-full sm:w-[130px] shrink-0 text-left mb-0.5 sm:mb-0", labelClassName)}>{label}</strong>
+      <strong className={cn("font-medium text-muted-foreground mr-2 w-[140px] shrink-0 text-left mb-0.5 sm:mb-0", labelClassName)}>{label}</strong>
       <span className={cn("font-medium flex-1 text-left text-foreground", valueClassName)}>{children || <span className="text-muted-foreground italic">Không có</span>}</span>
     </div>
   );
@@ -147,7 +149,22 @@ export default function AcademicResultsPortal() {
 
   const [isDailySlipDetailModalOpen, setIsDailySlipDetailModalOpen] = useState(false);
   const [selectedDailySlip, setSelectedDailySlip] = useState<PhieuLienLacRecord | null>(null);
-  const slipDialogContentRef = useRef<HTMLDivElement>(null);
+  const dailySlipDialogContentRef = useRef<HTMLDivElement>(null);
+
+  const [isPeriodicSlipDetailModalOpen, setIsPeriodicSlipDetailModalOpen] = useState(false);
+  const periodicSlipDialogContentRef = useRef<HTMLDivElement>(null);
+
+
+  const { data: classes = [], isLoading: isLoadingClasses } = useQuery<LopHoc[], Error>({
+    queryKey: ['classes'],
+    queryFn: getClasses,
+  });
+
+  const studentClass = useMemo(() => {
+    if (!searchedStudent || !searchedStudent.lopId || !classes || classes.length === 0) return undefined;
+    return classes.find(cls => cls.id === searchedStudent.lopId);
+  }, [searchedStudent, classes]);
+
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -194,9 +211,53 @@ export default function AcademicResultsPortal() {
     setIsDailySlipDetailModalOpen(true);
   };
 
+  const handleOpenPeriodicSlipDetailDialog = () => {
+    if (searchedStudent && dailySlips.length > 0) {
+      setIsPeriodicSlipDetailModalOpen(true);
+    } else {
+      toast({ title: "Không có dữ liệu", description: "Chưa có phiếu liên lạc hàng ngày nào để tổng hợp.", variant: "default"});
+    }
+  };
+
   const sortedDailySlips = useMemo(() => {
     return [...dailySlips].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [dailySlips]);
+  
+  const periodicSlipDateRangeText = useMemo(() => {
+    if (dailySlips.length === 0) return "Chưa có dữ liệu";
+    const sortedSlipsForRange = [...dailySlips].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const firstDate = parseISO(sortedSlipsForRange[0].date);
+    const lastDate = parseISO(sortedSlipsForRange[sortedSlipsForRange.length - 1].date);
+    return `Từ ${format(firstDate, "dd/MM/yyyy", {locale: vi})} đến ${format(lastDate, "dd/MM/yyyy", {locale: vi})}`;
+  }, [dailySlips]);
+
+  const handleExportImage = async (contentRef: React.RefObject<HTMLDivElement>, studentName: string, type: 'daily' | 'periodic', dateOrRange: string) => {
+    if (!contentRef.current) {
+      toast({ title: "Lỗi", description: "Không có nội dung phiếu để xuất.", variant: "destructive"});
+      return;
+    }
+    if (typeof html2canvas === 'undefined') {
+      toast({ title: "Lỗi Xuất Ảnh", description: "Thư viện html2canvas chưa được tải. Vui lòng cài đặt và khởi động lại server.", variant: "destructive"});
+      return;
+    }
+    try {
+        const canvas = await html2canvas(contentRef.current, { scale: 2, backgroundColor: '#ffffff', useCORS: true });
+        const image = canvas.toDataURL('image/png', 1.0);
+        const link = document.createElement('a');
+        link.href = image;
+        const safeStudentName = studentName.replace(/\s+/g, '_');
+        const safeDateOrRange = dateOrRange.replace(/\s+/g, '_').replace(/\//g, '-');
+        link.download = `PhieuLienLac_${type === 'daily' ? 'Ngay' : 'ChuKy'}_${safeStudentName}_${safeDateOrRange}.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        toast({ title: "Thành công!", description: `Phiếu liên lạc ${type === 'daily' ? 'hàng ngày' : 'chu kỳ'} đã được xuất ra ảnh.` });
+    } catch (error) {
+      console.error(`[AcademicResultsPortal] Error exporting ${type} slip image:`, error);
+      toast({ title: "Lỗi xuất ảnh", description: (error as Error).message, variant: "destructive" });
+    }
+  };
+
 
   return (
     <Card className="shadow-xl overflow-hidden rounded-xl">
@@ -278,7 +339,7 @@ export default function AcademicResultsPortal() {
                           </TableHeader>
                           <TableBody>
                             {sortedDailySlips.map((slip) => {
-                              if(!slip) return null; // Should not happen, but good for safety
+                              if(!slip) return null; 
                               const masteryDetails = calculateMasteryDetailsForDisplay(slip.testFormat, slip.score);
                               const homeworkDisplay = getHomeworkStatusTextAndColorForParent(slip.homeworkStatus);
                               return (
@@ -310,7 +371,13 @@ export default function AcademicResultsPortal() {
                     <CardDescription>Tổng hợp kết quả học tập theo từng chu kỳ của lớp.</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-muted-foreground italic">Tính năng xem phiếu liên lạc tổng hợp theo chu kỳ đang được phát triển. Vui lòng xem các phiếu hàng ngày ở tab kế bên.</p>
+                    {dailySlips.length > 0 && searchedStudent ? (
+                       <Button onClick={handleOpenPeriodicSlipDetailDialog}>
+                         <BookCopy className="mr-2 h-4 w-4"/> Xem Phiếu Liên Lạc Chu Kỳ
+                       </Button>
+                    ) : (
+                      <p className="text-muted-foreground italic">Chưa có dữ liệu phiếu liên lạc hàng ngày để tổng hợp thành phiếu chu kỳ.</p>
+                    )}
                   </CardContent>
                 </Card>
               </TabsContent>
@@ -319,11 +386,12 @@ export default function AcademicResultsPortal() {
         )}
       </CardContent>
 
+      {/* Dialog for Daily Slip Detail */}
       {selectedDailySlip && searchedStudent && (
         <Dialog open={isDailySlipDetailModalOpen} onOpenChange={setIsDailySlipDetailModalOpen}>
           <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col p-0">
             <ScrollArea className="flex-grow"> 
-              <div ref={slipDialogContentRef} className="bg-background font-sans p-4 space-y-0.5 leading-normal">
+              <div ref={dailySlipDialogContentRef} className="bg-background font-sans p-4 space-y-1 leading-normal">
                  <DialogHeader className="p-0 pt-2 pb-1 text-center sticky top-0 z-10 bg-background">
                     <DialogTitle className="text-2xl font-bold uppercase text-primary text-center">
                         PHIẾU LIÊN LẠC
@@ -343,7 +411,7 @@ export default function AcademicResultsPortal() {
                         <p className="text-left"><strong className="font-medium text-muted-foreground mr-1">Ngày KT:</strong> <span className="font-medium text-base">{format(parse(selectedDailySlip.date, 'yyyy-MM-dd', new Date()), "dd/MM/yyyy", { locale: vi })}</span></p>
                      </div>
                   </div>
-                  <Separator className="my-1" />
+                  <Separator className="my-1.5" />
                   
                   <h3 className="text-md font-semibold text-foreground mt-1.5 mb-0.5">Kết quả học tập:</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 text-sm">
@@ -364,20 +432,20 @@ export default function AcademicResultsPortal() {
                        </SlipDetailItem>
                     </div>
                   </div>
-                  <Separator className="my-1"/>
+                  <Separator className="my-1.5"/>
                   <SlipDetailItem label="Từ vựng cần học lại:" fullWidth>{selectedDailySlip.vocabularyToReview}</SlipDetailItem>
                   <SlipDetailItem label="Nhận xét:" fullWidth>{selectedDailySlip.remarks}</SlipDetailItem>
 
-                  <Separator className="my-1"/>
+                  <Separator className="my-1.5"/>
                   <h3 className="text-md font-semibold text-red-600 dark:text-red-400 mt-1.5 mb-0.5">Hướng dẫn Bài tập về nhà:</h3>
                   <SlipDetailItem label="Từ vựng cần học:" fullWidth>{selectedDailySlip.homeworkAssignmentVocabulary}</SlipDetailItem>
                   <SlipDetailItem label="Bài tập làm tại nhà:" fullWidth>{selectedDailySlip.homeworkAssignmentTasks}</SlipDetailItem>
 
-                  <Separator className="my-1"/>
+                  <Separator className="my-1.5"/>
                   <div className="text-sm font-medium leading-snug mt-1.5">
-                    {(selectedDailySlip.vocabularyToReview && selectedDailySlip.vocabularyToReview.trim() !== "") || (selectedDailySlip.remarks && selectedDailySlip.remarks.trim() !== "") ? (
+                    {(selectedDailySlip.vocabularyToReview && selectedDailySlip.vocabularyToReview.trim() !== "") ? (
                         <>
-                            <p>Quý Phụ huynh nhắc nhở các em viết lại những từ vựng chưa thuộc (nếu có) và xem lại nhận xét.</p>
+                            <p>Quý Phụ huynh nhắc nhở các em viết lại những từ vựng chưa thuộc.</p>
                             <p className="mt-1"><strong>Trân trọng.</strong></p>
                         </>
                     ) : (
@@ -390,8 +458,100 @@ export default function AcademicResultsPortal() {
               <DialogClose asChild>
                   <Button type="button" variant="outline" size="sm">Đóng</Button>
               </DialogClose>
+              <Button
+                onClick={() => handleExportImage(dailySlipDialogContentRef, searchedStudent.hoTen, 'daily', selectedDailySlip.date)}
+                disabled={typeof html2canvas === 'undefined'}
+                size="sm"
+              >
+                 {typeof html2canvas === 'undefined' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Printer className="mr-2 h-4 w-4" />}
+                 {typeof html2canvas === 'undefined' ? "Đang tải..." : "Xuất file ảnh"}
+              </Button>
             </DialogFooter>
           </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Dialog for Periodic Slip Detail */}
+      {isPeriodicSlipDetailModalOpen && searchedStudent && studentClass && (
+        <Dialog open={isPeriodicSlipDetailModalOpen} onOpenChange={(open) => {
+            setIsPeriodicSlipDetailModalOpen(open);
+        }}>
+            <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col p-0">
+                <ScrollArea className="flex-grow">
+                  <div ref={periodicSlipDialogContentRef} className="bg-background font-sans p-6 pt-2 leading-normal">
+                       <DialogHeader className="p-0 pt-4 pb-2 text-center sticky top-0 z-10 bg-background">
+                        <DialogTitle className="text-2xl font-bold uppercase text-primary text-center">
+                            PHIẾU LIÊN LẠC CHU KỲ
+                        </DialogTitle>
+                        <DialogDescription className="text-sm text-center text-muted-foreground">
+                            Ngày xuất: {format(new Date(), "dd/MM/yyyy", { locale: vi })}
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-1 text-sm mt-2 leading-snug">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-0.5 mb-2">
+                            <p className="text-left"><strong className="font-medium text-muted-foreground">Họ và tên:</strong> <span className="font-semibold text-indigo-700">{searchedStudent.hoTen}</span></p>
+                            <p className="text-left"><strong className="font-medium text-muted-foreground">Lớp:</strong> <span className="font-medium">{studentClass.tenLop}</span></p>
+                            <p className="text-left"><strong className="font-medium text-muted-foreground">Mã HS:</strong> <span className="font-medium">{searchedStudent.id}</span></p>
+                            <p className="text-left"><strong className="font-medium text-muted-foreground">Chu kỳ học:</strong> <span className="font-medium">{studentClass.chuKyDongPhi} ({periodicSlipDateRangeText})</span></p>
+                          </div>
+                          <Separator className="my-1.5" />
+                          <h3 className="text-md font-semibold text-foreground mt-1.5 mb-1">Tình hình học tập:</h3>
+                          {dailySlips.length > 0 ? (
+                              <Table>
+                                  <TableHeader>
+                                      <TableRow>
+                                          <TableHead className="w-[50px]">STT</TableHead>
+                                          <TableHead>Ngày KT</TableHead>
+                                          <TableHead>Hình thức</TableHead>
+                                          <TableHead>Điểm</TableHead>
+                                          <TableHead>Thuộc bài</TableHead>
+                                          <TableHead>Bài tập về nhà</TableHead>
+                                      </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                      {sortedDailySlips.map((slip, index) => {
+                                          const masteryDetails = calculateMasteryDetailsForDisplay(slip.testFormat, slip.score);
+                                          const homeworkDisplay = getHomeworkStatusTextAndColorForParent(slip.homeworkStatus);
+                                          const lessonMasteryDisplay = getHomeworkStatusTextAndColorForParent(masteryDetails.text as any); // Type assertion might be needed if masteryDetails.text is not directly a HomeworkStatusPLC
+                                          return (
+                                          <TableRow key={slip.id}>
+                                              <TableCell>{index + 1}</TableCell>
+                                              <TableCell>{format(parseISO(slip.date), "dd/MM/yy")}</TableCell>
+                                              <TableCell>{slip.testFormat || 'N/A'}</TableCell>
+                                              <TableCell>{renderScoreDisplayForParent(slip.score)}</TableCell>
+                                              <TableCell className={cn(masteryDetails.isTrulyMastered ? "text-blue-600 dark:text-blue-400" : "text-orange-500 dark:text-orange-400", "font-medium text-xs")}>{masteryDetails.text}</TableCell>
+                                              <TableCell className={cn(homeworkDisplay.className, "text-xs")}>{homeworkDisplay.text}</TableCell>
+                                          </TableRow>
+                                      )})}
+                                  </TableBody>
+                              </Table>
+                          ) : (
+                              <p className="text-muted-foreground">Không có dữ liệu phiếu liên lạc chi tiết cho chu kỳ này.</p>
+                          )}
+                          <Separator className="my-1.5" />
+                            <div className="mt-2">
+                              <Label htmlFor="periodic-summary-remark-parent-view" className="text-md font-semibold text-foreground mb-1 block">Nhận xét tổng hợp (của giáo viên):</Label>
+                              <p className="text-sm text-muted-foreground italic p-2 border rounded-md min-h-[60px]">
+                                {dailySlips.find(slip => slip.remarks && slip.remarks.toLowerCase().includes("tổng kết"))?.remarks || "Chưa có nhận xét tổng hợp từ giáo viên cho chu kỳ này."}
+                              </p>
+                          </div>
+                            <Separator className="my-1.5"/>
+                          <div className="text-md font-semibold text-foreground mt-2 text-center">
+                              <p><strong>Trân trọng.</strong></p>
+                          </div>
+                      </div>
+                  </div>
+                </ScrollArea>
+                <DialogFooter className="p-2 border-t sm:justify-between bg-background sticky bottom-0 z-10">
+                    <DialogClose asChild>
+                        <Button type="button" variant="outline" size="sm">Đóng</Button>
+                    </DialogClose>
+                    <Button onClick={() => handleExportImage(periodicSlipDialogContentRef, searchedStudent.hoTen, 'periodic', periodicSlipDateRangeText)} disabled={typeof html2canvas === 'undefined'} size="sm">
+                        {typeof html2canvas === 'undefined' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Printer className="mr-2 h-4 w-4" />}
+                        {typeof html2canvas === 'undefined' ? "Đang tải..." : "Xuất file ảnh"}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
         </Dialog>
       )}
     </Card>
