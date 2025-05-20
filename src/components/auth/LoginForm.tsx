@@ -20,7 +20,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { TEXTS_VI } from '@/lib/constants';
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { getAuth, signInWithEmailAndPassword, type AuthError } from "firebase/auth";
 import { app } from "@/lib/firebase"; // Firebase app instance
 
@@ -41,8 +41,10 @@ export default function LoginForm() {
   useEffect(() => {
     // This log helps confirm if env vars are accessible on client for debugging.
     // For actual admin credentials, these are now read from Firebase Auth, not env vars.
-    // console.log("DEBUG: NEXT_PUBLIC_ADMIN_USERNAME from client-side:", process.env.NEXT_PUBLIC_ADMIN_USERNAME);
-    // console.log("DEBUG: NEXT_PUBLIC_ADMIN_PASSWORD from client-side:", process.env.NEXT_PUBLIC_ADMIN_PASSWORD);
+    const adminUsername = process.env.NEXT_PUBLIC_ADMIN_USERNAME;
+    const adminPassword = process.env.NEXT_PUBLIC_ADMIN_PASSWORD;
+    // console.log("DEBUG: NEXT_PUBLIC_ADMIN_USERNAME from client-side:", adminUsername);
+    // console.log("DEBUG: NEXT_PUBLIC_ADMIN_PASSWORD from client-side:", adminPassword);
   }, []);
 
 
@@ -66,8 +68,7 @@ export default function LoginForm() {
     } catch (error) {
       const authError = error as AuthError;
       console.error("Firebase Auth Error:", authError.code, authError.message);
-      // Default error message, generally overridden by more specific checks below
-      let description = "Đã có lỗi xảy ra khi đăng nhập. Vui lòng thử lại."; 
+      let description = "Đã có lỗi xảy ra khi đăng nhập. Vui lòng thử lại hoặc kiểm tra console trình duyệt để biết lỗi chi tiết từ Firebase."; 
       
       if (authError.code === "auth/user-not-found" || authError.code === "auth/wrong-password" || authError.code === "auth/invalid-credential") {
         description = "Email hoặc mật khẩu không chính xác. Vui lòng thử lại.";
@@ -75,7 +76,12 @@ export default function LoginForm() {
         description = "Quá nhiều lần thử đăng nhập không thành công. Vui lòng thử lại sau.";
       } else if (authError.code === "auth/invalid-email") {
         description = "Địa chỉ email không hợp lệ.";
+      } else if (authError.code === "auth/network-request-failed") {
+        description = "Lỗi kết nối mạng. Vui lòng kiểm tra kết nối internet và thử lại.";
+      } else if (authError.message.includes("project-id") || authError.message.includes("API key")) {
+        description = "Lỗi cấu hình Firebase. Vui lòng kiểm tra lại thông tin dự án trong mã nguồn hoặc liên hệ quản trị viên.";
       }
+      
       toast({
         title: "Đăng nhập thất bại",
         description: description,
@@ -136,8 +142,8 @@ export default function LoginForm() {
                 </FormItem>
               )}
             />
-            <div className="flex items-center justify-between">
-              <div></div> 
+            <div className="flex items-center justify-end">
+              {/* Removed checkbox, align link to the right */}
               <Button
                 type="button"
                 variant="link"
@@ -148,6 +154,7 @@ export default function LoginForm() {
               </Button>
             </div>
             <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isLoading}>
+              {isLoading ?  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               {isLoading ? "Đang xử lý..." : TEXTS_VI.loginButton}
             </Button>
           </form>
@@ -156,3 +163,5 @@ export default function LoginForm() {
     </Card>
   );
 }
+
+      
