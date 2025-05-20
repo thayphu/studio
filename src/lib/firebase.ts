@@ -6,12 +6,12 @@ import { getFirestore, type Firestore } from "firebase/firestore";
 // Your web app's Firebase configuration
 // IMPORTANT: REPLACE ALL "YOUR_..." VALUES WITH YOUR ACTUAL FIREBASE CONFIGURATION FOR THE "hoedu-manager" PROJECT
 const firebaseConfig = {
-  apiKey: "YOUR_FIREBASE_API_KEY", // Replace with your actual API key from Firebase Console
-  authDomain: "hoedu-manager.firebaseapp.com", // Or your actual authDomain if different
-  projectId: "hoedu-manager", // This MUST be "hoedu-manager"
-  storageBucket: "hoedu-manager.appspot.com", // Or your actual storageBucket if different
-  messagingSenderId: "YOUR_FIREBASE_MESSAGING_SENDER_ID", // Replace with your actual Sender ID
-  appId: "YOUR_FIREBASE_APP_ID" // Replace with your actual App ID
+  apiKey: "AIzaSyB3CMin0DuVQBFi5qEPUhR_KZTP9hCfGg8",
+  authDomain: "hoedu-manager.firebaseapp.com",
+  projectId: "hoedu-manager",
+  storageBucket: "hoedu-manager.firebasestorage.app",
+  messagingSenderId: "491084366496",
+  appId: "1:491084366496:web:463cdf1b33815ce9263fc5"
 };
 
 // Initialize Firebase
