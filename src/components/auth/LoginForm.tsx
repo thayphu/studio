@@ -39,25 +39,19 @@ export default function LoginForm() {
   const auth = getAuth(app);
 
   useEffect(() => {
-    // This log helps confirm if env vars are accessible on client for debugging.
-    // For actual admin credentials, these are now read from Firebase Auth, not env vars.
-    const adminUsername = process.env.NEXT_PUBLIC_ADMIN_USERNAME;
-    const adminPassword = process.env.NEXT_PUBLIC_ADMIN_PASSWORD;
-    // console.log("DEBUG: NEXT_PUBLIC_ADMIN_USERNAME from client-side:", adminUsername);
-    // console.log("DEBUG: NEXT_PUBLIC_ADMIN_PASSWORD from client-side:", adminPassword);
+    // Client-side log to see what the JS context sees for env vars.
+    // These are no longer used for login logic but kept for potential debugging of other NEXT_PUBLIC_ vars.
+    const envAdminUsername = process.env.NEXT_PUBLIC_ADMIN_USERNAME;
+    const envAdminPassword = process.env.NEXT_PUBLIC_ADMIN_PASSWORD;
+    console.log("DEBUG: LoginForm.tsx - NEXT_PUBLIC_ADMIN_USERNAME from client-side:", envAdminUsername);
+    console.log("DEBUG: LoginForm.tsx - NEXT_PUBLIC_ADMIN_PASSWORD from client-side:", envAdminPassword);
   }, []);
 
 
-  const form = useForm<LoginFormValues>({
-    resolver: zodResolver(loginFormSchema),
-    defaultValues: {
-      email: "",
-      password: "",
-    },
-  });
-
   async function onSubmit(data: LoginFormValues) {
     setIsLoading(true);
+    console.log("[LoginForm] Attempting login for email:", data.email); 
+
     try {
       await signInWithEmailAndPassword(auth, data.email, data.password);
       toast({
@@ -67,7 +61,10 @@ export default function LoginForm() {
       router.push('/lop-hoc');
     } catch (error) {
       const authError = error as AuthError;
-      console.error("Firebase Auth Error:", authError.code, authError.message);
+      console.error("[LoginForm] Firebase Auth Error:", authError.code, authError.message);
+      // Log the email that was attempted, to help user verify their input
+      console.error("[LoginForm] Email used in failed login attempt:", data.email);
+
       let description = "Đã có lỗi xảy ra khi đăng nhập. Vui lòng thử lại hoặc kiểm tra console trình duyệt để biết lỗi chi tiết từ Firebase."; 
       
       if (authError.code === "auth/user-not-found" || authError.code === "auth/wrong-password" || authError.code === "auth/invalid-credential") {
@@ -78,7 +75,7 @@ export default function LoginForm() {
         description = "Địa chỉ email không hợp lệ.";
       } else if (authError.code === "auth/network-request-failed") {
         description = "Lỗi kết nối mạng. Vui lòng kiểm tra kết nối internet và thử lại.";
-      } else if (authError.message.includes("project-id") || authError.message.includes("API key")) {
+      } else if (authError.message?.includes("project-id") || authError.message?.includes("API key")) {
         description = "Lỗi cấu hình Firebase. Vui lòng kiểm tra lại thông tin dự án trong mã nguồn hoặc liên hệ quản trị viên.";
       }
       
@@ -143,7 +140,6 @@ export default function LoginForm() {
               )}
             />
             <div className="flex items-center justify-end">
-              {/* Removed checkbox, align link to the right */}
               <Button
                 type="button"
                 variant="link"
@@ -163,5 +159,3 @@ export default function LoginForm() {
     </Card>
   );
 }
-
-      
