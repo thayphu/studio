@@ -8,12 +8,12 @@ import { getFirestore, type Firestore } from "firebase/firestore";
 // Your web app's Firebase configuration
 // IMPORTANT: REPLACE WITH YOUR ACTUAL FIREBASE CONFIGURATION
 const firebaseConfig = {
-  apiKey: "AIzaSyB3CMin0DuVQBFi5qEPUhR_KZTP9hCfGg8", // REPLACE THIS
-  authDomain: "hoedu-manager.firebaseapp.com", // REPLACE THIS
-  projectId: "hoedu-manager", // REPLACE THIS
-  storageBucket: "hoedu-manager.firebasestorage.app", // REPLACE THIS
-  messagingSenderId: "491084366496", // REPLACE THIS
-  appId: "1:491084366496:web:463cdf1b33815ce9263fc5" // REPLACE THIS
+  apiKey: "AIzaSyB3CMin0DuVQBFi5qEPUhR_KZTP9hCfGg8",
+  authDomain: "hoedu-manager.firebaseapp.com",
+  projectId: "hoedu-manager",
+  storageBucket: "hoedu-manager.firebasestorage.app",
+  messagingSenderId: "491084366496",
+  appId: "1:491084366496:web:463cdf1b33815ce9263fc5"
 };
 
 // Initialize Firebase
