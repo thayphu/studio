@@ -18,11 +18,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { TEXTS_VI } from '@/lib/constants';
-import { useToast } from "@/hooks/use-toast";
+import { useToast }
+from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { getAuth, signInWithEmailAndPassword, type AuthError } from "firebase/auth";
-import { app } from "@/lib/firebase"; // Firebase app instance
+import { app } from "@/lib/firebase";
 
 const loginFormSchema = z.object({
   email: z.string().email({ message: "Địa chỉ email không hợp lệ." }).min(1, { message: "Email không được để trống." }),
@@ -38,19 +39,25 @@ export default function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
   const auth = getAuth(app);
 
+  // For debugging environment variables - can be removed later
   useEffect(() => {
-    // Client-side log to see what the JS context sees for env vars.
-    // These are no longer used for login logic but kept for potential debugging of other NEXT_PUBLIC_ vars.
-    const envAdminUsername = process.env.NEXT_PUBLIC_ADMIN_USERNAME;
-    const envAdminPassword = process.env.NEXT_PUBLIC_ADMIN_PASSWORD;
-    console.log("DEBUG: LoginForm.tsx - NEXT_PUBLIC_ADMIN_USERNAME from client-side:", envAdminUsername);
-    console.log("DEBUG: LoginForm.tsx - NEXT_PUBLIC_ADMIN_PASSWORD from client-side:", envAdminPassword);
+    const adminUsername = process.env.NEXT_PUBLIC_ADMIN_USERNAME;
+    const adminPassword = process.env.NEXT_PUBLIC_ADMIN_PASSWORD;
+    console.log("DEBUG: LoginForm.tsx - NEXT_PUBLIC_ADMIN_USERNAME from client-side:", adminUsername);
+    console.log("DEBUG: LoginForm.tsx - NEXT_PUBLIC_ADMIN_PASSWORD from client-side:", adminPassword);
   }, []);
 
+  const form = useForm<LoginFormValues>({
+    resolver: zodResolver(loginFormSchema),
+    defaultValues: {
+      email: "",
+      password: "",
+    },
+  });
 
   async function onSubmit(data: LoginFormValues) {
     setIsLoading(true);
-    console.log("[LoginForm] Attempting login for email:", data.email); 
+    console.log("[LoginForm] Attempting login for email:", data.email);
 
     try {
       await signInWithEmailAndPassword(auth, data.email, data.password);
@@ -61,11 +68,10 @@ export default function LoginForm() {
       router.push('/lop-hoc');
     } catch (error) {
       const authError = error as AuthError;
-      console.error("[LoginForm] Firebase Auth Error:", authError.code, authError.message);
-      // Log the email that was attempted, to help user verify their input
+      console.error("Firebase Auth Error:", authError.code, authError.message);
       console.error("[LoginForm] Email used in failed login attempt:", data.email);
 
-      let description = "Đã có lỗi xảy ra khi đăng nhập. Vui lòng thử lại hoặc kiểm tra console trình duyệt để biết lỗi chi tiết từ Firebase."; 
+      let description = "Đã có lỗi xảy ra khi đăng nhập. Vui lòng thử lại hoặc kiểm tra console trình duyệt để biết lỗi chi tiết từ Firebase.";
       
       if (authError.code === "auth/user-not-found" || authError.code === "auth/wrong-password" || authError.code === "auth/invalid-credential") {
         description = "Email hoặc mật khẩu không chính xác. Vui lòng thử lại.";
