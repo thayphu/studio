@@ -1,32 +1,21 @@
 
 import LoginForm from '@/components/auth/LoginForm';
 import { TEXTS_VI } from '@/lib/constants';
-// Using standard img tag for debugging logo display if next/image has issues
-// import Image from 'next/image'; 
+import Image from 'next/image'; // Use next/image
 
 export default function LoginPage() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-primary/20 via-background to-secondary/20 p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          {/* Temporarily using standard img tag for debugging */}
-          <img 
-            src="/logo.png" 
+          <Image
+            src="/logo.png" // Use the logo from public folder
             alt="HoEdu Solution Logo" 
             width={64} 
             height={64} 
-            style={{ height: 'auto', margin: '0 auto 1rem auto' }} // Added margin for centering and spacing
-            data-ai-hint="app logo education" />
-          {/* <Image
-            src="/logo.png"
-            alt="HoEdu Solution Logo"
-            width={64}
-            height={64}
+            style={{ height: 'auto', margin: '0 auto 1rem auto' }} 
             priority
-            className="mx-auto mb-4"
-            style={{ height: 'auto' }}
-            data-ai-hint="app logo education"
-          /> */}
+          />
           <h1 className="text-4xl font-bold text-primary">{TEXTS_VI.appName}</h1>
           <p className="text-muted-foreground mt-2">{TEXTS_VI.loginTitle}</p>
         </div>

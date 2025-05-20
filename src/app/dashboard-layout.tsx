@@ -3,7 +3,7 @@
 
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-// import Image from 'next/image'; // Temporarily remove next/image for debugging
+import Image from 'next/image'; // Use next/image
 import { usePathname, useRouter } from 'next/navigation';
 import { LogOut, Settings, Loader2 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -144,14 +144,14 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         <Sidebar collapsible="icon" className="border-r">
           <SidebarHeader className="p-4 flex items-center justify-between">
             <Link href="/lop-hoc" className="flex items-center gap-2">
-              {/* Using standard img tag for debugging logo display */}
-              <img 
-                src="https://placehold.co/32x32.png" 
+              <Image 
+                src="/logo.png" 
                 alt="HoEdu Solution Logo" 
                 width={32} 
                 height={32} 
                 style={{ height: 'auto' }}
-                data-ai-hint="app logo education" />
+                priority
+              />
               <h1 className="text-xl font-semibold text-primary">
                 {TEXTS_VI.appName}
               </h1>

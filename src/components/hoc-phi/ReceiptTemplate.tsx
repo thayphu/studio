@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import React, { useRef } from 'react';
 import html2canvas from 'html2canvas'; 
-// import Image from 'next/image'; // Temporarily remove next/image for debugging
+import Image from 'next/image'; // Use next/image
 
 interface ReceiptTemplateProps {
   student: HocSinh | null;
@@ -143,7 +143,7 @@ export default function ReceiptTemplate({ student, receiptNumber, paidAmount, cl
         return;
     }
      if (typeof html2canvas === 'undefined') {
-        toast({ title: "Lỗi Xuất Ảnh", description: "Chức năng xuất ảnh đang được cấu hình, vui lòng thử lại sau hoặc đảm bảo html2canvas đã được cài đặt và server đã khởi động lại.", variant: "warning", duration: 7000});
+        toast({ title: "Lỗi Xuất Ảnh", description: "Chức năng xuất ảnh đang được cấu hình (cần cài đặt html2canvas và khởi động lại server), vui lòng thử lại sau.", variant: "warning", duration: 7000});
         console.error("html2canvas is not defined. Please ensure it's installed (npm install html2canvas) and the dev server is restarted.");
         return;
     }
@@ -184,15 +184,15 @@ export default function ReceiptTemplate({ student, receiptNumber, paidAmount, cl
       </div>
       <div ref={receiptRef} className="bg-card p-6 sm:p-8 rounded-lg shadow-lg max-w-2xl mx-auto font-sans text-sm">
         <div className="text-center mb-4">
-            {/* Using standard img tag for debugging logo display */}
-            <img 
-              src="https://placehold.co/80x80.png" 
+            <Image 
+              src="/logo.png" // Use the logo from public folder
               alt="HoEdu Solution Logo" 
               width={80} 
               height={80} 
               style={{ height: 'auto' }} 
               className="mx-auto mb-2" 
-              data-ai-hint="app logo education" />
+              priority
+            />
             <div className="inline-block bg-accent text-accent-foreground px-6 py-2 rounded-md">
                 <h1 className="text-2xl font-bold uppercase">Biên nhận</h1>
             </div>
@@ -212,19 +212,19 @@ export default function ReceiptTemplate({ student, receiptNumber, paidAmount, cl
 
         <div className="mb-6 text-lg">
           <h2 className="text-xl font-semibold mb-2 text-foreground sr-only">Thông tin học sinh</h2>
-            <div className="grid grid-cols-2 gap-x-4">
-              <div><span className="font-medium text-muted-foreground">Họ và tên:</span> <span className="text-indigo-700 font-semibold">{student.hoTen}</span></div>
-              <div><span className="font-medium text-muted-foreground">Lớp:</span> {student.tenLop || 'N/A'}</div>
+            <div className="grid grid-cols-3 gap-x-4">
+              <p><span className="font-medium text-muted-foreground">Họ và tên:</span> <span className="text-indigo-700 font-semibold">{student.hoTen}</span></p>
+              <p><span className="font-medium text-muted-foreground">Lớp:</span> {student.tenLop || 'N/A'}</p>
+              <p><span className="font-medium text-muted-foreground">Mã HS:</span> {student.id}</p>
             </div>
             <div className="grid grid-cols-2 gap-x-4 mt-1">
-              <div><span className="font-medium text-muted-foreground">Mã HS:</span> {student.id}</div>
-              <div>
-                <span className="font-medium text-muted-foreground">Lịch học:</span>
-                <span className="font-medium text-foreground"> {classSchedule && classSchedule.length > 0 ? classSchedule.join(', ') : 'N/A'}</span>
-              </div>
+                <div>
+                    <span className="font-medium text-muted-foreground">Lịch học:</span>
+                    <span className="font-medium text-foreground"> {classSchedule && classSchedule.length > 0 ? classSchedule.join(', ') : 'N/A'}</span>
+                </div>
+                <div><span className="font-medium text-muted-foreground">Ngày đăng ký:</span> <span className="font-medium text-foreground">{formatDate(new Date(student.ngayDangKy), "dd/MM/yyyy")}</span></div>
             </div>
-            <div className="grid grid-cols-2 gap-x-4 mt-1">
-              <div><span className="font-medium text-muted-foreground">Ngày đăng ký:</span> <span className="font-medium text-foreground">{formatDate(new Date(student.ngayDangKy), "dd/MM/yyyy")}</span></div>
+            <div className="grid grid-cols-1 mt-1"> 
               <div>
                   <span className="font-medium text-muted-foreground">Chu kỳ thanh toán:</span>
                   <span className="font-medium text-foreground ml-1">{student.chuKyThanhToan}.</span>
