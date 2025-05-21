@@ -40,11 +40,12 @@ export const savePhieuLienLacRecords = async (
       continue;
     }
 
+    // Query for an existing record for this student, class, and date
     const q = query(
       collection(db, PHIEU_LIEN_LAC_COLLECTION),
       where('studentId', '==', record.studentId),
       where('classId', '==', record.classId),
-      where('date', '==', record.date),
+      where('date', '==', record.date), // date is YYYY-MM-DD
       limit(1)
     );
 
@@ -58,11 +59,11 @@ export const savePhieuLienLacRecords = async (
         studentName: record.studentName || '',
         classId: record.classId,
         className: record.className || '',
-        date: record.date,
-        testFormat: record.testFormat || undefined,
-        score: record.score === undefined || record.score === null ? null : Number(record.score),
+        date: record.date, // YYYY-MM-DD format
+        testFormat: record.testFormat || "",
+        score: record.score === undefined || record.score === null || String(record.score).trim() === '' ? null : Number(record.score),
         lessonMasteryText: record.lessonMasteryText || '',
-        homeworkStatus: record.homeworkStatus || undefined,
+        homeworkStatus: record.homeworkStatus || "",
         vocabularyToReview: record.vocabularyToReview || '',
         remarks: record.remarks || '',
         homeworkAssignmentVocabulary: record.homeworkAssignmentVocabulary || '',
@@ -70,6 +71,7 @@ export const savePhieuLienLacRecords = async (
         updatedAt: serverTimestamp(),
       };
       
+      // Ensure potentially empty fields that should be strings are indeed strings
       if (dataToSave.testFormat === undefined) dataToSave.testFormat = "";
       if (dataToSave.homeworkStatus === undefined) dataToSave.homeworkStatus = "";
       if (dataToSave.score === undefined) dataToSave.score = null;
@@ -77,7 +79,8 @@ export const savePhieuLienLacRecords = async (
 
       if (!querySnapshot.empty) {
         const existingDoc = querySnapshot.docs[0];
-        console.log(`[phieuLienLacService] Updating existing Phieu Lien Lac record ${existingDoc.id} for student ${record.studentId} on ${record.date}. Data:`, dataToSave);
+        console.log(`[phieuLienLacService] Updating existing Phieu Lien Lac record ${existingDoc.id} for student ${record.studentId} on ${record.date}.`);
+        // Preserve existing periodicSummaryRemark if not explicitly being set
         const existingData = existingDoc.data();
         if (existingData.periodicSummaryRemark && dataToSave.periodicSummaryRemark === undefined) {
             dataToSave.periodicSummaryRemark = existingData.periodicSummaryRemark;
@@ -86,7 +89,11 @@ export const savePhieuLienLacRecords = async (
       } else {
         const newDocRef = doc(collection(db, PHIEU_LIEN_LAC_COLLECTION));
         dataToSave.createdAt = serverTimestamp();
-        console.log(`[phieuLienLacService] Adding new Phieu Lien Lac record for student ${record.studentId} on ${record.date}. Data:`, dataToSave);
+        // If periodicSummaryRemark is part of 'record' it will be included, otherwise it won't be set for new records
+        if(record.periodicSummaryRemark !== undefined) {
+            dataToSave.periodicSummaryRemark = record.periodicSummaryRemark;
+        }
+        console.log(`[phieuLienLacService] Adding new Phieu Lien Lac record for student ${record.studentId} on ${record.date}.`);
         batch.set(newDocRef, dataToSave);
       }
     } catch (error) {
@@ -114,8 +121,12 @@ export const savePhieuLienLacRecords = async (
 
 export const getPhieuLienLacRecordsForClassOnDate = async (
   classId: string,
-  slipDate: Date
+  slipDate: Date | null // Allow null for selectedDate
 ): Promise<PhieuLienLacRecord[]> => {
+  if (!slipDate) {
+    console.log('[phieuLienLacService] getPhieuLienLacRecordsForClassOnDate called with null date. Returning empty array.');
+    return [];
+  }
   const formattedDate = format(slipDate, 'yyyy-MM-dd');
   console.log(`[phieuLienLacService] Fetching Phieu Lien Lac records for class ${classId} on date ${formattedDate}`);
 
@@ -132,19 +143,19 @@ export const getPhieuLienLacRecordsForClassOnDate = async (
       return {
         id: docSnap.id,
         studentId: data.studentId,
-        studentName: data.studentName,
+        studentName: data.studentName || '',
         classId: data.classId,
-        className: data.className,
-        date: data.date,
-        testFormat: data.testFormat as PhieuLienLacRecord['testFormat'],
-        score: data.score === null ? null : (data.score as number | undefined),
-        lessonMasteryText: data.lessonMasteryText,
-        homeworkStatus: data.homeworkStatus as PhieuLienLacRecord['homeworkStatus'],
-        vocabularyToReview: data.vocabularyToReview,
-        remarks: data.remarks,
-        homeworkAssignmentVocabulary: data.homeworkAssignmentVocabulary,
-        homeworkAssignmentTasks: data.homeworkAssignmentTasks,
-        periodicSummaryRemark: data.periodicSummaryRemark,
+        className: data.className || '',
+        date: data.date, // Should be YYYY-MM-DD
+        testFormat: data.testFormat as PhieuLienLacRecord['testFormat'] || "",
+        score: data.score === undefined || data.score === null ? null : Number(data.score),
+        lessonMasteryText: data.lessonMasteryText || '',
+        homeworkStatus: data.homeworkStatus as PhieuLienLacRecord['homeworkStatus'] || "",
+        vocabularyToReview: data.vocabularyToReview || '',
+        remarks: data.remarks || '',
+        homeworkAssignmentVocabulary: data.homeworkAssignmentVocabulary || '',
+        homeworkAssignmentTasks: data.homeworkAssignmentTasks || '',
+        periodicSummaryRemark: data.periodicSummaryRemark || '',
         createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate().toISOString() : undefined,
         updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate().toISOString() : undefined,
       };
@@ -162,15 +173,67 @@ export const getPhieuLienLacRecordsForClassOnDate = async (
   }
 };
 
+export const getAllPhieuLienLacRecordsForClass = async (classId: string): Promise<PhieuLienLacRecord[]> => {
+  if (!classId) {
+    console.warn('[phieuLienLacService] getAllPhieuLienLacRecordsForClass called with no classId.');
+    return [];
+  }
+  console.log(`[phieuLienLacService] Fetching ALL Phieu Lien Lac records for class ${classId}`);
+
+  const q = query(
+    collection(db, PHIEU_LIEN_LAC_COLLECTION),
+    where('classId', '==', classId),
+    orderBy('date', 'desc') // Show newest first by default
+    // Consider adding orderBy('studentName', 'asc') as a secondary sort if needed
+  );
+
+  try {
+    const querySnapshot = await getDocs(q);
+    const records: PhieuLienLacRecord[] = querySnapshot.docs.map((docSnap) => {
+      const data = docSnap.data() as DocumentData;
+      return {
+        id: docSnap.id,
+        studentId: data.studentId,
+        studentName: data.studentName || '',
+        classId: data.classId,
+        className: data.className || '',
+        date: data.date, // Should be YYYY-MM-DD
+        testFormat: data.testFormat as PhieuLienLacRecord['testFormat'] || "",
+        score: data.score === undefined || data.score === null ? null : Number(data.score),
+        lessonMasteryText: data.lessonMasteryText || '',
+        homeworkStatus: data.homeworkStatus as PhieuLienLacRecord['homeworkStatus'] || "",
+        vocabularyToReview: data.vocabularyToReview || '',
+        remarks: data.remarks || '',
+        homeworkAssignmentVocabulary: data.homeworkAssignmentVocabulary || '',
+        homeworkAssignmentTasks: data.homeworkAssignmentTasks || '',
+        periodicSummaryRemark: data.periodicSummaryRemark || '',
+        createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate().toISOString() : undefined,
+        updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate().toISOString() : undefined,
+      };
+    });
+    console.log(`[phieuLienLacService] Fetched ${records.length} total Phieu Lien Lac records for class ${classId}.`);
+    return records;
+  } catch (error) {
+    console.error(`[phieuLienLacService] CRITICAL_FIREBASE_ERROR when fetching ALL Phieu Lien Lac records for class ${classId}:`, error);
+    if ((error as any)?.code === 'failed-precondition') {
+      console.error(`[phieuLienLacService] Firestore Precondition Failed for getAllPhieuLienLacRecordsForClass: Missing index for classId == ${classId} AND date descending. Check YOUR SERVER CONSOLE for index creation link.`);
+    } else if ((error as any)?.code === 'permission-denied') {
+       console.error(`[phieuLienLacService] PERMISSION_DENIED for getAllPhieuLienLacRecordsForClass. Check Firestore Security Rules for collection '${PHIEU_LIEN_LAC_COLLECTION}'.`);
+    }
+    throw new Error('Failed to fetch all Phieu Lien Lac records for the class. Check YOUR SERVER CONSOLE for specific Firebase errors.');
+  }
+};
+
+
 export const getPhieuLienLacRecordsForStudentInRange = async (
   studentId: string,
   classId: string,
-  startDate?: string, 
-  endDate?: string    
+  startDate?: string, // YYYY-MM-DD
+  endDate?: string    // YYYY-MM-DD
 ): Promise<PhieuLienLacRecord[]> => {
   console.log(`[phieuLienLacService] Fetching Phieu Lien Lac records for student ${studentId} in class ${classId}. Range: ${startDate || 'any'} to ${endDate || 'any'}`);
 
-  let qConstraints: any[] = [ 
+  let qConstraints: any[] = [
     where('studentId', '==', studentId),
     where('classId', '==', classId)
   ];
@@ -182,7 +245,7 @@ export const getPhieuLienLacRecordsForStudentInRange = async (
     qConstraints.push(where('date', '<=', endDate));
   }
   
-  qConstraints.push(orderBy('date', 'asc'));
+  qConstraints.push(orderBy('date', 'asc')); // Oldest first for chronological display in dialog
 
 
   const q = query(
@@ -198,19 +261,19 @@ export const getPhieuLienLacRecordsForStudentInRange = async (
       return {
         id: docSnap.id,
         studentId: data.studentId,
-        studentName: data.studentName,
+        studentName: data.studentName || '',
         classId: data.classId,
-        className: data.className,
-        date: data.date,
-        testFormat: data.testFormat,
-        score: data.score === null ? null : (data.score as number | undefined),
-        lessonMasteryText: data.lessonMasteryText,
-        homeworkStatus: data.homeworkStatus,
-        vocabularyToReview: data.vocabularyToReview,
-        remarks: data.remarks,
-        homeworkAssignmentVocabulary: data.homeworkAssignmentVocabulary,
-        homeworkAssignmentTasks: data.homeworkAssignmentTasks,
-        periodicSummaryRemark: data.periodicSummaryRemark,
+        className: data.className || '',
+        date: data.date, // Should be YYYY-MM-DD
+        testFormat: data.testFormat as PhieuLienLacRecord['testFormat'] || "",
+        score: data.score === undefined || data.score === null ? null : Number(data.score),
+        lessonMasteryText: data.lessonMasteryText || '',
+        homeworkStatus: data.homeworkStatus as PhieuLienLacRecord['homeworkStatus'] || "",
+        vocabularyToReview: data.vocabularyToReview || '',
+        remarks: data.remarks || '',
+        homeworkAssignmentVocabulary: data.homeworkAssignmentVocabulary || '',
+        homeworkAssignmentTasks: data.homeworkAssignmentTasks || '',
+        periodicSummaryRemark: data.periodicSummaryRemark || '',
         createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate().toISOString() : undefined,
         updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate().toISOString() : undefined,
       };
@@ -221,12 +284,14 @@ export const getPhieuLienLacRecordsForStudentInRange = async (
     console.error(`[phieuLienLacService] CRITICAL_FIREBASE_ERROR when fetching Phieu Lien Lac records for student ${studentId} in class ${classId}:`, error);
     if ((error as any)?.code === 'failed-precondition') {
       let indexFields = `studentId (ASC), classId (ASC), date (ASC)`;
-      if(startDate) indexFields += `, date (>=)`;
-      if(endDate) indexFields += `, date (<=)`;
+      if(startDate) indexFields += `, date (>=)`; // This might simplify how Firestore suggests indexes
+      if(endDate) indexFields += `, date (<=)`; // This might simplify how Firestore suggests indexes
       console.error(`[phieuLienLacService] Firestore Precondition Failed for getPhieuLienLacRecordsForStudentInRange: This usually means a required Firestore index is missing. Query might need index on ${indexFields}. Check YOUR SERVER CONSOLE (Firebase Studio terminal) for a link to create the index.`);
     } else if ((error as any)?.code === 'permission-denied') {
        console.error(`[phieuLienLacService] PERMISSION_DENIED for getPhieuLienLacRecordsForStudentInRange. Check Firestore Security Rules for collection '${PHIEU_LIEN_LAC_COLLECTION}'.`);
     }
+    // It's important to re-throw or handle this appropriately
+    // The client-side useQuery will see this error.
     throw new Error('Failed to fetch Phieu Lien Lac records for student. Check YOUR SERVER CONSOLE (Firebase Studio terminal) for specific Firebase errors (e.g., missing index, permissions).');
   }
 };
@@ -260,14 +325,12 @@ export const getAllSlipsWithPeriodicRemarksForClass = async (classId: string): P
   }
   console.log(`[phieuLienLacService] Fetching slips with periodic remarks for class ${classId}`);
 
-  // TEMPORARY DEBUGGING: Simplify query by removing periodicSummaryRemark filter
   const q = query(
     collection(db, PHIEU_LIEN_LAC_COLLECTION),
-    where('classId', '==', classId)
-    // where('periodicSummaryRemark', '!=', "") // Temporarily commented out
-    // orderBy('date', 'desc') // Consider adding this if you need specific ordering and create the index
+    where('classId', '==', classId),
+    where('periodicSummaryRemark', '!=', "") // Find records that have a non-empty summary remark
   );
-  console.log(`[phieuLienLacService] DEBUG: Using simplified query for getAllSlipsWithPeriodicRemarksForClass (only filtering by classId).`);
+  // console.log(`[phieuLienLacService] DEBUG: Using simplified query for getAllSlipsWithPeriodicRemarksForClass (only filtering by classId).`);
 
   try {
     const querySnapshot = await getDocs(q);
@@ -276,34 +339,34 @@ export const getAllSlipsWithPeriodicRemarksForClass = async (classId: string): P
       return {
         id: docSnap.id,
         studentId: data.studentId,
-        studentName: data.studentName,
+        studentName: data.studentName || '',
         classId: data.classId,
-        className: data.className,
-        date: data.date,
-        testFormat: data.testFormat as PhieuLienLacRecord['testFormat'],
-        score: data.score === null ? null : (data.score as number | undefined),
-        lessonMasteryText: data.lessonMasteryText,
-        homeworkStatus: data.homeworkStatus as PhieuLienLacRecord['homeworkStatus'],
-        vocabularyToReview: data.vocabularyToReview,
-        remarks: data.remarks,
-        homeworkAssignmentVocabulary: data.homeworkAssignmentVocabulary,
-        homeworkAssignmentTasks: data.homeworkAssignmentTasks,
+        className: data.className || '',
+        date: data.date, // Should be YYYY-MM-DD
+        testFormat: data.testFormat as PhieuLienLacRecord['testFormat'] || "",
+        score: data.score === undefined || data.score === null ? null : Number(data.score),
+        lessonMasteryText: data.lessonMasteryText || '',
+        homeworkStatus: data.homeworkStatus as PhieuLienLacRecord['homeworkStatus'] || "",
+        vocabularyToReview: data.vocabularyToReview || '',
+        remarks: data.remarks || '',
+        homeworkAssignmentVocabulary: data.homeworkAssignmentVocabulary || '',
+        homeworkAssignmentTasks: data.homeworkAssignmentTasks || '',
         periodicSummaryRemark: data.periodicSummaryRemark || "", // Ensure it's always a string for easier handling
         createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate().toISOString() : undefined,
         updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate().toISOString() : undefined,
       };
     });
+    
     // Log only if the simplified query returns results AND they would have been filtered out by the original query
-    if(records.length > 0){
-        const originalFilteredCount = records.filter(r => r.periodicSummaryRemark && r.periodicSummaryRemark !== "").length;
-        console.log(`[phieuLienLacService] DEBUG: Simplified query returned ${records.length} records for class ${classId}. Of these, ${originalFilteredCount} would match 'periodicSummaryRemark != ""'.`);
-    } else {
-        console.log(`[phieuLienLacService] DEBUG: Simplified query returned 0 records for class ${classId}.`);
-    }
-    // For the debugging change, we return all records for the class to see if data is fetched.
-    // When re-enabling the original query, it should filter correctly.
-    // For now, to test the UI for "Lịch sử nhận xét chu kỳ" tab, we want records that *do* have a remark.
-    return records.filter(r => r.periodicSummaryRemark && r.periodicSummaryRemark !== "");
+    // if(records.length > 0){
+    //     const originalFilteredCount = records.filter(r => r.periodicSummaryRemark && r.periodicSummaryRemark !== "").length;
+    //     console.log(`[phieuLienLacService] DEBUG: Simplified query returned ${records.length} records for class ${classId}. Of these, ${originalFilteredCount} would match 'periodicSummaryRemark != ""'.`);
+    // } else {
+    //     console.log(`[phieuLienLacService] DEBUG: Simplified query returned 0 records for class ${classId}.`);
+    // }
+    
+    console.log(`[phieuLienLacService] Fetched ${records.length} slips with periodic remarks for class ${classId}.`);
+    return records;
 
 
   } catch (error) {
@@ -316,3 +379,4 @@ export const getAllSlipsWithPeriodicRemarksForClass = async (classId: string): P
     throw new Error('Failed to fetch slips with periodic remarks. Check YOUR SERVER CONSOLE (Firebase Studio terminal) for specific Firebase errors (e.g., missing index, permissions).');
   }
 };
+      
